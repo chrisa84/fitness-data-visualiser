@@ -1,0 +1,308 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #14171c;
+  color: #e6e8eb;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 2rem;
+  padding: 1rem 1.5rem 0;
+}
+
+header h1 {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+}
+
+nav a {
+  color: #8a93a0;
+  text-decoration: none;
+  padding-bottom: 2px;
+}
+
+nav a.active {
+  color: #e6e8eb;
+  border-bottom: 2px solid #5fa8e6;
+}
+
+main {
+  padding: 1rem 1.5rem;
+  max-width: 1280px;
+}
+
+a {
+  color: #5fa8e6;
+}
+
+h2 {
+  margin: 0.25rem 0;
+}
+
+h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1rem;
+  color: #aab3c0;
+}
+
+select,
+input,
+button {
+  background: #1e232b;
+  color: inherit;
+  border: 1px solid #3a4250;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+button:disabled {
+  opacity: 0.4;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.status {
+  color: #8a93a0;
+  font-size: 0.85rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #232932;
+  white-space: nowrap;
+}
+
+th {
+  color: #8a93a0;
+  font-weight: 500;
+  user-select: none;
+}
+
+th.sortable {
+  cursor: pointer;
+}
+
+th.sortable:hover {
+  color: #e6e8eb;
+}
+
+.num {
+  text-align: right;
+}
+
+tbody tr:hover {
+  background: #1a1f26;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.stat {
+  background: #1a1f26;
+  border: 1px solid #232932;
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+}
+
+.stat-label {
+  color: #8a93a0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  font-size: 1.05rem;
+  margin-top: 0.2rem;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 1.25rem;
+}
+
+.metric-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #1a1f26;
+  border: 1px solid #232932;
+  border-radius: 6px;
+}
+
+.metric-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.metric-group-label {
+  color: #8a93a0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.2rem;
+}
+
+.metric-check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+}
+
+.metric-check input {
+  margin: 0;
+}
+
+button.active {
+  border-color: #5fa8e6;
+  color: #e6e8eb;
+}
+
+.event-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.stat-sub {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  max-width: 820px;
+  height: calc(100vh - 120px);
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.85rem;
+}
+
+.chat-user {
+  align-items: flex-end;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 0.9rem;
+}
+
+.chat-user .chat-bubble {
+  background: #2a4763;
+}
+
+.chat-assistant .chat-bubble {
+  background: #1a1f26;
+  border: 1px solid #232932;
+}
+
+.chat-tools {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: #8a93a0;
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.chat-input {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.chat-input input {
+  flex: 1;
+}
+
+.zones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 640px;
+}
+
+.zone-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.zone-label {
+  width: 1.6rem;
+  color: #8a93a0;
+  font-size: 0.8rem;
+}
+
+.zone-track {
+  flex: 1;
+  background: #1a1f26;
+  border-radius: 3px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.zone-bar {
+  height: 100%;
+}
+
+.zone-time {
+  width: 9rem;
+  font-size: 0.8rem;
+  color: #aab3c0;
+}

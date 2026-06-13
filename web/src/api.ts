@@ -1,0 +1,145 @@
+import type {
+  ActivityDetail,
+  ActivityListResponse,
+  ActivitySortKey,
+  ActivityTypeCount,
+  CalendarEvent,
+  DailyHealthResponse,
+  EventInput,
+  Granularity,
+  IntensityResponse,
+  MetricSeriesResponse,
+  PerformanceResponse,
+  PersonalRecord,
+  VolumeResponse,
+} from '@fitness/shared';
+
+async function getJson<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (value !== undefined && value !== '') search.set(key, String(value));
+  }
+  const qs = search.toString();
+  const res = await fetch(qs ? `${path}?${qs}` : path);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? `Request failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
+export function fetchDailyHealth(params: { from?: string; to?: string; granularity: Granularity }) {
+  return getJson<DailyHealthResponse>('/api/daily-health', params);
+}
+
+export function fetchActivities(params: {
+  from?: string;
+  to?: string;
+  type?: string;
+  q?: string;
+  sort?: ActivitySortKey;
+  order?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}) {
+  return getJson<ActivityListResponse>('/api/activities', params);
+}
+
+export function fetchActivityTypes() {
+  return getJson<ActivityTypeCount[]>('/api/activity-types');
+}
+
+export function fetchActivity(id: string) {
+  return getJson<ActivityDetail>(`/api/activities/${id}`);
+}
+
+export function fetchVolume(params: {
+  from?: string;
+  to?: string;
+  granularity?: Granularity;
+  type?: string;
+}) {
+  return getJson<VolumeResponse>('/api/activity-volume', params);
+}
+
+export function fetchPerformance(params: { from?: string; to?: string; granularity?: Granularity }) {
+  return getJson<PerformanceResponse>('/api/performance', params);
+}
+
+export function fetchIntensity(params: {
+  from?: string;
+  to?: string;
+  granularity?: Granularity;
+  type?: string;
+}) {
+  return getJson<IntensityResponse>('/api/intensity-distribution', params);
+}
+
+export function fetchMetrics(params: {
+  keys: string[];
+  from?: string;
+  to?: string;
+  granularity?: Granularity;
+}) {
+  return getJson<MetricSeriesResponse>('/api/metrics', {
+    keys: params.keys.join(','),
+    from: params.from,
+    to: params.to,
+    granularity: params.granularity,
+  });
+}
+
+export function fetchRecords() {
+  return getJson<PersonalRecord[]>('/api/records');
+}
+
+export function fetchEvents(params?: { from?: string; to?: string }) {
+  return getJson<CalendarEvent[]>('/api/events', params);
+}
+
+async function sendJson<T>(method: string, path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.message ?? `Request failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
+export function createEvent(input: EventInput) {
+  return sendJson<CalendarEvent>('POST', '/api/events', input);
+}
+
+export function updateEvent(id: number, input: EventInput) {
+  return sendJson<CalendarEvent>('PATCH', `/api/events/${id}`, input);
+}
+
+export async function deleteEvent(id: number): Promise<void> {
+  const res = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete event (${res.status})`);
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+export interface ChatStatus {
+  enabled: boolean;
+  model: string;
+}
+export interface ChatReply {
+  reply: string;
+  toolCalls: { name: string; arguments: unknown }[];
+}
+
+export function fetchChatStatus() {
+  return getJson<ChatStatus>('/api/chat/status');
+}
+
+export function sendChat(messages: ChatTurn[]) {
+  return sendJson<ChatReply>('POST', '/api/chat', { messages });
+}

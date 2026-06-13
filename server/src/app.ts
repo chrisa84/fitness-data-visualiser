@@ -1,0 +1,51 @@
+import Fastify from 'fastify';
+import OpenAI from 'openai';
+import { openDb, openEventsDb } from './db.js';
+import type { CompletionClient } from './ai/chat.js';
+import { registerActivityRoutes } from './routes/activities.js';
+import { registerAnalysisRoutes, registerEventRoutes } from './routes/analysis.js';
+import { registerChatRoutes } from './routes/chat.js';
+import { registerDailyHealthRoutes } from './routes/dailyHealth.js';
+import { registerPerformanceRoutes } from './routes/performance.js';
+
+export interface AppOptions {
+  dbPath: string;
+  /** Writable events DB. Defaults to an in-memory DB (used by tests). */
+  eventsDbPath?: string;
+  logger?: boolean;
+  ai?: {
+    apiKey: string | undefined;
+    model: string;
+    baseUrl: string;
+  };
+}
+
+export function buildApp({ dbPath, eventsDbPath = ':memory:', logger = true, ai }: AppOptions) {
+  const app = Fastify({ logger });
+  const db = openDb(dbPath);
+  const eventsDb = openEventsDb(eventsDbPath);
+
+  // The AI client is optional: without a key the chat endpoint returns 503.
+  const aiClient: CompletionClient | null = ai?.apiKey
+    ? new OpenAI({ apiKey: ai.apiKey, baseURL: ai.baseUrl })
+    : null;
+
+  app.addHook('onClose', async () => {
+    db.close();
+    eventsDb.close();
+  });
+
+  app.get('/api/health', async () => {
+    const row = db.prepare('SELECT COUNT(*) AS n FROM daily_summary').get() as { n: number };
+    return { status: 'ok', dailySummaryRows: row.n };
+  });
+
+  registerDailyHealthRoutes(app, db);
+  registerActivityRoutes(app, db);
+  registerPerformanceRoutes(app, db);
+  registerAnalysisRoutes(app, db);
+  registerEventRoutes(app, eventsDb);
+  registerChatRoutes(app, { client: aiClient, model: ai?.model ?? 'unset', db, eventsDb });
+
+  return app;
+}
