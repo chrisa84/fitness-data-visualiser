@@ -36,6 +36,7 @@ export interface ActivitySeed {
   avg_hr?: number | null;
   avg_speed_mps?: number | null;
   elevation_gain_m?: number | null;
+  training_load?: number | null;
   avg_cadence?: number | null;
   avg_power?: number | null;
   ground_contact_ms?: number | null;
@@ -222,11 +223,13 @@ export function createTestDb(
   }
   const insertActivity = db.prepare(
     `INSERT INTO activity (activity_id, name, type, start_time_local, distance_m,
-                           duration_s, avg_hr, avg_speed_mps, elevation_gain_m, avg_cadence, avg_power,
+                           duration_s, avg_hr, avg_speed_mps, elevation_gain_m, training_load,
+                           avg_cadence, avg_power,
                            ground_contact_ms, ground_contact_balance_left,
                            vertical_oscillation_cm, vertical_ratio_pct, stride_length_cm)
      VALUES (@activity_id, @name, @type, @start_time_local, @distance_m,
-             @duration_s, @avg_hr, @avg_speed_mps, @elevation_gain_m, @avg_cadence, @avg_power,
+             @duration_s, @avg_hr, @avg_speed_mps, @elevation_gain_m, @training_load,
+             @avg_cadence, @avg_power,
              @ground_contact_ms, @ground_contact_balance_left,
              @vertical_oscillation_cm, @vertical_ratio_pct, @stride_length_cm)`,
   );
@@ -240,6 +243,7 @@ export function createTestDb(
       avg_hr: null,
       avg_speed_mps: null,
       elevation_gain_m: null,
+      training_load: null,
       avg_cadence: null,
       avg_power: null,
       ground_contact_ms: null,

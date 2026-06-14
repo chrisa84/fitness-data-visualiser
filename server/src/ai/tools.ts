@@ -11,6 +11,7 @@ import { getMetricSeries } from '../repositories/metrics.js';
 import { getPerformanceSeries } from '../repositories/performance.js';
 import { getRecords } from '../repositories/records.js';
 import { getRunningDynamics } from '../repositories/runningDynamics.js';
+import { getTrainingLoadStrain } from '../repositories/trainingLoad.js';
 
 export interface ToolContext {
   db: Database; // read-only Garmin database
@@ -128,6 +129,15 @@ export const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'get_training_load',
+      description:
+        'Weekly training monotony and strain (Foster): weekly load, monotony (sameness of daily load — high is risky) and strain. Rest days count as zero. Use to spot overtraining/illness risk.',
+      parameters: { type: 'object', properties: { from: ISO_DATE, to: ISO_DATE } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_records',
       description: 'Personal records derived from activities (fastest 1k/mile/5k, longest run/ride/activity, biggest climb, best VO2max).',
       parameters: { type: 'object', properties: {} },
@@ -211,6 +221,12 @@ export function executeTool(name: string, args: Args, ctx: ToolContext): unknown
         hrMin: Number(args.hrMin) || 145,
         hrMax: Number(args.hrMax) || 155,
       });
+    case 'get_training_load':
+      return getTrainingLoadStrain(
+        ctx.db,
+        (args.from as string) ?? '1970-01-01',
+        (args.to as string) ?? '9999-12-31',
+      );
     case 'get_records':
       return getRecords(ctx.db);
     case 'list_events':
