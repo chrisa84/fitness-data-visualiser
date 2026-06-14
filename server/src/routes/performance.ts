@@ -5,12 +5,18 @@ import { resolveActivityTypeFilter } from '@fitness/shared';
 import { getEfficiencySeries } from '../repositories/efficiency.js';
 import { getIntensityDistribution, getPerformanceSeries } from '../repositories/performance.js';
 import { getRunningDynamics } from '../repositories/runningDynamics.js';
+import { getTrainingLoadStrain } from '../repositories/trainingLoad.js';
 import { badRequest, isoDate } from './validation.js';
 
 const performanceQuery = z.object({
   from: isoDate.default('1970-01-01'),
   to: isoDate.default('9999-12-31'),
   granularity: z.enum(['day', 'week', 'month', 'year']).default('day'),
+});
+
+const loadQuery = z.object({
+  from: isoDate.default('1970-01-01'),
+  to: isoDate.default('9999-12-31'),
 });
 
 const intensityQuery = z.object({
@@ -72,6 +78,13 @@ export function registerPerformanceRoutes(app: FastifyInstance, db: Database): v
       type,
       points: getRunningDynamics(db, from, to, granularity, resolveActivityTypeFilter(type)),
     };
+  });
+
+  app.get('/api/training-load', async (request, reply) => {
+    const parsed = loadQuery.safeParse(request.query);
+    if (!parsed.success) return badRequest(reply, parsed.error);
+    const { from, to } = parsed.data;
+    return { from, to, points: getTrainingLoadStrain(db, from, to) };
   });
 
   app.get('/api/efficiency', async (request, reply) => {

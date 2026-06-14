@@ -318,6 +318,32 @@ export interface EfficiencyResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Training load: monotony & strain (Foster)
+// ---------------------------------------------------------------------------
+
+/**
+ * One week of training-load distribution, with rest days counted as zero load.
+ * - `monotony` = mean daily load / std dev of daily load (high = every day the
+ *   same intensity, a documented injury/illness risk).
+ * - `strain` = weekly load × monotony.
+ * Always weekly: monotony is a within-week measure.
+ */
+export interface TrainingLoadPoint {
+  date: string;
+  weeklyLoad: number;
+  meanLoad: number;
+  monotony: number | null;
+  strain: number | null;
+  days: number;
+}
+
+export interface TrainingLoadResponse {
+  from: string;
+  to: string;
+  points: TrainingLoadPoint[];
+}
+
+// ---------------------------------------------------------------------------
 // Metric catalog (cross-metric analysis)
 // ---------------------------------------------------------------------------
 

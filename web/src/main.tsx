@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Efficiency from './pages/Efficiency';
 import Events from './pages/Events';
 import Intensity from './pages/Intensity';
+import Load from './pages/Load';
 import Performance from './pages/Performance';
 import Records from './pages/Records';
 import RunningDynamics from './pages/RunningDynamics';
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
       { path: '/intensity', element: <Intensity /> },
       { path: '/dynamics', element: <RunningDynamics /> },
       { path: '/efficiency', element: <Efficiency /> },
+      { path: '/load', element: <Load /> },
       { path: '/analysis', element: <Analysis /> },
       { path: '/records', element: <Records /> },
       { path: '/events', element: <Events /> },

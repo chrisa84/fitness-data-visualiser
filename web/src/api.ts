@@ -15,6 +15,7 @@ import type {
   PerformanceResponse,
   PersonalRecord,
   RunningDynamicsResponse,
+  TrainingLoadResponse,
   VolumeResponse,
 } from '@fitness/shared';
 
@@ -139,6 +140,10 @@ export function fetchEfficiency(params: {
   hrMax?: number;
 }) {
   return getJson<EfficiencyResponse>('/api/efficiency', params);
+}
+
+export function fetchTrainingLoad(params: { from?: string; to?: string }) {
+  return getJson<TrainingLoadResponse>('/api/training-load', params);
 }
 
 export function fetchRecords() {
