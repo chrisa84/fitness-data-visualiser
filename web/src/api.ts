@@ -11,6 +11,7 @@ import type {
   MetricSeriesResponse,
   PerformanceResponse,
   PersonalRecord,
+  RunningDynamicsResponse,
   VolumeResponse,
 } from '@fitness/shared';
 
@@ -87,6 +88,15 @@ export function fetchMetrics(params: {
     to: params.to,
     granularity: params.granularity,
   });
+}
+
+export function fetchRunningDynamics(params: {
+  from?: string;
+  to?: string;
+  granularity?: Granularity;
+  type?: string;
+}) {
+  return getJson<RunningDynamicsResponse>('/api/running-dynamics', params);
 }
 
 export function fetchRecords() {

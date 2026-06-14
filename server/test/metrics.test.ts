@@ -58,4 +58,18 @@ describe('getMetricSeries', () => {
     const db = openDb(createMetricsDb(seed));
     expect(getMetricSeries(db, ['nonsense'], '2025-01-01', '2025-01-31', 'day')).toEqual([]);
   });
+
+  it('derives running dynamics from the activity table (non-runs excluded)', () => {
+    const db = openDb(
+      createMetricsDb({
+        activity: [
+          { activity_id: 'a', type: 'running', start_time_local: '2025-01-01 07:00:00', ground_contact_ms: 240 },
+          { activity_id: 'b', type: 'running', start_time_local: '2025-01-01 18:00:00', ground_contact_ms: 260 },
+          { activity_id: 'c', type: 'cycling', start_time_local: '2025-01-01 12:00:00', ground_contact_ms: 999 },
+        ],
+      }),
+    );
+    const [point] = getMetricSeries(db, ['gct'], '2025-01-01', '2025-01-31', 'day');
+    expect(point?.values.gct).toBe(250); // (240 + 260) / 2, cycling ignored
+  });
 });

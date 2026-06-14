@@ -13,6 +13,7 @@ export default function Layout() {
           <NavLink to="/volume">Volume</NavLink>
           <NavLink to="/performance">Performance</NavLink>
           <NavLink to="/intensity">Intensity</NavLink>
+          <NavLink to="/dynamics">Dynamics</NavLink>
           <NavLink to="/analysis">Analysis</NavLink>
           <NavLink to="/records">Records</NavLink>
           <NavLink to="/events">Events</NavLink>

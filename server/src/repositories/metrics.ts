@@ -14,11 +14,38 @@ type TableName =
   | 'max_metrics'
   | 'endurance_score'
   | 'hill_score'
-  | 'fitness_age';
+  | 'fitness_age'
+  | 'run_dynamics';
 
 interface MetricSql {
   expr: string;
   tables: TableName[];
+}
+
+// Running activity types whose dynamics feed the daily averages below.
+const RUN_TYPES = "('running','trail_running','treadmill_running','obstacle_run')";
+
+// Derived daily sources: a name → subquery yielding (date, ...columns). The
+// spine/join builder treats these like a table, so per-activity metrics (running
+// dynamics) can join the daily date spine. `run_dynamics` averages each form
+// metric over a day's runs.
+const DERIVED_SOURCES: Record<string, string> = {
+  run_dynamics: `SELECT date(start_time_local) AS date,
+      AVG(ground_contact_ms)           AS gct,
+      AVG(ground_contact_balance_left) AS balance,
+      AVG(vertical_oscillation_cm)     AS vosc,
+      AVG(vertical_ratio_pct)          AS vratio,
+      AVG(stride_length_cm)            AS stride,
+      AVG(avg_cadence)                 AS cadence,
+      AVG(avg_power)                   AS power
+    FROM activity
+    WHERE type IN ${RUN_TYPES} AND start_time_local IS NOT NULL
+    GROUP BY date(start_time_local)`,
+};
+
+/** A `FROM`/`JOIN` fragment for a source: a bare table, or an aliased subquery. */
+function sourceRef(t: string): string {
+  return t in DERIVED_SOURCES ? `(${DERIVED_SOURCES[t]}) ${t}` : t;
 }
 
 // SQL for each catalog key: the column expression and the table(s) it reads.
@@ -47,6 +74,13 @@ const METRIC_SQL: Record<string, MetricSql> = {
   endurance_score: { expr: 'endurance_score.score', tables: ['endurance_score'] },
   hill_score: { expr: 'hill_score.overall_score', tables: ['hill_score'] },
   fitness_age: { expr: 'fitness_age.fitness_age', tables: ['fitness_age'] },
+  gct: { expr: 'run_dynamics.gct', tables: ['run_dynamics'] },
+  run_balance: { expr: 'run_dynamics.balance', tables: ['run_dynamics'] },
+  vertical_oscillation: { expr: 'run_dynamics.vosc', tables: ['run_dynamics'] },
+  vertical_ratio: { expr: 'run_dynamics.vratio', tables: ['run_dynamics'] },
+  stride_length: { expr: 'run_dynamics.stride', tables: ['run_dynamics'] },
+  run_cadence: { expr: 'run_dynamics.cadence', tables: ['run_dynamics'] },
+  run_power: { expr: 'run_dynamics.power', tables: ['run_dynamics'] },
 };
 
 export const METRIC_SQL_KEYS = Object.keys(METRIC_SQL);
@@ -78,9 +112,9 @@ export function getMetricSeries(
 
   const tables = [...new Set(valid.flatMap((k) => METRIC_SQL[k]!.tables))];
   const spine = tables
-    .map((t) => `SELECT date FROM ${t} WHERE date BETWEEN @from AND @to`)
+    .map((t) => `SELECT date FROM ${sourceRef(t)} WHERE date BETWEEN @from AND @to`)
     .join(' UNION ');
-  const joins = tables.map((t) => `LEFT JOIN ${t} ON ${t}.date = d.date`).join('\n');
+  const joins = tables.map((t) => `LEFT JOIN ${sourceRef(t)} ON ${t}.date = d.date`).join('\n');
 
   const isDay = granularity === 'day';
   const select = valid

@@ -260,10 +260,38 @@ export interface IntensityResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Running dynamics
+// ---------------------------------------------------------------------------
+
+/**
+ * One bucket of running-form metrics, averaged over the activities in the
+ * bucket. These live per-activity on the `activity` table and are only recorded
+ * by dynamics-capable sensors, so coverage is partial (balance especially).
+ */
+export interface RunningDynamicsPoint {
+  date: string;
+  groundContactMs: number | null;
+  balanceLeftPct: number | null;
+  verticalOscillationCm: number | null;
+  verticalRatioPct: number | null;
+  strideLengthCm: number | null;
+  avgCadence: number | null;
+  avgPower: number | null;
+}
+
+export interface RunningDynamicsResponse {
+  from: string;
+  to: string;
+  granularity: Granularity;
+  type: string | null;
+  points: RunningDynamicsPoint[];
+}
+
+// ---------------------------------------------------------------------------
 // Metric catalog (cross-metric analysis)
 // ---------------------------------------------------------------------------
 
-export type MetricGroup = 'Health' | 'Sleep' | 'Recovery' | 'Training' | 'Performance';
+export type MetricGroup = 'Health' | 'Sleep' | 'Recovery' | 'Training' | 'Performance' | 'Dynamics';
 
 /**
  * Catalog of daily metrics available for overlays, comparison, and scatter
@@ -301,6 +329,13 @@ export const METRIC_CATALOG: readonly MetricMeta[] = [
   { key: 'endurance_score', label: 'Endurance score', unit: '', group: 'Performance', better: 'higher' },
   { key: 'hill_score', label: 'Hill score', unit: '', group: 'Performance', better: 'higher' },
   { key: 'fitness_age', label: 'Fitness age', unit: 'yr', group: 'Performance', better: 'lower' },
+  { key: 'gct', label: 'Ground contact time', unit: 'ms', group: 'Dynamics', better: 'lower' },
+  { key: 'run_balance', label: 'L/R balance (left)', unit: '%', group: 'Dynamics' },
+  { key: 'vertical_oscillation', label: 'Vertical oscillation', unit: 'cm', group: 'Dynamics', better: 'lower' },
+  { key: 'vertical_ratio', label: 'Vertical ratio', unit: '%', group: 'Dynamics', better: 'lower' },
+  { key: 'stride_length', label: 'Stride length', unit: 'cm', group: 'Dynamics' },
+  { key: 'run_cadence', label: 'Run cadence', unit: 'spm', group: 'Dynamics', better: 'higher' },
+  { key: 'run_power', label: 'Run power', unit: 'W', group: 'Dynamics' },
 ];
 
 export const METRIC_KEYS = METRIC_CATALOG.map((m) => m.key);

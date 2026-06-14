@@ -35,6 +35,13 @@ export interface ActivitySeed {
   duration_s?: number | null;
   avg_hr?: number | null;
   elevation_gain_m?: number | null;
+  avg_cadence?: number | null;
+  avg_power?: number | null;
+  ground_contact_ms?: number | null;
+  ground_contact_balance_left?: number | null;
+  vertical_oscillation_cm?: number | null;
+  vertical_ratio_pct?: number | null;
+  stride_length_cm?: number | null;
 }
 
 export interface SplitSeed {
@@ -136,6 +143,7 @@ export function createTestDb(
       stamina_end        REAL,
       stamina_min        REAL,
       ground_contact_ms  REAL,
+      ground_contact_balance_left REAL,
       vertical_oscillation_cm REAL,
       vertical_ratio_pct REAL,
       stride_length_cm   REAL
@@ -213,9 +221,13 @@ export function createTestDb(
   }
   const insertActivity = db.prepare(
     `INSERT INTO activity (activity_id, name, type, start_time_local, distance_m,
-                           duration_s, avg_hr, elevation_gain_m)
+                           duration_s, avg_hr, elevation_gain_m, avg_cadence, avg_power,
+                           ground_contact_ms, ground_contact_balance_left,
+                           vertical_oscillation_cm, vertical_ratio_pct, stride_length_cm)
      VALUES (@activity_id, @name, @type, @start_time_local, @distance_m,
-             @duration_s, @avg_hr, @elevation_gain_m)`,
+             @duration_s, @avg_hr, @elevation_gain_m, @avg_cadence, @avg_power,
+             @ground_contact_ms, @ground_contact_balance_left,
+             @vertical_oscillation_cm, @vertical_ratio_pct, @stride_length_cm)`,
   );
   for (const a of activities) {
     insertActivity.run({
@@ -226,6 +238,13 @@ export function createTestDb(
       duration_s: null,
       avg_hr: null,
       elevation_gain_m: null,
+      avg_cadence: null,
+      avg_power: null,
+      ground_contact_ms: null,
+      ground_contact_balance_left: null,
+      vertical_oscillation_cm: null,
+      vertical_ratio_pct: null,
+      stride_length_cm: null,
       ...a,
     });
   }
@@ -309,6 +328,12 @@ const METRICS_SCHEMA = `
   CREATE TABLE endurance_score (date TEXT PRIMARY KEY, score INTEGER);
   CREATE TABLE hill_score (date TEXT PRIMARY KEY, overall_score INTEGER);
   CREATE TABLE fitness_age (date TEXT PRIMARY KEY, fitness_age REAL);
+  CREATE TABLE activity (
+    activity_id TEXT PRIMARY KEY, type TEXT, start_time_local TEXT,
+    avg_cadence REAL, avg_power REAL, ground_contact_ms REAL,
+    ground_contact_balance_left REAL, vertical_oscillation_cm REAL,
+    vertical_ratio_pct REAL, stride_length_cm REAL
+  );
 `;
 
 export function createMetricsDb(seed: Record<string, Record<string, unknown>[]>): string {

@@ -106,7 +106,9 @@ row. Columns read:
 
 **Cadence / power / dynamics:** `avg_cadence`, `max_cadence`, `avg_power`,
 `max_power`, `norm_power`, `avg_respiration_rate`, `ground_contact_ms`,
-`vertical_oscillation_cm`, `vertical_ratio_pct`, `stride_length_cm`.
+`ground_contact_balance_left` (L/R balance, % on the left foot),
+`vertical_oscillation_cm`, `vertical_ratio_pct`, `stride_length_cm`. Recorded
+only by dynamics-capable sensors, so coverage is partial — balance especially.
 
 **Per-activity scores & misc:** `vo2max`, `activity_steps`,
 `body_battery_delta`, `temp_avg_c`, `water_estimated_ml`, `stamina_start`,
@@ -232,9 +234,22 @@ unit, group, direction-of-good); the matching SQL lives in
 | `endurance_score`       | Endurance score      | Performance | `endurance_score.score`                           |
 | `hill_score`            | Hill score           | Performance | `hill_score.overall_score`                        |
 | `fitness_age`           | Fitness age          | Performance | `fitness_age.fitness_age`                         |
+| `gct`                   | Ground contact time  | Dynamics    | `run_dynamics.gct` (avg `activity.ground_contact_ms`) |
+| `run_balance`           | L/R balance (left)   | Dynamics    | `run_dynamics.balance` (avg `ground_contact_balance_left`) |
+| `vertical_oscillation`  | Vertical oscillation | Dynamics    | `run_dynamics.vosc`                               |
+| `vertical_ratio`        | Vertical ratio       | Dynamics    | `run_dynamics.vratio`                             |
+| `stride_length`         | Stride length        | Dynamics    | `run_dynamics.stride`                             |
+| `run_cadence`           | Run cadence          | Dynamics    | `run_dynamics.cadence`                            |
+| `run_power`             | Run power            | Dynamics    | `run_dynamics.power`                              |
 
 The metric series query only unions/joins the tables actually needed by the
 requested keys, so unrelated tables are never scanned.
+
+The `Dynamics` metrics read a **derived source** rather than a date-keyed table:
+`run_dynamics` is a subquery that averages the per-activity running-form columns
+over each day's running activities (`metrics.ts` → `DERIVED_SOURCES`). The
+spine/join builder treats it like a table, so these per-activity metrics align
+onto the same daily date spine as everything else.
 
 ### Activity-type groups
 
