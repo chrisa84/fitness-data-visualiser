@@ -72,6 +72,30 @@ export default function Performance() {
       ],
     });
 
+    // Performance Management Chart: Fitness (chronic), Fatigue (acute), and
+    // Form = Fitness − Fatigue. Positive form = fresh/tapered; very negative =
+    // fatigued. A zero line marks the balance point.
+    const form = p.map((x) =>
+      x.chronicLoad != null && x.acuteLoad != null ? Math.round(x.chronicLoad - x.acuteLoad) : null,
+    );
+    out.push({
+      ...baseOption('Form — fitness minus fatigue (PMC)', dates),
+      series: [
+        line('Fitness (chronic)', p.map((x) => x.chronicLoad), '#5fa8e6'),
+        line('Fatigue (acute)', p.map((x) => x.acuteLoad), '#e66a5f'),
+        line('Form', form, '#c98fe6', {
+          areaStyle: { opacity: 0.15 },
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [{ yAxis: 0 }] as never,
+            lineStyle: { color: '#6b7480', type: 'dashed' },
+            label: { show: false },
+          },
+        }),
+      ],
+    });
+
     // ACWR with optimal (0.8–1.3) and high-risk (>1.5) zones shaded.
     out.push({
       ...baseOption('Acute:chronic workload ratio', dates),
