@@ -145,6 +145,14 @@ export default function ActivityDetail() {
           <h3>Running dynamics</h3>
           <div className="stat-grid">
             <Stat label="Ground contact" value={formatNumber(a.groundContactMs, ' ms')} />
+            <Stat
+              label="L/R balance"
+              value={
+                a.groundContactBalanceLeft != null
+                  ? `${a.groundContactBalanceLeft.toFixed(1)}% L / ${(100 - a.groundContactBalanceLeft).toFixed(1)}% R`
+                  : '—'
+              }
+            />
             <Stat label="Vertical oscillation" value={formatNumber(a.verticalOscillationCm, ' cm', 1)} />
             <Stat label="Vertical ratio" value={formatNumber(a.verticalRatioPct, ' %', 1)} />
             <Stat

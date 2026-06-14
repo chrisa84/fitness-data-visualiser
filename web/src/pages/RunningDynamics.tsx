@@ -73,7 +73,9 @@ export default function RunningDynamics() {
       legend: { show: false },
       grid: { left: 48, right: 16, top: 36, bottom: 48 },
       tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => (v == null ? '—' : `${v} ${c.unit}`) },
-      series: [line(c.title, points.map((p) => p[c.field]), c.color)],
+      // Symbols on, so metrics recorded on only a few activities (balance
+      // especially) show as visible points instead of an invisible gap.
+      series: [line(c.title, points.map((p) => p[c.field]), c.color, { showSymbol: true, symbolSize: 4 })],
     }));
   }, [data]);
 

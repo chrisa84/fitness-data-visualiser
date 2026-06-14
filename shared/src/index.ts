@@ -170,6 +170,7 @@ export interface ActivityDetail extends ActivityListItem {
   staminaEnd: number | null;
   staminaMin: number | null;
   groundContactMs: number | null;
+  groundContactBalanceLeft: number | null;
   verticalOscillationCm: number | null;
   verticalRatioPct: number | null;
   strideLengthCm: number | null;

@@ -152,6 +152,7 @@ export function getActivity(db: Database, activityId: string): ActivityDetail | 
     staminaEnd: r.stamina_end as number | null,
     staminaMin: r.stamina_min as number | null,
     groundContactMs: r.ground_contact_ms as number | null,
+    groundContactBalanceLeft: r.ground_contact_balance_left as number | null,
     verticalOscillationCm: r.vertical_oscillation_cm as number | null,
     verticalRatioPct: r.vertical_ratio_pct as number | null,
     strideLengthCm: r.stride_length_cm as number | null,
