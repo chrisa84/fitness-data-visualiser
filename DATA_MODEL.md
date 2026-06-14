@@ -286,6 +286,26 @@ Adding a Garmin subtype only requires extending the relevant `types` list here.
 
 ---
 
+## Derived analytics (computed, not stored)
+
+These are calculated on the fly from the columns above — nothing extra is stored.
+All run on activity *averages*, so they are trend-valid but coarser than
+per-second analysis.
+
+| Output | Where | Formula (from source columns) |
+| ------ | ----- | ----------------------------- |
+| **Efficiency factor (EF)** | `/api/efficiency`, Efficiency page, `get_efficiency` | `avg(avg_speed_mps * 60 / avg_hr)` per bucket — metres per minute per heartbeat. |
+| **Pace at HR band** | same | `avg(duration_s / (distance_m/1000))` over runs whose `avg_hr` ∈ [hrMin, hrMax]. Holds effort ~constant. |
+| **Form / PMC** | Performance page (client-side) | `Form = chronic_load − acute_load` (Fitness − Fatigue), from `training_status`. |
+| **Monotony** | `/api/training-load`, Load page, `get_training_load` | `mean(daily load) / stddev(daily load)` per ISO week, daily load = `SUM(activity.training_load)` with rest days = 0 (a date spine bounded to the data's extent supplies the zeros). |
+| **Strain** | same | `weekly load × monotony`. |
+
+The running-dynamics daily averages (`run_dynamics`) in the metric catalog above
+are the other derived source; everything else in the catalog reads a stored
+column directly.
+
+---
+
 ## Coverage caveats
 
 Which metrics are available depends on how long the watch/account has recorded
