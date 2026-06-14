@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { ChatApi } from './useChat';
 
 const SUGGESTIONS = [
@@ -33,7 +35,13 @@ export default function ChatPanel({ chat, suggestions = true }: { chat: ChatApi;
         {turns.map((t, i) => (
           <div key={i} className={`chat-turn chat-${t.role}`}>
             {t.context && <div className="chat-context-hint">from: {t.context}</div>}
-            <div className="chat-bubble">{t.content || '…'}</div>
+            <div className={`chat-bubble${t.role === 'assistant' ? ' chat-md' : ''}`}>
+              {t.role === 'assistant' ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{t.content || '…'}</ReactMarkdown>
+              ) : (
+                t.content || '…'
+              )}
+            </div>
             {t.toolCalls && t.toolCalls.length > 0 && (
               <div className="chat-tools">used: {t.toolCalls.map((c) => c.name).join(', ')}</div>
             )}
