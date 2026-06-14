@@ -118,7 +118,7 @@ returns the answer plus which tools were used. Configure with
 other feature is unaffected. Web: a Chat page with suggestions and the
 conversation.
 
-### Phase 7 — Derived efficiency & load modelling
+### Phase 7 — Derived efficiency & load modelling ✅
 
 Experimental, derived analytics computed from existing columns — no new
 Garmin-Sync data required. Each metric is built per-activity or per-day and
