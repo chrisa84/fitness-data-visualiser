@@ -10,7 +10,7 @@ import RangeControls from '../RangeControls';
 import { baseOption, line } from '../chartHelpers';
 import { buildTypeOptions } from '../typeOptions';
 
-const GRANULARITIES: Granularity[] = ['week', 'month', 'year'];
+const GRANULARITIES: Granularity[] = ['day', 'week', 'month', 'year'];
 
 // Field → chart metadata. `field` indexes RunningDynamicsPoint.
 const CHARTS: {
