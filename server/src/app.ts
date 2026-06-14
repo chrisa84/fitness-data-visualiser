@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import OpenAI from 'openai';
 import { openDb, openEventsDb } from './db.js';
@@ -12,6 +14,8 @@ export interface AppOptions {
   dbPath: string;
   /** Writable events DB. Defaults to an in-memory DB (used by tests). */
   eventsDbPath?: string;
+  /** Built web bundle directory to serve. When unset, the server is API-only. */
+  webDistPath?: string;
   logger?: boolean;
   ai?: {
     apiKey: string | undefined;
@@ -20,7 +24,7 @@ export interface AppOptions {
   };
 }
 
-export function buildApp({ dbPath, eventsDbPath = ':memory:', logger = true, ai }: AppOptions) {
+export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logger = true, ai }: AppOptions) {
   const app = Fastify({ logger });
   const db = openDb(dbPath);
   const eventsDb = openEventsDb(eventsDbPath);
@@ -46,6 +50,19 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', logger = true, ai 
   registerAnalysisRoutes(app, db);
   registerEventRoutes(app, eventsDb);
   registerChatRoutes(app, { client: aiClient, model: ai?.model ?? 'unset', db, eventsDb });
+
+  // In production (single-container deploy) the API also serves the built web
+  // bundle. Unknown non-API GET routes fall back to index.html so client-side
+  // routing works on refresh/deep-link.
+  if (webDistPath && existsSync(webDistPath)) {
+    app.register(fastifyStatic, { root: webDistPath, wildcard: false });
+    app.setNotFoundHandler((request, reply) => {
+      if (request.method === 'GET' && !request.url.startsWith('/api')) {
+        return reply.sendFile('index.html');
+      }
+      return reply.code(404).send({ error: 'not_found', message: `${request.method} ${request.url}` });
+    });
+  }
 
   return app;
 }

@@ -19,6 +19,8 @@ const activities = [
     duration_s: 3000,
     avg_hr: 150,
     elevation_gain_m: 100,
+    ground_contact_ms: 245,
+    ground_contact_balance_left: 49.6,
   },
   {
     activity_id: '2',
@@ -120,6 +122,7 @@ describe('getActivity', () => {
   it('returns detail with ordered splits', () => {
     const detail = getActivity(db(), '1');
     expect(detail?.name).toBe('Morning Run');
+    expect(detail?.groundContactBalanceLeft).toBe(49.6);
     expect(detail?.splits.map((s) => s.splitIndex)).toEqual([0, 1]);
     expect(detail?.splits[0]?.splitType).toBe('INTERVAL_ACTIVE');
   });

@@ -12,6 +12,7 @@ import Events from './pages/Events';
 import Intensity from './pages/Intensity';
 import Performance from './pages/Performance';
 import Records from './pages/Records';
+import RunningDynamics from './pages/RunningDynamics';
 import Volume from './pages/Volume';
 import './styles.css';
 
@@ -27,6 +28,7 @@ const router = createBrowserRouter([
       { path: '/volume', element: <Volume /> },
       { path: '/performance', element: <Performance /> },
       { path: '/intensity', element: <Intensity /> },
+      { path: '/dynamics', element: <RunningDynamics /> },
       { path: '/analysis', element: <Analysis /> },
       { path: '/records', element: <Records /> },
       { path: '/events', element: <Events /> },

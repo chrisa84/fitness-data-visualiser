@@ -1,0 +1,20 @@
+# Dependencies and build output (reinstalled/rebuilt inside the image)
+node_modules
+**/node_modules
+**/dist
+
+# Databases — never copy data into the image; mount it at runtime
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Secrets, VCS, local cruft
+.env
+.env.*
+.git
+.gitignore
+coverage
+*.log
+*.tsbuildinfo

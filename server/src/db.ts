@@ -27,6 +27,30 @@ export function openEventsDb(path: string): Database.Database {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_event_date ON event(date);
+
+    CREATE TABLE IF NOT EXISTS chat_conversation (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_message (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL,
+      role            TEXT NOT NULL,
+      content         TEXT NOT NULL,
+      tool_calls      TEXT,
+      context         TEXT,
+      created_at      TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_message_conv ON chat_message(conversation_id);
   `);
+
+  // Migration: add chat_message.context to databases created before it existed.
+  const messageColumns = db.prepare('PRAGMA table_info(chat_message)').all() as { name: string }[];
+  if (!messageColumns.some((c) => c.name === 'context')) {
+    db.exec('ALTER TABLE chat_message ADD COLUMN context TEXT');
+  }
+
   return db;
 }

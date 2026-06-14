@@ -108,10 +108,41 @@ only if you need to change them or enable the AI layer.
 | --------------------- | ---------------------------------------- | ------------------------------------------------ |
 | `GARMIN_DB_PATH`      | `/path/to/garmin_sync.db`                | Path to the read-only Garmin mirror. Set this to your Garmin-Sync database. |
 | `EVENTS_DB_PATH`      | `visualiser-events.db`                   | Path to the writable events database.            |
-| `PORT`                | `3001`                                   | Fastify listen port (binds to `127.0.0.1`).      |
+| `PORT`                | `3001`                                   | Fastify listen port.                             |
+| `HOST`                | `127.0.0.1`                              | Listen host. Loopback locally; set to `0.0.0.0` in a container. |
+| `WEB_DIST_PATH`       | _(unset)_                                | When set, the server also serves the built web bundle from this directory. Unset in dev (Vite serves the web). |
 | `OPENROUTER_API_KEY`  | _(unset)_                                | Enables the Chat tab. Without it, chat returns 503; everything else works. |
 | `OPENROUTER_MODEL`    | `anthropic/claude-3.7-sonnet`            | Any OpenRouter model slug that supports tool calling. |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1`           | OpenAI-compatible endpoint base URL.             |
+
+## Deployment (Docker / Coolify)
+
+The repo ships a single-container [`Dockerfile`](Dockerfile): a multi-stage build
+that compiles the web bundle and serves it from the Fastify server alongside
+`/api`. One image, one port — no separate web container or reverse proxy needed.
+
+```bash
+docker build -t fitness-visualiser .
+docker run -p 3001:3001 \
+  -v /host/path/to/data:/data \
+  -e OPENROUTER_API_KEY=sk-... \
+  fitness-visualiser
+```
+
+The container expects a mounted `/data` volume holding `garmin_sync.db` (and
+where it will create `visualiser-events.db`). It sets `HOST=0.0.0.0`,
+`WEB_DIST_PATH=/app/web/dist`, and points the DB paths at `/data` by default.
+
+For **Coolify**: point it at this repo, choose the Dockerfile build, map a
+persistent volume to `/data`, expose port `3001`, and set `OPENROUTER_API_KEY`.
+Keep `garmin_sync.db` current by syncing it into that volume with
+[fitness-data-sync](https://github.com/chrisa84/fitness-data-sync).
+
+> The only native dependency is `better-sqlite3`; the build stage includes a
+> compiler toolchain as a fallback in case no prebuilt binary matches your
+> platform. It is confined to the build stage, so the runtime image stays slim.
+> Those three `apt-get` lines can be removed for a leaner build if the prebuilt
+> always resolves for you.
 
 ## Project layout
 
@@ -158,6 +189,7 @@ to an open range.
 | GET    | `/api/activity-volume`        | Count/distance/duration/elevation aggregated per bucket.            |
 | GET    | `/api/performance`            | VO2max, load, ACWR, readiness, race predictions, scores, status.    |
 | GET    | `/api/intensity-distribution` | Seconds in each HR zone, summed per bucket.                         |
+| GET    | `/api/running-dynamics`       | Running-form metrics (GCT, balance, oscillation, stride, …) per bucket. |
 | GET    | `/api/metrics`                | Multi-metric series from the catalog (`keys=a,b,c`, max 8).         |
 | GET    | `/api/records`                | Derived personal records.                                           |
 | GET    | `/api/events`                 | Life events overlapping an optional window.                        |
@@ -165,7 +197,10 @@ to an open range.
 | PATCH  | `/api/events/:id`             | Update an event. (writable DB)                                      |
 | DELETE | `/api/events/:id`             | Delete an event. (writable DB)                                      |
 | GET    | `/api/chat/status`            | Whether the AI layer is enabled, and the configured model.          |
-| POST   | `/api/chat`                   | Natural-language query (tool-use loop). 503 if no API key.          |
+| POST   | `/api/chat`                   | Natural-language query (tool-use loop). Persists the turn; returns `conversationId`. 503 if no API key. |
+| GET    | `/api/chat/conversations`     | List saved conversations, most-recently-updated first.              |
+| GET    | `/api/chat/conversations/:id` | One conversation with its messages.                                 |
+| DELETE | `/api/chat/conversations/:id` | Delete a saved conversation. (writable DB)                          |
 
 The activity-type filter accepts a raw Garmin type (`running`) or a group
 (`group:running`, `group:cycling`, `group:swimming`, `group:walking`).
@@ -181,6 +216,9 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
   and its factor breakdown, race-prediction trends, lactate threshold, endurance
   and hill scores, and a colour-coded training-status timeline.
 - **Intensity** — HR-zone stacked bars (hours or %) by type/group.
+- **Dynamics** — running-form trends (ground contact time, L/R balance, vertical
+  oscillation/ratio, stride length, cadence, power), averaged per bucket, by
+  type/group.
 - **Analysis** — overlay (up to 5 normalised metrics), compare (one metric across
   two ranges), correlate (X vs Y scatter with optional lag, Pearson r).
 - **Records** — derived personal records.
@@ -195,8 +233,8 @@ It is **tool-use**, not text-to-SQL-by-default:
 
 1. The model receives the question plus a list of named tools (the repository
    functions: `get_metric_series`, `list_activities`, `get_activity_volume`,
-   `get_performance_series`, `get_records`, `list_events`) and one guarded
-   escape hatch, `run_sql`.
+   `get_performance_series`, `get_running_dynamics`, `get_records`,
+   `list_events`) and one guarded escape hatch, `run_sql`.
 2. The model only _requests_ a tool by emitting JSON. The **server** executes the
    tool in-process against the local read-only database and feeds the JSON
    result back. This loop runs up to 8 steps, then the model answers.
@@ -209,6 +247,18 @@ run on the read-only connection, with rows capped at 1000. It exists for
 questions the named tools can't express; the preferred path is to add a new named
 tool when a question shape recurs. Without `OPENROUTER_API_KEY` the whole layer
 is disabled and every other feature is unaffected.
+
+Conversations are **persisted** to the writable events DB (`chat_conversation` /
+`chat_message`): each turn saves the user message and assistant reply, and the
+Chat page lists past conversations in a sidebar for recall. The conversation
+list/read/delete endpoints work regardless of whether the AI key is set.
+
+The assistant is also available as a **floating drawer** ("Ask AI" in the
+header) on every page. It passes a short **page-context hint** — derived
+automatically from the current route and its filters (date range, type,
+metrics) — with each message, so questions like "what am I looking at?" resolve
+to the current screen. Context is sent as the optional `context` field on
+`POST /api/chat`.
 
 ## Testing
 

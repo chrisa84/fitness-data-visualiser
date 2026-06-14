@@ -9,6 +9,7 @@ import { listEvents } from '../repositories/events.js';
 import { getMetricSeries } from '../repositories/metrics.js';
 import { getPerformanceSeries } from '../repositories/performance.js';
 import { getRecords } from '../repositories/records.js';
+import { getRunningDynamics } from '../repositories/runningDynamics.js';
 
 export interface ToolContext {
   db: Database; // read-only Garmin database
@@ -95,6 +96,18 @@ export const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'get_running_dynamics',
+      description:
+        'Running-form metrics (ground contact time, L/R balance, vertical oscillation/ratio, stride length, cadence, power) averaged per day/week/month/year. Defaults to all running; only dynamics-capable sensor activities carry these.',
+      parameters: {
+        type: 'object',
+        properties: { from: ISO_DATE, to: ISO_DATE, granularity: GRANULARITY, type: { type: 'string' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_records',
       description: 'Personal records derived from activities (fastest 1k/mile/5k, longest run/ride/activity, biggest climb, best VO2max).',
       parameters: { type: 'object', properties: {} },
@@ -160,6 +173,14 @@ export function executeTool(name: string, args: Args, ctx: ToolContext): unknown
         (args.from as string) ?? '1970-01-01',
         (args.to as string) ?? '9999-12-31',
         (args.granularity as 'day') ?? 'day',
+      );
+    case 'get_running_dynamics':
+      return getRunningDynamics(
+        ctx.db,
+        (args.from as string) ?? '1970-01-01',
+        (args.to as string) ?? '9999-12-31',
+        (args.granularity as 'week') ?? 'week',
+        resolveActivityTypeFilter((args.type as string | undefined) ?? 'group:running'),
       );
     case 'get_records':
       return getRecords(ctx.db);

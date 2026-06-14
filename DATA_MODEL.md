@@ -106,7 +106,9 @@ row. Columns read:
 
 **Cadence / power / dynamics:** `avg_cadence`, `max_cadence`, `avg_power`,
 `max_power`, `norm_power`, `avg_respiration_rate`, `ground_contact_ms`,
-`vertical_oscillation_cm`, `vertical_ratio_pct`, `stride_length_cm`.
+`ground_contact_balance_left` (L/R balance, % on the left foot),
+`vertical_oscillation_cm`, `vertical_ratio_pct`, `stride_length_cm`. Recorded
+only by dynamics-capable sensors, so coverage is partial — balance especially.
 
 **Per-activity scores & misc:** `vo2max`, `activity_steps`,
 `body_battery_delta`, `temp_avg_c`, `water_estimated_ml`, `stamina_start`,
@@ -167,11 +169,11 @@ Notes:
 
 ---
 
-## Writable table (`visualiser-events.db`)
+## Writable tables (`visualiser-events.db`)
 
-The visualiser's only owned state. Created automatically (`openEventsDb`) with
-`CREATE TABLE IF NOT EXISTS`, in WAL mode, separate from the Garmin mirror so
-that database stays read-only.
+The visualiser's own state (life events and saved chats). Created automatically
+(`openEventsDb`) with `CREATE TABLE IF NOT EXISTS`, in WAL mode, separate from
+the Garmin mirror so that database stays read-only.
 
 ### `event`
 
@@ -194,6 +196,23 @@ An event "overlaps" a query window `[from, to]` when it starts on/before `to`
 **and** its end (`COALESCE(end_date, date)`) is on/after `from`. Point events
 render as marklines; ranged events as shaded bands on the Dashboard,
 Performance, and Analysis charts.
+
+### `chat_conversation` and `chat_message`
+
+Persisted AI chats, so conversations survive a refresh and can be recalled.
+
+`chat_conversation`: `id` (PK), `title` (derived from the first user message),
+`created_at`, `updated_at` (bumped on each new message; drives list ordering).
+
+`chat_message`: `id` (PK), `conversation_id` (FK → `chat_conversation.id`),
+`role` (`user`/`assistant`), `content`, `tool_calls` (JSON array of the tools the
+assistant used, or null), `context` (the screen/filter hint the message was asked
+from, when it came via the floating drawer; null otherwise), `created_at`.
+Indexed by `conversation_id`. The `context` column is added by a migration in
+`openEventsDb` for databases created before it existed.
+
+Each `POST /api/chat` appends the new user message and the assistant reply to the
+conversation (creating one if no `conversationId` is supplied).
 
 ---
 
@@ -232,9 +251,22 @@ unit, group, direction-of-good); the matching SQL lives in
 | `endurance_score`       | Endurance score      | Performance | `endurance_score.score`                           |
 | `hill_score`            | Hill score           | Performance | `hill_score.overall_score`                        |
 | `fitness_age`           | Fitness age          | Performance | `fitness_age.fitness_age`                         |
+| `gct`                   | Ground contact time  | Dynamics    | `run_dynamics.gct` (avg `activity.ground_contact_ms`) |
+| `run_balance`           | L/R balance (left)   | Dynamics    | `run_dynamics.balance` (avg `ground_contact_balance_left`) |
+| `vertical_oscillation`  | Vertical oscillation | Dynamics    | `run_dynamics.vosc`                               |
+| `vertical_ratio`        | Vertical ratio       | Dynamics    | `run_dynamics.vratio`                             |
+| `stride_length`         | Stride length        | Dynamics    | `run_dynamics.stride`                             |
+| `run_cadence`           | Run cadence          | Dynamics    | `run_dynamics.cadence`                            |
+| `run_power`             | Run power            | Dynamics    | `run_dynamics.power`                              |
 
 The metric series query only unions/joins the tables actually needed by the
 requested keys, so unrelated tables are never scanned.
+
+The `Dynamics` metrics read a **derived source** rather than a date-keyed table:
+`run_dynamics` is a subquery that averages the per-activity running-form columns
+over each day's running activities (`metrics.ts` → `DERIVED_SOURCES`). The
+spine/join builder treats it like a table, so these per-activity metrics align
+onto the same daily date spine as everything else.
 
 ### Activity-type groups
 

@@ -58,7 +58,10 @@ repository functions as named tools.
    `unit`, `group`, optional `format`/`better`).
 2. `server/src/repositories/metrics.ts` → add the matching entry to `METRIC_SQL`
    (the column `expr` and the `tables` it reads). The key must match the catalog
-   exactly. If it reads a new table, add that table to the `TableName` union.
+   exactly. If it reads a new date-keyed table, add it to the `TableName` union.
+   For a per-activity (non-date-keyed) metric, add a `DERIVED_SOURCES` subquery
+   that aggregates to `(date, …)` and reference it like a table — see
+   `run_dynamics` (running form).
 3. That's it for wiring: `/api/metrics`, the `get_metric_series` AI tool, and the
    Analysis metric picker all read the catalog — no route or UI change needed.
 4. `server/test/metrics.test.ts` enforces `catalogKeysMatchSql()` — add both
