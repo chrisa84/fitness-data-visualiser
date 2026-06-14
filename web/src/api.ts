@@ -153,8 +153,8 @@ export function fetchChatStatus() {
   return getJson<ChatStatus>('/api/chat/status');
 }
 
-export function sendChat(messages: ChatTurn[], conversationId?: number) {
-  return sendJson<ChatReply>('POST', '/api/chat', { messages, conversationId });
+export function sendChat(messages: ChatTurn[], conversationId?: number, context?: string) {
+  return sendJson<ChatReply>('POST', '/api/chat', { messages, conversationId, context });
 }
 
 export function fetchConversations() {

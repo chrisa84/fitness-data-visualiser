@@ -253,6 +253,13 @@ Conversations are **persisted** to the writable events DB (`chat_conversation` /
 Chat page lists past conversations in a sidebar for recall. The conversation
 list/read/delete endpoints work regardless of whether the AI key is set.
 
+The assistant is also available as a **floating drawer** ("Ask AI" in the
+header) on every page. It passes a short **page-context hint** — derived
+automatically from the current route and its filters (date range, type,
+metrics) — with each message, so questions like "what am I looking at?" resolve
+to the current screen. Context is sent as the optional `context` field on
+`POST /api/chat`.
+
 ## Testing
 
 ```bash

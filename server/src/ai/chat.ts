@@ -23,16 +23,22 @@ export interface ChatResult {
   toolCalls: { name: string; arguments: unknown }[];
 }
 
-function systemPrompt(today: string): string {
+function systemPrompt(today: string, context?: string): string {
   const catalog = METRIC_CATALOG.map(
     (m) => `${m.key} (${m.label}${m.unit ? `, ${m.unit}` : ''})`,
   ).join(', ');
-  return [
+  const lines = [
     `You are a fitness data analyst embedded in a personal Garmin data app. Today is ${today}.`,
     'Answer questions about the user\'s training, health, sleep, recovery and performance using the provided tools. Prefer the named tools; use run_sql only for things they cannot express.',
     'All data is local and read-only. Stored distances are metres, durations seconds, dates ISO (YYYY-MM-DD). When you report numbers, convert to friendly units (km, min/km pace, h:mm). Be concise and specific, and cite the date ranges you used. If data is missing for a period, say so rather than guessing.',
     `Metric keys for get_metric_series: ${catalog}.`,
-  ].join('\n');
+  ];
+  if (context) {
+    lines.push(
+      `The user is currently viewing this screen: ${context}. If they say "this", "here", or "what I'm looking at", interpret it relative to that screen and its filters.`,
+    );
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -46,10 +52,12 @@ export async function runChat(opts: {
   ctx: ToolContext;
   messages: ChatTurn[];
   today?: string;
+  /** Short description of the screen/filters the user is viewing (a hint). */
+  context?: string;
 }): Promise<ChatResult> {
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: 'system', content: systemPrompt(today) },
+    { role: 'system', content: systemPrompt(today, opts.context) },
     ...opts.messages,
   ];
   const toolCalls: { name: string; arguments: unknown }[] = [];

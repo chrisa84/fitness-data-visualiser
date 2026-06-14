@@ -82,4 +82,19 @@ describe('runChat', () => {
     // The system prompt is prepended on the first call.
     expect(create.mock.calls[0]![0].messages[0].role).toBe('system');
   });
+
+  it('injects the page context into the system prompt', async () => {
+    const create = vi.fn().mockResolvedValueOnce({
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    });
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+    await runChat({
+      client,
+      model: 'test',
+      ctx: ctx(),
+      messages: [{ role: 'user', content: 'what is this?' }],
+      context: 'Running dynamics — per week, activity type group:running',
+    });
+    expect(create.mock.calls[0]![0].messages[0].content).toContain('Running dynamics');
+  });
 });

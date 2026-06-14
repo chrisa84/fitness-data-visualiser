@@ -206,6 +206,54 @@ button.active {
   font-size: 0.78rem;
 }
 
+.ask-ai {
+  margin-left: auto;
+  border-color: #5fa8e6;
+  color: #e6e8eb;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+
+.chat-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 400px;
+  max-width: 92vw;
+  background: #14171c;
+  border-left: 1px solid #232932;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem 1rem;
+  box-sizing: border-box;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.drawer-head-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.drawer-context {
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #232932;
+  font-size: 0.76rem;
+}
+
 .chat-layout {
   display: flex;
   gap: 1rem;

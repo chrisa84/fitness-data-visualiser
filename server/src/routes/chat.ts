@@ -24,6 +24,7 @@ const chatBody = z.object({
     .min(1)
     .max(40),
   conversationId: z.number().int().positive().optional(),
+  context: z.string().max(500).optional(),
 });
 
 export interface ChatRouteOptions {
@@ -66,7 +67,7 @@ export function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOptions)
     }
     const parsed = chatBody.safeParse(request.body);
     if (!parsed.success) return badRequest(reply, parsed.error);
-    const { messages, conversationId } = parsed.data;
+    const { messages, conversationId, context } = parsed.data;
 
     try {
       const result = await runChat({
@@ -74,6 +75,7 @@ export function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOptions)
         model: opts.model,
         ctx: { db: opts.db, eventsDb: opts.eventsDb },
         messages,
+        context,
       });
 
       // Persist this turn: the new user message plus the assistant reply. A

@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import ChatDrawer from './ChatDrawer';
 
 export default function Layout() {
+  const [chatOpen, setChatOpen] = useState(false);
+
   return (
     <>
       <header>
@@ -19,10 +23,14 @@ export default function Layout() {
           <NavLink to="/events">Events</NavLink>
           <NavLink to="/chat">Chat</NavLink>
         </nav>
+        <button className="ask-ai" onClick={() => setChatOpen(true)}>
+          Ask AI
+        </button>
       </header>
       <main>
         <Outlet />
       </main>
+      <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
     </>
   );
 }
