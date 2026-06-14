@@ -6,6 +6,7 @@ import {
   listActivities,
 } from '../repositories/activities.js';
 import { listEvents } from '../repositories/events.js';
+import { getEfficiencySeries } from '../repositories/efficiency.js';
 import { getMetricSeries } from '../repositories/metrics.js';
 import { getPerformanceSeries } from '../repositories/performance.js';
 import { getRecords } from '../repositories/records.js';
@@ -108,6 +109,25 @@ export const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'get_efficiency',
+      description:
+        'Effort-adjusted running efficiency per day/week/month/year: efficiency factor (speed per heartbeat) and average pace of runs within a heart-rate band (defaults 145-155). Use to judge aerobic fitness over time independent of how hard runs were.',
+      parameters: {
+        type: 'object',
+        properties: {
+          from: ISO_DATE,
+          to: ISO_DATE,
+          granularity: GRANULARITY,
+          type: { type: 'string' },
+          hrMin: { type: 'number', description: 'low edge of the HR band (default 145)' },
+          hrMax: { type: 'number', description: 'high edge of the HR band (default 155)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_records',
       description: 'Personal records derived from activities (fastest 1k/mile/5k, longest run/ride/activity, biggest climb, best VO2max).',
       parameters: { type: 'object', properties: {} },
@@ -182,6 +202,15 @@ export function executeTool(name: string, args: Args, ctx: ToolContext): unknown
         (args.granularity as 'week') ?? 'week',
         resolveActivityTypeFilter((args.type as string | undefined) ?? 'group:running'),
       );
+    case 'get_efficiency':
+      return getEfficiencySeries(ctx.db, {
+        from: (args.from as string) ?? '1970-01-01',
+        to: (args.to as string) ?? '9999-12-31',
+        granularity: (args.granularity as 'week') ?? 'week',
+        types: resolveActivityTypeFilter((args.type as string | undefined) ?? 'group:running'),
+        hrMin: Number(args.hrMin) || 145,
+        hrMax: Number(args.hrMax) || 155,
+      });
     case 'get_records':
       return getRecords(ctx.db);
     case 'list_events':

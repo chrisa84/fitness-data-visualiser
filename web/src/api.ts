@@ -9,6 +9,7 @@ import type {
   Granularity,
   ChatConversation,
   ChatConversationDetail,
+  EfficiencyResponse,
   IntensityResponse,
   MetricSeriesResponse,
   PerformanceResponse,
@@ -127,6 +128,17 @@ export function fetchRunningDynamics(params: {
   type?: string;
 }) {
   return getJson<RunningDynamicsResponse>('/api/running-dynamics', params);
+}
+
+export function fetchEfficiency(params: {
+  from?: string;
+  to?: string;
+  granularity?: Granularity;
+  type?: string;
+  hrMin?: number;
+  hrMax?: number;
+}) {
+  return getJson<EfficiencyResponse>('/api/efficiency', params);
 }
 
 export function fetchRecords() {

@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/performance', label: 'Performance' },
   { to: '/intensity', label: 'Intensity' },
   { to: '/dynamics', label: 'Dynamics' },
+  { to: '/efficiency', label: 'Efficiency' },
   { to: '/analysis', label: 'Analysis' },
   { to: '/records', label: 'Records' },
   { to: '/events', label: 'Events' },
