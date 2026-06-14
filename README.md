@@ -228,9 +228,10 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Activities** — filterable, sortable, paginated list → activity detail with
   splits, HR zones, running dynamics.
 - **Volume** — distance/duration/elevation/count over time by type/group.
-- **Performance** — VO2max, training load + ACWR (risk zones shaded), readiness
-  and its factor breakdown, race-prediction trends, lactate threshold, endurance
-  and hill scores, and a colour-coded training-status timeline.
+- **Performance** — VO2max, training load + ACWR (risk zones shaded), the
+  Form/PMC chart (fitness − fatigue), readiness and its factor breakdown,
+  race-prediction trends, lactate threshold, endurance and hill scores, and a
+  colour-coded training-status timeline.
 - **Intensity** — HR-zone stacked bars (hours or %) by type/group.
 - **Dynamics** — running-form trends (ground contact time, L/R balance, vertical
   oscillation/ratio, stride length, cadence, power), averaged per bucket, by
