@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { fetchActivityTypes, fetchEfficiency } from '../api';
 import Chart from '../Chart';
 import RangeControls from '../RangeControls';
-import { baseOption, line } from '../chartHelpers';
+import { baseOption, line, robustExtent } from '../chartHelpers';
 import { formatDuration } from '../format';
 import { buildTypeOptions } from '../typeOptions';
 
@@ -60,6 +60,12 @@ export default function Efficiency() {
       ...baseOption('Efficiency factor (m/min per beat — higher is fitter)', dates),
       legend: { show: false },
       grid: { left: 48, right: 16, top: 36, bottom: 48 },
+      yAxis: {
+        type: 'value',
+        scale: true,
+        splitLine: { lineStyle: { color: '#2a3038' } },
+        ...robustExtent(points.map((p) => p.efficiencyFactor)),
+      },
       tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => (v == null ? '—' : String(v)) },
       series: [line('EF', points.map((p) => p.efficiencyFactor), '#5fce6e', { showSymbol: true, symbolSize: 4 })],
     };
@@ -74,6 +80,7 @@ export default function Efficiency() {
         scale: true,
         axisLabel: { formatter: (v: number) => formatDuration(v) },
         splitLine: { lineStyle: { color: '#2a3038' } },
+        ...robustExtent(points.map((p) => p.paceInBandS)),
       },
       tooltip: {
         trigger: 'axis',
