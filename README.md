@@ -296,6 +296,15 @@ the real Garmin mirror. The AI tests use a structural fake of the OpenAI client,
 so they exercise the tool-use loop without any network calls. One test
 (`metrics.test.ts`) asserts the metric catalog and the SQL map stay in lockstep.
 
+## Version history
+
+- Derived efficiency & load analytics: Efficiency page (speed per heartbeat, pace within fixed HR band), Form/PMC chart on Performance page, Foster training load metrics, AI tools for efficiency and load analysis.
+- Markdown rendering for AI chat replies (tables, headings, lists).
+- Floating "Ask AI" assistant on every page with automatic page-context hints; persisted conversations.
+- Running Dynamics page (GCT, L/R balance, vertical oscillation/ratio, stride, cadence, power) with cross-metric analysis.
+- Single-container Docker deployment (Fastify serves built web + API).
+- Initial build: activities, volume, health dashboard, performance & training, HR-zone intensity, cross-metric analysis, life-event annotations, personal records, AI query layer.
+
 ## Parked (needs Garmin-Sync work first)
 
 GPS routes/maps, in-activity per-second sample charts, gear/shoe mileage, body
