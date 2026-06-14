@@ -11,6 +11,7 @@ import {
 
 export interface DisplayTurn extends ChatTurn {
   toolCalls?: { name: string; arguments: unknown }[] | null;
+  context?: string | null;
 }
 
 /**
@@ -42,7 +43,7 @@ export function useChat(context?: string) {
       ...turns.map((t) => ({ role: t.role, content: t.content })),
       { role: 'user', content: question },
     ];
-    setTurns((prev) => [...prev, { role: 'user', content: question }]);
+    setTurns((prev) => [...prev, { role: 'user', content: question, context }]);
     setInput('');
     ask.mutate(history);
   };
@@ -55,7 +56,14 @@ export function useChat(context?: string) {
 
   const loadConversation = async (id: number) => {
     const detail = await fetchConversation(id);
-    setTurns(detail.messages.map((m) => ({ role: m.role, content: m.content, toolCalls: m.toolCalls })));
+    setTurns(
+      detail.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        toolCalls: m.toolCalls,
+        context: m.context,
+      })),
+    );
     setConversationId(id);
   };
 

@@ -24,6 +24,7 @@ function mapMessage(r: Record<string, unknown>): ChatMessageRecord {
     role: r.role as 'user' | 'assistant',
     content: r.content as string,
     toolCalls: raw ? (JSON.parse(raw) as ToolCalls) : null,
+    context: (r.context as string | null) ?? null,
     createdAt: r.created_at as string,
   };
 }
@@ -66,15 +67,17 @@ export function addMessage(
   role: 'user' | 'assistant',
   content: string,
   toolCalls?: ToolCalls,
+  context?: string,
 ): void {
   db.prepare(
-    `INSERT INTO chat_message (conversation_id, role, content, tool_calls, created_at)
-     VALUES (@conversationId, @role, @content, @toolCalls, @createdAt)`,
+    `INSERT INTO chat_message (conversation_id, role, content, tool_calls, context, created_at)
+     VALUES (@conversationId, @role, @content, @toolCalls, @context, @createdAt)`,
   ).run({
     conversationId,
     role,
     content,
     toolCalls: toolCalls && toolCalls.length ? JSON.stringify(toolCalls) : null,
+    context: context ?? null,
     createdAt: new Date().toISOString(),
   });
   db.prepare('UPDATE chat_conversation SET updated_at = ? WHERE id = ?').run(

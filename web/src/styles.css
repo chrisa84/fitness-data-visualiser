@@ -364,6 +364,17 @@ button.active {
   color: #8a93a0;
 }
 
+.chat-context-hint {
+  font-size: 0.68rem;
+  color: #6b7480;
+  margin-bottom: 0.2rem;
+  font-style: italic;
+}
+
+.chat-user .chat-context-hint {
+  text-align: right;
+}
+
 .chat-suggestions {
   display: flex;
   flex-direction: column;

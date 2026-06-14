@@ -403,6 +403,8 @@ export interface ChatMessageRecord {
   role: 'user' | 'assistant';
   content: string;
   toolCalls: { name: string; arguments: unknown }[] | null;
+  /** The screen/filter hint the message was asked from, if any. */
+  context: string | null;
   createdAt: string;
 }
 

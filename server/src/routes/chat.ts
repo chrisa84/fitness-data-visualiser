@@ -85,7 +85,9 @@ export function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOptions)
         conversationId && getConversation(opts.eventsDb, conversationId)
           ? conversationId
           : createConversation(opts.eventsDb, titleFrom(lastUser?.content ?? 'New chat')).id;
-      if (lastUser?.role === 'user') addMessage(opts.eventsDb, convId, 'user', lastUser.content);
+      if (lastUser?.role === 'user') {
+        addMessage(opts.eventsDb, convId, 'user', lastUser.content, undefined, context);
+      }
       addMessage(opts.eventsDb, convId, 'assistant', result.reply, result.toolCalls);
 
       return { ...result, conversationId: convId };

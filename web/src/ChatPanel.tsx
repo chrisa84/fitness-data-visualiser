@@ -32,6 +32,7 @@ export default function ChatPanel({ chat, suggestions = true }: { chat: ChatApi;
         )}
         {turns.map((t, i) => (
           <div key={i} className={`chat-turn chat-${t.role}`}>
+            {t.context && <div className="chat-context-hint">from: {t.context}</div>}
             <div className="chat-bubble">{t.content || '…'}</div>
             {t.toolCalls && t.toolCalls.length > 0 && (
               <div className="chat-tools">used: {t.toolCalls.map((c) => c.name).join(', ')}</div>

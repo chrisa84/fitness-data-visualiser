@@ -28,6 +28,17 @@ describe('chat persistence', () => {
     expect(detail?.messages[0]?.toolCalls).toBeNull();
   });
 
+  it('stores the page context on a message', () => {
+    const db = openEventsDb(':memory:');
+    const conv = createConversation(db, 'from a page');
+    addMessage(db, conv.id, 'user', 'what is this?', undefined, 'Running dynamics — per week');
+    addMessage(db, conv.id, 'assistant', 'these are your form metrics');
+
+    const detail = getConversationDetail(db, conv.id);
+    expect(detail?.messages[0]?.context).toBe('Running dynamics — per week');
+    expect(detail?.messages[1]?.context).toBeNull();
+  });
+
   it('lists conversations most-recently-updated first', () => {
     const db = openEventsDb(':memory:');
     const a = createConversation(db, 'first');

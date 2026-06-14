@@ -206,7 +206,10 @@ Persisted AI chats, so conversations survive a refresh and can be recalled.
 
 `chat_message`: `id` (PK), `conversation_id` (FK → `chat_conversation.id`),
 `role` (`user`/`assistant`), `content`, `tool_calls` (JSON array of the tools the
-assistant used, or null), `created_at`. Indexed by `conversation_id`.
+assistant used, or null), `context` (the screen/filter hint the message was asked
+from, when it came via the floating drawer; null otherwise), `created_at`.
+Indexed by `conversation_id`. The `context` column is added by a migration in
+`openEventsDb` for databases created before it existed.
 
 Each `POST /api/chat` appends the new user message and the assistant reply to the
 conversation (creating one if no `conversationId` is supplied).
