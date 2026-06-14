@@ -206,11 +206,74 @@ button.active {
   font-size: 0.78rem;
 }
 
+.chat-layout {
+  display: flex;
+  gap: 1rem;
+  height: calc(100vh - 120px);
+}
+
+.chat-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid #232932;
+  padding-right: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.chat-new {
+  margin-bottom: 0.5rem;
+}
+
+.chat-conv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #aab3c0;
+}
+
+.chat-conv:hover {
+  background: #1a1f26;
+}
+
+.chat-conv.active {
+  background: #1e2630;
+  color: #e6e8eb;
+}
+
+.chat-conv-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-conv-del {
+  border: none;
+  background: none;
+  color: #6b7480;
+  padding: 0 0.2rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-conv-del:hover {
+  color: #e66a5f;
+}
+
 .chat {
   display: flex;
   flex-direction: column;
+  flex: 1;
   max-width: 820px;
-  height: calc(100vh - 120px);
+  height: 100%;
 }
 
 .chat-log {

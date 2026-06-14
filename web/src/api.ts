@@ -7,6 +7,8 @@ import type {
   DailyHealthResponse,
   EventInput,
   Granularity,
+  ChatConversation,
+  ChatConversationDetail,
   IntensityResponse,
   MetricSeriesResponse,
   PerformanceResponse,
@@ -144,12 +146,26 @@ export interface ChatStatus {
 export interface ChatReply {
   reply: string;
   toolCalls: { name: string; arguments: unknown }[];
+  conversationId: number;
 }
 
 export function fetchChatStatus() {
   return getJson<ChatStatus>('/api/chat/status');
 }
 
-export function sendChat(messages: ChatTurn[]) {
-  return sendJson<ChatReply>('POST', '/api/chat', { messages });
+export function sendChat(messages: ChatTurn[], conversationId?: number) {
+  return sendJson<ChatReply>('POST', '/api/chat', { messages, conversationId });
+}
+
+export function fetchConversations() {
+  return getJson<ChatConversation[]>('/api/chat/conversations');
+}
+
+export function fetchConversation(id: number) {
+  return getJson<ChatConversationDetail>(`/api/chat/conversations/${id}`);
+}
+
+export async function deleteConversation(id: number): Promise<void> {
+  const res = await fetch(`/api/chat/conversations/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete conversation (${res.status})`);
 }

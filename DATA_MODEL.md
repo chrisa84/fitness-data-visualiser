@@ -169,11 +169,11 @@ Notes:
 
 ---
 
-## Writable table (`visualiser-events.db`)
+## Writable tables (`visualiser-events.db`)
 
-The visualiser's only owned state. Created automatically (`openEventsDb`) with
-`CREATE TABLE IF NOT EXISTS`, in WAL mode, separate from the Garmin mirror so
-that database stays read-only.
+The visualiser's own state (life events and saved chats). Created automatically
+(`openEventsDb`) with `CREATE TABLE IF NOT EXISTS`, in WAL mode, separate from
+the Garmin mirror so that database stays read-only.
 
 ### `event`
 
@@ -196,6 +196,20 @@ An event "overlaps" a query window `[from, to]` when it starts on/before `to`
 **and** its end (`COALESCE(end_date, date)`) is on/after `from`. Point events
 render as marklines; ranged events as shaded bands on the Dashboard,
 Performance, and Analysis charts.
+
+### `chat_conversation` and `chat_message`
+
+Persisted AI chats, so conversations survive a refresh and can be recalled.
+
+`chat_conversation`: `id` (PK), `title` (derived from the first user message),
+`created_at`, `updated_at` (bumped on each new message; drives list ordering).
+
+`chat_message`: `id` (PK), `conversation_id` (FK → `chat_conversation.id`),
+`role` (`user`/`assistant`), `content`, `tool_calls` (JSON array of the tools the
+assistant used, or null), `created_at`. Indexed by `conversation_id`.
+
+Each `POST /api/chat` appends the new user message and the assistant reply to the
+conversation (creating one if no `conversationId` is supplied).
 
 ---
 

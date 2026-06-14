@@ -27,6 +27,22 @@ export function openEventsDb(path: string): Database.Database {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_event_date ON event(date);
+
+    CREATE TABLE IF NOT EXISTS chat_conversation (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_message (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL,
+      role            TEXT NOT NULL,
+      content         TEXT NOT NULL,
+      tool_calls      TEXT,
+      created_at      TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_message_conv ON chat_message(conversation_id);
   `);
   return db;
 }

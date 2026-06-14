@@ -197,7 +197,10 @@ to an open range.
 | PATCH  | `/api/events/:id`             | Update an event. (writable DB)                                      |
 | DELETE | `/api/events/:id`             | Delete an event. (writable DB)                                      |
 | GET    | `/api/chat/status`            | Whether the AI layer is enabled, and the configured model.          |
-| POST   | `/api/chat`                   | Natural-language query (tool-use loop). 503 if no API key.          |
+| POST   | `/api/chat`                   | Natural-language query (tool-use loop). Persists the turn; returns `conversationId`. 503 if no API key. |
+| GET    | `/api/chat/conversations`     | List saved conversations, most-recently-updated first.              |
+| GET    | `/api/chat/conversations/:id` | One conversation with its messages.                                 |
+| DELETE | `/api/chat/conversations/:id` | Delete a saved conversation. (writable DB)                          |
 
 The activity-type filter accepts a raw Garmin type (`running`) or a group
 (`group:running`, `group:cycling`, `group:swimming`, `group:walking`).
@@ -244,6 +247,11 @@ run on the read-only connection, with rows capped at 1000. It exists for
 questions the named tools can't express; the preferred path is to add a new named
 tool when a question shape recurs. Without `OPENROUTER_API_KEY` the whole layer
 is disabled and every other feature is unaffected.
+
+Conversations are **persisted** to the writable events DB (`chat_conversation` /
+`chat_message`): each turn saves the user message and assistant reply, and the
+Chat page lists past conversations in a sidebar for recall. The conversation
+list/read/delete endpoints work regardless of whether the AI key is set.
 
 ## Testing
 

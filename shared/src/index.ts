@@ -387,6 +387,31 @@ export type EventInput = Pick<CalendarEvent, 'date' | 'type' | 'label'> &
   Partial<Pick<CalendarEvent, 'endDate' | 'notes'>>;
 
 // ---------------------------------------------------------------------------
+// Chat persistence (visualiser-owned writable state)
+// ---------------------------------------------------------------------------
+
+export interface ChatConversation {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessageRecord {
+  id: number;
+  conversationId: number;
+  role: 'user' | 'assistant';
+  content: string;
+  toolCalls: { name: string; arguments: unknown }[] | null;
+  createdAt: string;
+}
+
+export interface ChatConversationDetail {
+  conversation: ChatConversation;
+  messages: ChatMessageRecord[];
+}
+
+// ---------------------------------------------------------------------------
 // Personal records
 // ---------------------------------------------------------------------------
 
