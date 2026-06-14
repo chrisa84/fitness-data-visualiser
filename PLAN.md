@@ -118,6 +118,41 @@ returns the answer plus which tools were used. Configure with
 other feature is unaffected. Web: a Chat page with suggestions and the
 conversation.
 
+### Phase 7 — Derived efficiency & load modelling
+
+Experimental, derived analytics computed from existing columns — no new
+Garmin-Sync data required. Each metric is built per-activity or per-day and
+trended; everything works on activity *averages*, so it is trend-valid but
+coarser than per-second analysis (cardiac drift, true grade-adjusted pace, and
+long-run durability fade stay parked until sample streams are mirrored). Three
+parts, delivered and committed one at a time:
+
+1. **Efficiency page (new).** Effort-adjusted fitness from running activities.
+   - **Efficiency Factor (EF)** = `avg_speed_mps / avg_hr`, averaged per bucket.
+     Speed per heartbeat; a rising trend at similar effort means improving
+     aerobic fitness.
+   - **Pace at a fixed HR band** = average pace of runs whose `avg_hr` falls in a
+     user-set band (default 145–155), per bucket. Holds effort constant so any
+     pace change is fitness, not effort.
+   - New `/api/efficiency` endpoint (`from`/`to`/`granularity`/`type` + `hrMin`/
+     `hrMax`), repository `getEfficiencySeries`, an `Efficiency` page (type-group
+     filter, HR-band inputs, two charts), and a `get_efficiency` AI tool.
+
+2. **Form / Performance Management Chart (on the Performance page).** Reframe the
+   load data already returned by `/api/performance`: plot `chronic_load`
+   (Fitness) and `acute_load` (Fatigue) with **Form = chronic − acute** as a
+   filled band. Positive form = fresh/tapered; deeply negative = buried. Computed
+   client-side from existing fields — no backend change.
+
+3. **Training monotony & strain (Foster).** From daily training load
+   (`SUM(activity.training_load)` per day, rest days counted as 0):
+   `monotony = mean(daily load) / stddev(daily load)` over each week;
+   `strain = weekly load × monotony`. High monotony/strain is a documented
+   injury/illness predictor and nothing else in the app surfaces it. New
+   `/api/training-load` endpoint + repository (day spine so rest days count),
+   weekly load bars with monotony/strain lines (on the Performance page or a small
+   Load section), and a `get_training_load` AI tool.
+
 ### Parked (requires Garmin-Sync work first)
 
 GPS routes/maps, in-activity sample charts, gear/shoe mileage, body
