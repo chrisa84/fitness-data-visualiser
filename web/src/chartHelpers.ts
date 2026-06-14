@@ -61,3 +61,28 @@ export function bar(
 
 export const secondsToHours = (s: number | null) =>
   s == null ? null : Math.round((s / 3600) * 100) / 100;
+
+/**
+ * Axis min/max that ignore outliers via an IQR fence, so a single stray value
+ * cannot squash the rest of the series into a thin band. Returns `{}` (let
+ * ECharts auto-scale) when there is too little data to judge. Points beyond the
+ * returned range are clipped from view, not removed.
+ */
+export function robustExtent(values: (number | null | undefined)[]): { min?: number; max?: number } {
+  const xs = values
+    .filter((v): v is number => typeof v === 'number')
+    .sort((a, b) => a - b);
+  if (xs.length < 5) return {};
+  const at = (p: number) => xs[Math.min(xs.length - 1, Math.max(0, Math.round(p * (xs.length - 1))))]!;
+  const q1 = at(0.25);
+  const q3 = at(0.75);
+  const iqr = q3 - q1;
+  const lo = q1 - 1.5 * iqr;
+  const hi = q3 + 1.5 * iqr;
+  const inliers = xs.filter((v) => v >= lo && v <= hi);
+  if (inliers.length === 0) return {};
+  const min = inliers[0]!;
+  const max = inliers[inliers.length - 1]!;
+  const pad = (max - min) * 0.05 || Math.abs(max) * 0.05 || 1;
+  return { min: min - pad, max: max + pad };
+}

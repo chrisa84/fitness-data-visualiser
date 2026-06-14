@@ -9,6 +9,11 @@ const BUCKET: Record<Granularity, string> = {
   year: "strftime('%Y', start_time_local)",
 };
 
+// Validity floor: anything slower than 10:00 /km is a walk, hike, or a
+// paused/mis-logged activity, not a steady run — excluded so it can't distort
+// EF or the band pace. Rows we cannot compute a pace for are kept.
+const MAX_PACE_S_PER_KM = 600;
+
 export interface EfficiencyOptions {
   from: string;
   to: string;
@@ -29,6 +34,7 @@ export function getEfficiencySeries(db: Database, opts: EfficiencyOptions): Effi
     to: opts.to,
     hrMin: opts.hrMin,
     hrMax: opts.hrMax,
+    maxPace: MAX_PACE_S_PER_KM,
   };
   const typeClause = typeFilterClause(opts.types, params);
   return db
@@ -43,6 +49,8 @@ export function getEfficiencySeries(db: Database, opts: EfficiencyOptions): Effi
        FROM activity
        WHERE date(start_time_local) BETWEEN @from AND @to
          AND avg_hr IS NOT NULL
+         AND (distance_m IS NULL OR distance_m <= 0 OR duration_s IS NULL
+              OR duration_s / (distance_m / 1000.0) <= @maxPace)
          ${typeClause ? `AND ${typeClause}` : ''}
        GROUP BY ${BUCKET[opts.granularity]}
        ORDER BY date`,

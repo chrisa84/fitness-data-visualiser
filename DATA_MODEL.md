@@ -296,6 +296,11 @@ per-second analysis.
 | ------ | ----- | ----------------------------- |
 | **Efficiency factor (EF)** | `/api/efficiency`, Efficiency page, `get_efficiency` | `avg(avg_speed_mps * 60 / avg_hr)` per bucket — metres per minute per heartbeat. |
 | **Pace at HR band** | same | `avg(duration_s / (distance_m/1000))` over runs whose `avg_hr` ∈ [hrMin, hrMax]. Holds effort ~constant. |
+
+Both efficiency metrics exclude activities slower than 10:00 /km (a validity floor:
+walks, hikes, and paused/mis-logged runs are not steady efforts and would distort
+the trend). The Efficiency page also clamps each chart's y-axis with an IQR fence
+(`robustExtent`) so a remaining outlier cannot squash the series.
 | **Form / PMC** | Performance page (client-side) | `Form = chronic_load − acute_load` (Fitness − Fatigue), from `training_status`. |
 | **Monotony** | `/api/training-load`, Load page, `get_training_load` | `mean(daily load) / stddev(daily load)` per ISO week, daily load = `SUM(activity.training_load)` with rest days = 0 (a date spine bounded to the data's extent supplies the zeros). |
 | **Strain** | same | `weekly load × monotony`. |
