@@ -8,6 +8,7 @@ import ActivityDetail from './pages/ActivityDetail';
 import Analysis from './pages/Analysis';
 import Chat from './pages/Chat';
 import Dashboard from './pages/Dashboard';
+import Efficiency from './pages/Efficiency';
 import Events from './pages/Events';
 import Intensity from './pages/Intensity';
 import Performance from './pages/Performance';
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
       { path: '/performance', element: <Performance /> },
       { path: '/intensity', element: <Intensity /> },
       { path: '/dynamics', element: <RunningDynamics /> },
+      { path: '/efficiency', element: <Efficiency /> },
       { path: '/analysis', element: <Analysis /> },
       { path: '/records', element: <Records /> },
       { path: '/events', element: <Events /> },

@@ -190,6 +190,7 @@ to an open range.
 | GET    | `/api/performance`            | VO2max, load, ACWR, readiness, race predictions, scores, status.    |
 | GET    | `/api/intensity-distribution` | Seconds in each HR zone, summed per bucket.                         |
 | GET    | `/api/running-dynamics`       | Running-form metrics (GCT, balance, oscillation, stride, …) per bucket. |
+| GET    | `/api/efficiency`             | Effort-adjusted efficiency: EF (speed/HR) and pace within an HR band.   |
 | GET    | `/api/metrics`                | Multi-metric series from the catalog (`keys=a,b,c`, max 8).         |
 | GET    | `/api/records`                | Derived personal records.                                           |
 | GET    | `/api/events`                 | Life events overlapping an optional window.                        |
@@ -219,6 +220,8 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Dynamics** — running-form trends (ground contact time, L/R balance, vertical
   oscillation/ratio, stride length, cadence, power), averaged per bucket, by
   type/group.
+- **Efficiency** — effort-adjusted fitness: efficiency factor (speed per
+  heartbeat) and pace within a chosen HR band, trended over time.
 - **Analysis** — overlay (up to 5 normalised metrics), compare (one metric across
   two ranges), correlate (X vs Y scatter with optional lag, Pearson r).
 - **Records** — derived personal records.
@@ -233,8 +236,8 @@ It is **tool-use**, not text-to-SQL-by-default:
 
 1. The model receives the question plus a list of named tools (the repository
    functions: `get_metric_series`, `list_activities`, `get_activity_volume`,
-   `get_performance_series`, `get_running_dynamics`, `get_records`,
-   `list_events`) and one guarded escape hatch, `run_sql`.
+   `get_performance_series`, `get_running_dynamics`, `get_efficiency`,
+   `get_records`, `list_events`) and one guarded escape hatch, `run_sql`.
 2. The model only _requests_ a tool by emitting JSON. The **server** executes the
    tool in-process against the local read-only database and feeds the JSON
    result back. This loop runs up to 8 steps, then the model answers.

@@ -289,6 +289,35 @@ export interface RunningDynamicsResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Efficiency (effort-adjusted fitness)
+// ---------------------------------------------------------------------------
+
+/**
+ * One bucket of effort-adjusted running efficiency.
+ * - `efficiencyFactor`: average of `(avg_speed_mps * 60) / avg_hr` — metres per
+ *   minute per heartbeat. Higher = more aerobically efficient.
+ * - `paceInBandS`: average pace (seconds per km) of runs whose average HR fell
+ *   in the requested band, so effort is held roughly constant.
+ */
+export interface EfficiencyPoint {
+  date: string;
+  efficiencyFactor: number | null;
+  paceInBandS: number | null;
+  runs: number;
+  runsInBand: number;
+}
+
+export interface EfficiencyResponse {
+  from: string;
+  to: string;
+  granularity: Granularity;
+  type: string | null;
+  hrMin: number;
+  hrMax: number;
+  points: EfficiencyPoint[];
+}
+
+// ---------------------------------------------------------------------------
 // Metric catalog (cross-metric analysis)
 // ---------------------------------------------------------------------------
 
