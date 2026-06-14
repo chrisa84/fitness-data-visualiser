@@ -6,10 +6,11 @@ const config = loadConfig();
 const app = buildApp({
   dbPath: config.dbPath,
   eventsDbPath: config.eventsDbPath,
+  webDistPath: config.webDistPath,
   ai: config.ai,
 });
 
-app.listen({ port: config.port, host: '127.0.0.1' }).catch((err) => {
+app.listen({ port: config.port, host: config.host }).catch((err) => {
   app.log.error(err);
   process.exit(1);
 });
