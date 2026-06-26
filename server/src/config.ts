@@ -28,7 +28,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? '127.0.0.1',
     ai: {
       apiKey: env.OPENROUTER_API_KEY,
-      model: env.OPENROUTER_MODEL ?? 'anthropic/claude-3.7-sonnet',
+      model: env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash',
       baseUrl: env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
     },
   };
