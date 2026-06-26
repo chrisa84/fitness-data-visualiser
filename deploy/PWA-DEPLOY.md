@@ -75,6 +75,12 @@ The real file is git-ignored. Mount it into the oauth2-proxy container as a
 - Mount path: `/etc/oauth2-proxy/authenticated-emails.txt`
 - Contents: the one line above.
 
+> **Caveat (why 1e is preferred in practice):** the oauth2-proxy image runs as a
+> non-root user, but Coolify mounts this file root-owned and **rewrites it on
+> every redeploy** — so the proxy gets "permission denied" reading it and
+> crash-loops. To use this approach you'd have to keep the file world-readable
+> across redeploys. The app-level gate (1e) sidesteps this entirely.
+
 ### 1c. Generate a fresh cookie secret
 
 Use a **unique** cookie secret for this instance (so its sessions can't be
@@ -98,8 +104,8 @@ network, host port `<oauth2-port>` → container `4180`.
 | `OAUTH2_PROXY_CLIENT_ID` | _(from Google Cloud Console)_ |
 | `OAUTH2_PROXY_CLIENT_SECRET` | _(from Google Cloud Console)_ |
 | `OAUTH2_PROXY_COOKIE_SECRET` | a fresh 32-byte base64url value from 1c |
-| `OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE` | `/etc/oauth2-proxy/authenticated-emails.txt` |
-| `OAUTH2_PROXY_EMAIL_DOMAINS` | **DO NOT SET — the emails file is the gate** |
+| `OAUTH2_PROXY_EMAIL_DOMAINS` | `gmail.com` _(authenticates your account(s); single-account narrowing is the app gate in 1e)_ |
+| `OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE` | _(optional alternative to the app gate — see the caveat in 1b)_ |
 | `OAUTH2_PROXY_UPSTREAMS` | `http://fitness-visualiser:3001` _(alias + the app's port)_ |
 | `OAUTH2_PROXY_HTTP_ADDRESS` | `0.0.0.0:4180` |
 | `OAUTH2_PROXY_COOKIE_SECURE` | `true` |
@@ -111,20 +117,22 @@ network, host port `<oauth2-port>` → container `4180`.
 | `OAUTH2_PROXY_SET_XAUTHREQUEST` | `true` |
 | `OAUTH2_PROXY_PASS_USER_HEADERS` | `true` _(so the app can read `X-Forwarded-Email` for 1e)_ |
 
-> **Gotcha:** list-type options are **plural** — `AUTHENTICATED_EMAILS_FILE` is
-> singular, but `UPSTREAMS` is plural. Singular `UPSTREAM` is silently ignored by
+> **Gotcha:** `UPSTREAMS` is plural — singular `UPSTREAM` is silently ignored by
 > oauth2-proxy v7.
 
-> **Why drop `EMAIL_DOMAINS`:** when `AUTHENTICATED_EMAILS_FILE` is set, that file
-> is the allowlist. A domain rule alongside it only muddies the single-account
-> gate.
+> **Single-account lock (what we actually run):** `EMAIL_DOMAINS=gmail.com` only
+> restricts to gmail accounts that are *test users* on your Google client — which
+> may be more than one person. The narrowing to a **single** account is enforced
+> by the app-level `ALLOWED_EMAIL` gate (1e). We use that rather than the
+> emails-file because the file approach hits a permissions snag (see 1b).
 
-### 1e. (Optional) defence-in-depth app-level check
+### 1e. Single-account gate — the app-level check (recommended)
 
-Even if the proxy config drifts, the app can refuse anyone who isn't the allowed
-account. oauth2-proxy injects the authenticated email as a header
-(`X-Forwarded-Email`). The app sits behind the proxy on an internal network and is
-never directly reachable, so the header can't be spoofed.
+This is what actually enforces "only you" in practice. The app refuses any request
+whose proxy-injected email doesn't match `ALLOWED_EMAIL`. oauth2-proxy injects the
+authenticated email as a header (`X-Forwarded-Email`); the app sits behind the
+proxy on an internal network and is never directly reachable, so the header can't
+be spoofed. Scope the check to `/api` so the app shell and PWA assets still load.
 
 Add this hook in `server/src/app.ts`, gated by `ALLOWED_EMAIL` so local dev
 (no header) stays open:
