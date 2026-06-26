@@ -21,6 +21,9 @@ coverage/
 *.sqlite
 *.sqlite3
 
+# Deploy secrets — keep the .example, ignore the real single-account allowlist
+deploy/authenticated-emails.txt
+
 # Logs
 *.log
 npm-debug.log*

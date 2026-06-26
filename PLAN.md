@@ -118,6 +118,29 @@ returns the answer plus which tools were used. Configure with
 other feature is unaffected. Web: a Chat page with suggestions and the
 conversation.
 
+### Phase 7 — PWA & authenticated public deploy 🚧
+
+Make the app installable on a phone and reachable over the internet without
+weakening the "no auth in the app" design.
+
+- **PWA shell** — `vite-plugin-pwa` (Workbox) generates the service worker and
+  injects the manifest. App shell is precached; `/api/*` uses `NetworkFirst`
+  (200s only, 10s timeout) so charts stay fresh but survive a dropout. Icons in
+  `web/public/icons/` (heart-rate glyph; regenerate via the Pillow script noted
+  in AGENTS.md). **Caches the shell, not the data** — true offline is out of
+  scope; the app still needs the server to render.
+- **Mobile layout** — collapsible hamburger nav (`Layout.tsx`), single-column
+  chart grid, horizontally scrollable tables, stacked chat with a horizontal
+  conversation strip, larger tap targets. Charts reflow through their existing
+  `ResizeObserver`, so no chart-component changes were needed.
+- **Authenticated deploy** — served through Coolify behind its **own dedicated
+  oauth2-proxy instance** (Google OAuth). Locked
+  to a single account via an `authenticated-emails-file` (not a domain rule),
+  with an isolated session cookie. Optional belt-and-braces `ALLOWED_EMAIL`
+  header check in the server. The SPA handles an expired proxy session by
+  reloading on a `401` (`web/src/api.ts`). Full runbook + exact env-var set:
+  [`deploy/PWA-DEPLOY.md`](deploy/PWA-DEPLOY.md).
+
 ### Parked (requires Garmin-Sync work first)
 
 GPS routes/maps, in-activity sample charts, gear/shoe mileage, body

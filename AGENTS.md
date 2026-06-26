@@ -140,3 +140,27 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   ```
 - **The AI layer is optional.** Without `OPENROUTER_API_KEY`, `/api/chat` returns
   503 and the Chat tab shows a setup hint; everything else must keep working.
+- **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
+  `Accept: application/json` and reloads the page on a `401` so an expired
+  oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's
+  the wrong-account gate, and reloading would loop). Don't call `fetch()` directly
+  for `/api/*` from a page or you'll bypass this.
+
+## Deployment & PWA
+
+The single-container `Dockerfile` (web bundle served by Fastify on one port) is
+the deploy unit. For a phone-installable, internet-reachable setup the full
+runbook is [deploy/PWA-DEPLOY.md](deploy/PWA-DEPLOY.md) — read it before touching
+anything in `deploy/`. Key points an agent will not infer:
+
+- **Auth is at the edge, never in the app.** Loopback has no auth by design (a
+  non-negotiable). A public deploy fronts the app with a dedicated oauth2-proxy
+  locked to one account. The only in-app hook is the **optional** `ALLOWED_EMAIL`
+  gate (an `onRequest` check reading `X-Forwarded-Email`); it's a no-op unless the
+  env var is set, so local dev stays open. Keep it that way.
+- **PWA wiring lives in `web/vite.config.ts`** (`vite-plugin-pwa`): manifest +
+  Workbox service worker, app-shell precache, `NetworkFirst` for `/api` (200s
+  only). The data is never precached — the cache is the shell, not the metrics.
+- **Icons** are in `web/public/icons/` (a heart-rate glyph on the app's dark
+  background). Regenerate with `deploy/make-icons.py` (needs Pillow) if the brand
+  colours change; keep the same filenames the manifest references.

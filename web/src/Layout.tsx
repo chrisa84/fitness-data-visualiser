@@ -2,26 +2,41 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import ChatDrawer from './ChatDrawer';
 
+const NAV_ITEMS = [
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/activities', label: 'Activities' },
+  { to: '/volume', label: 'Volume' },
+  { to: '/performance', label: 'Performance' },
+  { to: '/intensity', label: 'Intensity' },
+  { to: '/dynamics', label: 'Dynamics' },
+  { to: '/analysis', label: 'Analysis' },
+  { to: '/records', label: 'Records' },
+  { to: '/events', label: 'Events' },
+  { to: '/chat', label: 'Chat' },
+];
+
 export default function Layout() {
   const [chatOpen, setChatOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
       <header>
+        <button
+          className="nav-toggle"
+          aria-label="Toggle navigation"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          ☰
+        </button>
         <h1>Fitness Data Visualiser</h1>
-        <nav>
-          <NavLink to="/" end>
-            Dashboard
-          </NavLink>
-          <NavLink to="/activities">Activities</NavLink>
-          <NavLink to="/volume">Volume</NavLink>
-          <NavLink to="/performance">Performance</NavLink>
-          <NavLink to="/intensity">Intensity</NavLink>
-          <NavLink to="/dynamics">Dynamics</NavLink>
-          <NavLink to="/analysis">Analysis</NavLink>
-          <NavLink to="/records">Records</NavLink>
-          <NavLink to="/events">Events</NavLink>
-          <NavLink to="/chat">Chat</NavLink>
+        <nav className={menuOpen ? 'open' : ''}>
+          {NAV_ITEMS.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setMenuOpen(false)}>
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
         <button className="ask-ai" onClick={() => setChatOpen(true)}>
           Ask AI

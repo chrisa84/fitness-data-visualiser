@@ -16,6 +16,11 @@ header {
   padding: 1rem 1.5rem 0;
 }
 
+/* Hamburger toggle — hidden on desktop, shown in the mobile media query. */
+.nav-toggle {
+  display: none;
+}
+
 header h1 {
   font-size: 1.2rem;
   margin: 0;
@@ -518,4 +523,110 @@ button.active {
   width: 9rem;
   font-size: 0.8rem;
   color: #aab3c0;
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile / small-screen layer. Charts already reflow via their ResizeObserver,
+   so this is mostly layout: a collapsible nav, single-column grids, scrollable
+   tables, a stacked chat, and larger touch targets.
+   --------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  header {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+
+  header h1 {
+    font-size: 1.05rem;
+    flex: 1;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0.4rem 0.7rem;
+  }
+
+  /* Nav collapses to a full-width drawer below the top bar, toggled by .open. */
+  nav {
+    order: 3;
+    flex-basis: 100%;
+    flex-direction: column;
+    gap: 0;
+    display: none;
+  }
+
+  nav.open {
+    display: flex;
+  }
+
+  nav a {
+    padding: 0.7rem 0.25rem;
+    border-bottom: 1px solid #232932;
+  }
+
+  nav a.active {
+    border-bottom: 1px solid #5fa8e6;
+  }
+
+  main {
+    padding: 0.85rem 1rem;
+  }
+
+  /* One chart per row. */
+  .chart-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Wide tables scroll within their own box rather than stretching the page. */
+  table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* Chat: conversation list becomes a horizontal scroll strip above the thread. */
+  .chat-layout {
+    flex-direction: column;
+    height: auto;
+    gap: 0.75rem;
+  }
+
+  .chat-sidebar {
+    width: auto;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid #232932;
+    padding-right: 0;
+    padding-bottom: 0.5rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .chat-new,
+  .chat-conv {
+    flex-shrink: 0;
+  }
+
+  .chat-conv {
+    min-width: 9rem;
+  }
+
+  .chat {
+    height: 68vh;
+    min-height: 360px;
+  }
+
+  /* Comfortable tap targets on form controls. */
+  select,
+  input,
+  button {
+    font-size: 0.95rem;
+    padding: 0.45rem 0.6rem;
+  }
 }

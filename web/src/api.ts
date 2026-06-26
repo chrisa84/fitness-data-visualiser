@@ -17,13 +17,41 @@ import type {
   VolumeResponse,
 } from '@fitness/shared';
 
+/**
+ * When the app is deployed behind oauth2-proxy, an expired session makes the
+ * proxy answer API calls with 401 (we send `Accept: application/json` so it
+ * returns a status code rather than an HTML login redirect). A full-page reload
+ * re-enters the proxy's login flow via a top-level navigation, which lands on
+ * Google and back. Running locally (no proxy) this branch never fires.
+ *
+ * A 403 is deliberately NOT handled here: it means authenticated-but-not-
+ * authorised (the optional single-account app gate), and reloading would loop.
+ * That surfaces as an ordinary error instead.
+ */
+let reloadingForAuth = false;
+function handleAuthExpired(): never {
+  if (!reloadingForAuth) {
+    reloadingForAuth = true;
+    window.location.reload();
+  }
+  throw new Error('Session expired — signing in again.');
+}
+
+async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+  const res = await fetch(input, { ...init, headers });
+  if (res.status === 401) handleAuthExpired();
+  return res;
+}
+
 async function getJson<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined && value !== '') search.set(key, String(value));
   }
   const qs = search.toString();
-  const res = await fetch(qs ? `${path}?${qs}` : path);
+  const res = await apiFetch(qs ? `${path}?${qs}` : path);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.message ?? `Request failed with status ${res.status}`);
@@ -110,7 +138,7 @@ export function fetchEvents(params?: { from?: string; to?: string }) {
 }
 
 async function sendJson<T>(method: string, path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await apiFetch(path, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -131,7 +159,7 @@ export function updateEvent(id: number, input: EventInput) {
 }
 
 export async function deleteEvent(id: number): Promise<void> {
-  const res = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`/api/events/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Failed to delete event (${res.status})`);
 }
 
@@ -166,6 +194,6 @@ export function fetchConversation(id: number) {
 }
 
 export async function deleteConversation(id: number): Promise<void> {
-  const res = await fetch(`/api/chat/conversations/${id}`, { method: 'DELETE' });
+  const res = await apiFetch(`/api/chat/conversations/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Failed to delete conversation (${res.status})`);
 }

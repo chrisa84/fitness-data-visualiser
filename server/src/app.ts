@@ -39,6 +39,23 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
     eventsDb.close();
   });
 
+  // Optional single-account gate for an authenticated (oauth2-proxy) deploy. When
+  // ALLOWED_EMAIL is set, every /api request must carry a matching proxy-injected
+  // email header (the app sits behind the proxy on an internal network, so the
+  // header can't be spoofed). Scoped to /api so the app shell and PWA assets still
+  // load. Unset locally — loopback has no auth — so dev is unaffected.
+  const allowedEmail = process.env.ALLOWED_EMAIL?.toLowerCase();
+  if (allowedEmail) {
+    app.addHook('onRequest', async (request, reply) => {
+      if (!request.url.startsWith('/api')) return;
+      const raw = request.headers['x-forwarded-email'] ?? request.headers['x-auth-request-email'];
+      const email = Array.isArray(raw) ? raw[0] : raw;
+      if (typeof email !== 'string' || email.toLowerCase() !== allowedEmail) {
+        return reply.code(403).send({ error: 'forbidden' });
+      }
+    });
+  }
+
   app.get('/api/health', async () => {
     const row = db.prepare('SELECT COUNT(*) AS n FROM daily_summary').get() as { n: number };
     return { status: 'ok', dailySummaryRows: row.n };

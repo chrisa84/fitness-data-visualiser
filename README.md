@@ -111,6 +111,7 @@ only if you need to change them or enable the AI layer.
 | `PORT`                | `3001`                                   | Fastify listen port.                             |
 | `HOST`                | `127.0.0.1`                              | Listen host. Loopback locally; set to `0.0.0.0` in a container. |
 | `WEB_DIST_PATH`       | _(unset)_                                | When set, the server also serves the built web bundle from this directory. Unset in dev (Vite serves the web). |
+| `ALLOWED_EMAIL`       | _(unset)_                                | Optional single-account gate for an authenticated deploy. When set, the server 403s any request whose oauth2-proxy `X-Forwarded-Email` header doesn't match. Leave unset locally (loopback has no auth). See [deploy/PWA-DEPLOY.md](deploy/PWA-DEPLOY.md). |
 | `OPENROUTER_API_KEY`  | _(unset)_                                | Enables the Chat tab. Without it, chat returns 503; everything else works. |
 | `OPENROUTER_MODEL`    | `anthropic/claude-3.7-sonnet`            | Any OpenRouter model slug that supports tool calling. |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1`           | OpenAI-compatible endpoint base URL.             |
@@ -137,6 +138,20 @@ For **Coolify**: point it at this repo, choose the Dockerfile build, map a
 persistent volume to `/data`, expose port `3001`, and set `OPENROUTER_API_KEY`.
 Keep `garmin_sync.db` current by syncing it into that volume with
 [fitness-data-sync](https://github.com/chrisa84/fitness-data-sync).
+
+### Install on a phone (PWA) + authenticated access
+
+The web app is an installable PWA (`vite-plugin-pwa`): the service worker
+precaches the app shell and serves `/api/*` `NetworkFirst`, so it installs to the
+home screen and survives a brief dropout. It still needs the server for data —
+the cache holds the shell, not your metrics.
+
+Because the app itself has no auth (loopback-only by design), a public deploy puts
+authentication at the edge with a **dedicated oauth2-proxy** (Google OAuth) in
+front of it, locked to a single account. The full runbook — Coolify app,
+oauth2-proxy env vars, single-email allowlist, Caddy vhost, the optional
+`ALLOWED_EMAIL` server check, and a Coolify deploy script — lives in
+[deploy/PWA-DEPLOY.md](deploy/PWA-DEPLOY.md).
 
 > The only native dependency is `better-sqlite3`; the build stage includes a
 > compiler toolchain as a fallback in case no prebuilt binary matches your
