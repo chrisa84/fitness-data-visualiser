@@ -24,7 +24,8 @@ export default function Intensity() {
   const type = searchParams.get('type') ?? activityGroupOptionValue('running');
   const from = searchParams.get('from') ?? '';
   const to = searchParams.get('to') ?? '';
-  const mode = searchParams.get('mode') === 'pct' ? 'pct' : 'hours';
+  const rawMode = searchParams.get('mode');
+  const mode = rawMode === 'pct' ? 'pct' : rawMode === 'trends' ? 'trends' : 'hours';
 
   const setParam = (key: string, value: string) => {
     setSearchParams((prev) => {
@@ -59,6 +60,43 @@ export default function Intensity() {
   const option = useMemo<echarts.EChartsOption>(() => {
     const points = data?.points ?? [];
     const dates = points.map((p) => p.date);
+
+    const titles: Record<string, string> = {
+      hours: 'Time in HR zone (hours)',
+      pct: 'Time in HR zone (% of total)',
+      trends: 'Zone % share trend',
+    };
+
+    if (mode === 'trends') {
+      const series: echarts.LineSeriesOption[] = ZONE_LABELS.map((label, zi) => ({
+        type: 'line',
+        name: label,
+        showSymbol: false,
+        connectNulls: false,
+        lineStyle: { width: 2, color: ZONE_COLORS[zi] },
+        itemStyle: { color: ZONE_COLORS[zi] },
+        data: points.map((p) => {
+          const zones = zoneSeconds(p);
+          const total = zones.reduce((sum, z) => sum + z, 0);
+          return total ? Math.round(((zones[zi] ?? 0) / total) * 1000) / 10 : null;
+        }),
+      }));
+      return {
+        backgroundColor: 'transparent',
+        title: { text: titles.trends, textStyle: { color: '#e6e8eb', fontSize: 13 } },
+        tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => (v == null ? '—' : `${v}%`) },
+        legend: { top: 2, right: 4, textStyle: { color: '#8a93a0', fontSize: 11 } },
+        grid: { left: 48, right: 16, top: 36, bottom: 56 },
+        xAxis: { type: 'category', data: dates },
+        yAxis: { type: 'value', min: 0, max: 100, splitLine: { lineStyle: { color: '#2a3038' } } },
+        dataZoom: [
+          { type: 'inside', throttle: 50 },
+          { type: 'slider', height: 18, bottom: 8 },
+        ],
+        series,
+      };
+    }
+
     const series: echarts.BarSeriesOption[] = ZONE_LABELS.map((label, zi) => ({
       type: 'bar',
       name: label,
@@ -76,7 +114,7 @@ export default function Intensity() {
     return {
       backgroundColor: 'transparent',
       title: {
-        text: mode === 'hours' ? 'Time in HR zone (hours)' : 'Time in HR zone (% of total)',
+        text: titles[mode],
         textStyle: { color: '#e6e8eb', fontSize: 13 },
       },
       tooltip: {
@@ -126,9 +164,10 @@ export default function Intensity() {
             </option>
           ))}
         </select>
-        <select value={mode} onChange={(e) => setParam('mode', e.target.value === 'pct' ? 'pct' : '')}>
+        <select value={mode} onChange={(e) => setParam('mode', e.target.value)}>
           <option value="">hours</option>
           <option value="pct">percentage</option>
+          <option value="trends">% trends</option>
         </select>
       </RangeControls>
 

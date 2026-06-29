@@ -221,12 +221,18 @@ Single map, metric selector dropdown. Hover tooltip shows metric value at that
 point. Renders below the time-series chart on the Activity Detail page; hidden
 when no GPS data is present.
 
-### Phase 10 — Cross-activity HR zone views
+### Phase 10 — Cross-activity HR zone views ✅
 
-Blocked on **Garmin-Sync Phase 8** (derived analytics tables). Once
-pre-aggregated zone distributions land in the sync DB, surface them here as
-trend charts: time in Z1–Z5 per week/month, anchored to historically-correct
-`lactate_threshold.threshold_hr` at activity date rather than fixed bands.
+`hr_zone_1_s … hr_zone_5_s` are already stored per activity (Garmin
+pre-computes them on-device). No derived tables needed.
+
+- **Per-activity zones**: shown on the Activity Detail page (Phase 1).
+- **Aggregated zone time**: Intensity page stacked bars (Phase 4) — hours or
+  percentage mode, by week/month/year with activity-type filter.
+- **Zone % share trend** (Phase 10): third mode on the Intensity page — five
+  line series showing each zone's share of total zone time over the selected
+  period. Reveals whether the zone *mix* is shifting (e.g. Z2 rising as aerobic
+  base builds) without the absolute-hours noise.
 
 ### Phase 11 — Intraday health charts 🚧
 
