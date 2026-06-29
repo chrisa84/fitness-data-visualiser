@@ -4,6 +4,7 @@ import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
 import { Link, useParams } from 'react-router-dom';
 import { fetchActivity, fetchActivitySamples } from '../api';
 import Chart from '../Chart';
+import RouteMap from '../RouteMap';
 import { formatDateTime, formatDuration, formatKm, formatNumber, formatPace, formatType } from '../format';
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -90,13 +91,7 @@ function xVal(s: ActivitySample, i: number, hasDist: boolean): number {
   return hasDist && s.distanceM != null ? +(s.distanceM / 1000).toFixed(3) : i;
 }
 
-function SamplesChart({ activityId, type }: { activityId: string; type: string | null }) {
-  const { data: samples = [], isPending } = useQuery({
-    queryKey: ['activity-samples', activityId],
-    queryFn: () => fetchActivitySamples(activityId),
-  });
-
-  if (isPending) return <p className="status">Loading chart…</p>;
+function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: string | null }) {
   if (samples.length === 0) return null;
 
   const isRun = type?.includes('running') ?? false;
@@ -316,6 +311,11 @@ export default function ActivityDetail() {
     queryFn: () => fetchActivity(id!),
     enabled: !!id,
   });
+  const { data: samples = [] } = useQuery({
+    queryKey: ['activity-samples', id],
+    queryFn: () => fetchActivitySamples(id!),
+    enabled: !!id,
+  });
 
   if (isPending) return <p className="status">Loading…</p>;
   if (error) return <p className="status">Failed to load: {(error as Error).message}</p>;
@@ -394,7 +394,8 @@ export default function ActivityDetail() {
         </section>
       )}
 
-      <SamplesChart activityId={id!} type={a.type} />
+      <SamplesChart samples={samples} type={a.type} />
+      <RouteMap samples={samples} />
       <HrZones a={a} />
       <Splits a={a} />
     </>
