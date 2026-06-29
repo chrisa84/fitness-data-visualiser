@@ -176,7 +176,7 @@ parts, delivered and committed one at a time:
    weekly load bars with monotony/strain lines (on the Performance page or a small
    Load section), and a `get_training_load` AI tool.
 
-### Phase 8 — Activity time-series charts 🚧
+### Phase 8 — Activity time-series charts ✅
 
 Per-second sample streams from `activity_sample` (Garmin-Sync Phase 6b), surfaced
 as in-activity charts on the Activity Detail page. Up to 2000 samples per
@@ -201,7 +201,7 @@ page.
 
 New endpoint: `GET /api/activities/:id/samples` → `ActivitySample[]`.
 
-### Phase 9 — GPS route map with metric overlays 🚧
+### Phase 9 — GPS route map with metric overlays ✅
 
 Per-activity map on the Activity Detail page using **Leaflet** + OpenStreetMap
 tiles (MIT licensed, no API key, no billing). Source data: `lat`/`lon` per
@@ -228,10 +228,16 @@ pre-aggregated zone distributions land in the sync DB, surface them here as
 trend charts: time in Z1–Z5 per week/month, anchored to historically-correct
 `lactate_threshold.threshold_hr` at activity date rather than fixed bands.
 
-### Phase 11 — Intraday health charts
+### Phase 11 — Intraday health charts 🚧
 
-Blocked on **Garmin-Sync Phase 7** (intraday sync). Per-minute HR, per-15-min
-stress, per-minute steps surfaced as within-day charts on the Dashboard.
+Garmin-Sync Phase 7 complete. Four new tables live: `intraday_heart_rate`
+(per-minute), `intraday_stress` (per-~4min, NULL = rest), `intraday_steps`
+(per-15min blocks with `activity_level`), `intraday_respiration` (breaths/min).
+All indexed on `date`; query pattern is `WHERE date = ? ORDER BY timestamp_utc`.
+
+New dedicated **Intraday** page (not Dashboard — that's already busy). Single
+date picker. Charts: all-day HR line, stress line (nulls = gaps), steps bar
+chart by 15-min block, respiration line.
 
 ### Parked (requires Garmin-Sync work first)
 
