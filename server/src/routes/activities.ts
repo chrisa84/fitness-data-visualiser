@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ACTIVITY_SORT_KEYS, resolveActivityTypeFilter } from '@fitness/shared';
 import {
   getActivity,
+  getActivitySamples,
   getActivityTypes,
   getActivityVolume,
   listActivities,
@@ -45,6 +46,15 @@ export function registerActivityRoutes(app: FastifyInstance, db: Database): void
       return reply.code(404).send({ error: 'not_found', message: `no activity ${id}` });
     }
     return activity;
+  });
+
+  app.get('/api/activities/:id/samples', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const activity = getActivity(db, id);
+    if (!activity) {
+      return reply.code(404).send({ error: 'not_found', message: `no activity ${id}` });
+    }
+    return getActivitySamples(db, id);
   });
 
   app.get('/api/activity-volume', async (request, reply) => {

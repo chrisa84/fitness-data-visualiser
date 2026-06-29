@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ActivityDetail as Detail } from '@fitness/shared';
+import type * as echarts from 'echarts';
+import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
 import { Link, useParams } from 'react-router-dom';
-import { fetchActivity } from '../api';
+import { fetchActivity, fetchActivitySamples } from '../api';
+import Chart from '../Chart';
 import { formatDateTime, formatDuration, formatKm, formatNumber, formatPace, formatType } from '../format';
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -75,6 +77,235 @@ function Splits({ a }: { a: Detail }) {
         </tbody>
       </table>
     </section>
+  );
+}
+
+function paceLabel(v: number): string {
+  const mins = Math.floor(v);
+  const secs = Math.round((v - mins) * 60);
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function xVal(s: ActivitySample, i: number, hasDist: boolean): number {
+  return hasDist && s.distanceM != null ? +(s.distanceM / 1000).toFixed(3) : i;
+}
+
+function SamplesChart({ activityId, type }: { activityId: string; type: string | null }) {
+  const { data: samples = [], isPending } = useQuery({
+    queryKey: ['activity-samples', activityId],
+    queryFn: () => fetchActivitySamples(activityId),
+  });
+
+  if (isPending) return <p className="status">Loading chart…</p>;
+  if (samples.length === 0) return null;
+
+  const isRun = type?.includes('running') ?? false;
+  const hasDist = samples.some((s) => s.distanceM != null && s.distanceM > 0);
+  const hasHr = samples.some((s) => s.heartRate != null);
+  const hasSpeed = samples.some((s) => s.speedMps != null && s.speedMps >= 0.5);
+  const hasAlt = samples.some((s) => s.altitudeM != null);
+  const hasGct = isRun && samples.some((s) => s.groundContactMs != null);
+  const hasCadence = samples.some((s) => s.cadence != null);
+
+  const speedData = hasSpeed
+    ? samples.map((s, i) => {
+        const x = xVal(s, i, hasDist);
+        if (s.speedMps == null || s.speedMps < 0.5) return [x, null];
+        const v = isRun ? +(1000 / (s.speedMps * 60)).toFixed(3) : +(s.speedMps * 3.6).toFixed(2);
+        return [x, v];
+      })
+    : [];
+  const hrData = hasHr ? samples.map((s, i) => [xVal(s, i, hasDist), s.heartRate]) : [];
+  const altData = hasAlt ? samples.map((s, i) => [xVal(s, i, hasDist), s.altitudeM]) : [];
+
+  const xAxisLabel = (v: number) => (hasDist ? v.toFixed(1) : String(Math.round(v)));
+
+  const mainOption: echarts.EChartsOption = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        const ps = Array.isArray(params) ? params : [params];
+        if (ps.length === 0) return '';
+        const x = hasDist
+          ? `${((ps[0]!.value as number[])[0]!).toFixed(2)} km`
+          : `sample ${(ps[0]!.value as number[])[0]}`;
+        const lines = ps
+          .filter((p) => (p.value as number[])[1] != null)
+          .map((p) => {
+            const v = (p.value as number[])[1]!;
+            let fv: string;
+            const n = p.seriesName ?? '';
+            if (n === 'Pace') fv = `${paceLabel(v)} /km`;
+            else if (n === 'Speed') fv = `${v.toFixed(1)} km/h`;
+            else if (n === 'HR') fv = `${Math.round(v)} bpm`;
+            else fv = `${Math.round(v)} m`;
+            return `<span style="color:${p.color as string}">${n}</span>: ${fv}`;
+          });
+        return `<div style="margin-bottom:4px">${x}</div>${lines.join('<br>')}`;
+      },
+    },
+    legend: { type: 'scroll', top: 4, right: 8, left: 8, textStyle: { color: '#8a93a0', fontSize: 11 } },
+    grid: { left: 56, right: 56, top: 36, bottom: 56 },
+    xAxis: {
+      type: 'value',
+      name: hasDist ? 'km' : '',
+      nameLocation: 'end',
+      axisLabel: { formatter: xAxisLabel },
+      splitLine: { lineStyle: { color: '#2a3038' } },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: isRun ? 'min/km' : 'km/h',
+        inverse: isRun,
+        axisLabel: {
+          formatter: isRun ? paceLabel : (v: number) => v.toFixed(0),
+          color: '#5fa8e6',
+        },
+        splitLine: { lineStyle: { color: '#2a3038' } },
+      },
+      {
+        type: 'value',
+        name: 'bpm',
+        axisLabel: { formatter: (v: number) => String(Math.round(v)), color: '#e66a5f' },
+        splitLine: { show: false },
+      },
+      { type: 'value', show: false },
+    ],
+    dataZoom: [
+      { type: 'inside', throttle: 50 },
+      { type: 'slider', height: 18, bottom: 8 },
+    ],
+    series: [
+      ...(hasSpeed
+        ? [
+            {
+              type: 'line' as const,
+              name: isRun ? 'Pace' : 'Speed',
+              data: speedData,
+              yAxisIndex: 0,
+              showSymbol: false,
+              connectNulls: false,
+              lineStyle: { width: 1.5, color: '#5fa8e6' },
+              itemStyle: { color: '#5fa8e6' },
+            },
+          ]
+        : []),
+      ...(hasHr
+        ? [
+            {
+              type: 'line' as const,
+              name: 'HR',
+              data: hrData,
+              yAxisIndex: 1,
+              showSymbol: false,
+              connectNulls: false,
+              lineStyle: { width: 1.5, color: '#e66a5f' },
+              itemStyle: { color: '#e66a5f' },
+            },
+          ]
+        : []),
+      ...(hasAlt
+        ? [
+            {
+              type: 'line' as const,
+              name: 'Altitude',
+              data: altData,
+              yAxisIndex: 2,
+              showSymbol: false,
+              connectNulls: false,
+              areaStyle: { color: 'rgba(95, 206, 110, 0.12)' },
+              lineStyle: { width: 1, color: 'rgba(95, 206, 110, 0.35)' },
+              itemStyle: { color: '#5fce6e' },
+              z: 1,
+            },
+          ]
+        : []),
+    ],
+  };
+
+  const gctData = hasGct ? samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactMs]) : [];
+  const cadData = hasCadence ? samples.map((s, i) => [xVal(s, i, hasDist), s.cadence]) : [];
+
+  const dynamicsOption: echarts.EChartsOption | null =
+    hasGct || hasCadence
+      ? {
+          backgroundColor: 'transparent',
+          tooltip: { trigger: 'axis' },
+          legend: { type: 'scroll', top: 4, right: 8, left: 8, textStyle: { color: '#8a93a0', fontSize: 11 } },
+          grid: { left: 56, right: 56, top: 36, bottom: 56 },
+          xAxis: {
+            type: 'value',
+            name: hasDist ? 'km' : '',
+            nameLocation: 'end',
+            axisLabel: { formatter: xAxisLabel },
+            splitLine: { lineStyle: { color: '#2a3038' } },
+          },
+          yAxis: [
+            {
+              type: 'value',
+              name: 'ms',
+              axisLabel: { color: '#e6b95f' },
+              splitLine: { lineStyle: { color: '#2a3038' } },
+            },
+            {
+              type: 'value',
+              name: 'spm',
+              axisLabel: { color: '#b87fff' },
+              splitLine: { show: false },
+            },
+          ],
+          dataZoom: [
+            { type: 'inside', throttle: 50 },
+            { type: 'slider', height: 18, bottom: 8 },
+          ],
+          series: [
+            ...(hasGct
+              ? [
+                  {
+                    type: 'line' as const,
+                    name: 'Ground contact',
+                    data: gctData,
+                    yAxisIndex: 0,
+                    showSymbol: false,
+                    connectNulls: false,
+                    lineStyle: { width: 1.5, color: '#e6b95f' },
+                    itemStyle: { color: '#e6b95f' },
+                  },
+                ]
+              : []),
+            ...(hasCadence
+              ? [
+                  {
+                    type: 'line' as const,
+                    name: 'Cadence',
+                    data: cadData,
+                    yAxisIndex: 1,
+                    showSymbol: false,
+                    connectNulls: false,
+                    lineStyle: { width: 1.5, color: '#b87fff' },
+                    itemStyle: { color: '#b87fff' },
+                  },
+                ]
+              : []),
+          ],
+        }
+      : null;
+
+  return (
+    <>
+      <section>
+        <h3>Activity chart</h3>
+        <Chart option={mainOption} height={280} />
+      </section>
+      {dynamicsOption && (
+        <section>
+          <h3>Running form</h3>
+          <Chart option={dynamicsOption} height={220} />
+        </section>
+      )}
+    </>
   );
 }
 
@@ -163,6 +394,7 @@ export default function ActivityDetail() {
         </section>
       )}
 
+      <SamplesChart activityId={id!} type={a.type} />
       <HrZones a={a} />
       <Splits a={a} />
     </>

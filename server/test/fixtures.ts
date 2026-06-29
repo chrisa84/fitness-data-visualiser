@@ -55,6 +55,26 @@ export interface SplitSeed {
   avg_hr?: number | null;
 }
 
+export interface SampleSeed {
+  activity_id: string;
+  sample_index: number;
+  timestamp_utc?: string | null;
+  distance_m?: number | null;
+  heart_rate?: number | null;
+  speed_mps?: number | null;
+  cadence?: number | null;
+  power_w?: number | null;
+  altitude_m?: number | null;
+  lat?: number | null;
+  lon?: number | null;
+  respiration_rate?: number | null;
+  ground_contact_ms?: number | null;
+  ground_contact_balance_left?: number | null;
+  vertical_oscillation_cm?: number | null;
+  vertical_ratio_pct?: number | null;
+  stride_length_cm?: number | null;
+}
+
 /**
  * Creates a throwaway SQLite file with minimal daily_summary and heart_rate
  * tables. Mirrors production: resting HR lives in heart_rate, not
@@ -64,6 +84,7 @@ export function createTestDb(
   rows: DailySummarySeed[],
   activities: ActivitySeed[] = [],
   splits: SplitSeed[] = [],
+  samples: SampleSeed[] = [],
 ): string {
   const dir = mkdtempSync(join(tmpdir(), 'fitness-vis-test-'));
   const path = join(dir, 'test.db');
@@ -169,6 +190,26 @@ export function createTestDb(
       vertical_oscillation_cm REAL,
       PRIMARY KEY (activity_id, split_index)
     );
+    CREATE TABLE activity_sample (
+      activity_id                  TEXT NOT NULL,
+      sample_index                 INTEGER NOT NULL,
+      timestamp_utc                TEXT,
+      distance_m                   REAL,
+      heart_rate                   INTEGER,
+      speed_mps                    REAL,
+      cadence                      INTEGER,
+      power_w                      REAL,
+      altitude_m                   REAL,
+      lat                          REAL,
+      lon                          REAL,
+      respiration_rate             REAL,
+      ground_contact_ms            REAL,
+      ground_contact_balance_left  REAL,
+      vertical_oscillation_cm      REAL,
+      vertical_ratio_pct           REAL,
+      stride_length_cm             REAL,
+      PRIMARY KEY (activity_id, sample_index)
+    );
   `);
   const insertDaily = db.prepare(
     `INSERT INTO daily_summary (date, total_steps, avg_stress_level, body_battery_highest,
@@ -264,6 +305,39 @@ export function createTestDb(
       distance_m: null,
       duration_s: null,
       avg_hr: null,
+      ...s,
+    });
+  }
+  const insertSample = db.prepare(
+    `INSERT INTO activity_sample (
+       activity_id, sample_index, timestamp_utc, distance_m, heart_rate,
+       speed_mps, cadence, power_w, altitude_m, lat, lon, respiration_rate,
+       ground_contact_ms, ground_contact_balance_left, vertical_oscillation_cm,
+       vertical_ratio_pct, stride_length_cm
+     ) VALUES (
+       @activity_id, @sample_index, @timestamp_utc, @distance_m, @heart_rate,
+       @speed_mps, @cadence, @power_w, @altitude_m, @lat, @lon, @respiration_rate,
+       @ground_contact_ms, @ground_contact_balance_left, @vertical_oscillation_cm,
+       @vertical_ratio_pct, @stride_length_cm
+     )`,
+  );
+  for (const s of samples) {
+    insertSample.run({
+      timestamp_utc: null,
+      distance_m: null,
+      heart_rate: null,
+      speed_mps: null,
+      cadence: null,
+      power_w: null,
+      altitude_m: null,
+      lat: null,
+      lon: null,
+      respiration_rate: null,
+      ground_contact_ms: null,
+      ground_contact_balance_left: null,
+      vertical_oscillation_cm: null,
+      vertical_ratio_pct: null,
+      stride_length_cm: null,
       ...s,
     });
   }

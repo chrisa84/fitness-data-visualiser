@@ -153,7 +153,33 @@ parts, delivered and committed one at a time:
    weekly load bars with monotony/strain lines (on the Performance page or a small
    Load section), and a `get_training_load` AI tool.
 
+### Phase 8 — Activity time-series charts 🚧
+
+Per-second sample streams from `activity_sample` (Garmin-Sync Phase 6b), surfaced
+as in-activity charts on the Activity Detail page. Up to 2000 samples per
+activity (~1 Hz; Garmin downsamples longer runs).
+
+**Main chart** (all activity types with samples):
+- X-axis: cumulative distance (km); falls back to sample index if no GPS.
+- Left Y: pace (min/km, axis inverted so faster = higher) for running; speed
+  (km/h) for other types.
+- Right Y: heart rate (bpm).
+- Altitude as a subtle area behind both series (hidden third y-axis for
+  independent scaling).
+
+**Running form chart** (running activities where GCT or cadence samples present):
+- Ground contact time (left Y, ms).
+- Cadence (right Y, spm).
+
+Cross-activity HR zone distribution from samples (anchored to LT HR) is parked
+until Garmin-Sync Phase 8 lands pre-aggregated derived tables — per-activity
+zone breakdown from `hr_zone_1_s … hr_zone_5_s` already exists on the detail
+page.
+
+New endpoint: `GET /api/activities/:id/samples` → `ActivitySample[]`.
+
 ### Parked (requires Garmin-Sync work first)
 
-GPS routes/maps, in-activity sample charts, gear/shoe mileage, body
+GPS routes/maps (needs mapping lib decision), cross-activity HR zone views from
+samples (awaiting Garmin-Sync Phase 8 derived tables), gear/shoe mileage, body
 composition.

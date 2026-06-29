@@ -3,6 +3,7 @@ import type {
   ActivityDetail,
   ActivityListItem,
   ActivityListResponse,
+  ActivitySample,
   ActivitySortKey,
   ActivitySplit,
   ActivityTypeCount,
@@ -176,6 +177,41 @@ export function getActivity(db: Database, activityId: string): ActivityDetail | 
       }),
     ),
   };
+}
+
+export function getActivitySamples(db: Database, activityId: string): ActivitySample[] {
+  const rows = db
+    .prepare(
+      `SELECT sample_index, timestamp_utc, distance_m, heart_rate, speed_mps,
+              cadence, power_w, altitude_m, lat, lon, respiration_rate,
+              ground_contact_ms, ground_contact_balance_left,
+              vertical_oscillation_cm, vertical_ratio_pct, stride_length_cm
+       FROM activity_sample
+       WHERE activity_id = ?
+       ORDER BY sample_index ASC`,
+    )
+    .all(activityId) as Record<string, unknown>[];
+
+  return rows.map(
+    (r): ActivitySample => ({
+      sampleIndex: r.sample_index as number,
+      timestampUtc: r.timestamp_utc as string,
+      distanceM: r.distance_m as number | null,
+      heartRate: r.heart_rate as number | null,
+      speedMps: r.speed_mps as number | null,
+      cadence: r.cadence as number | null,
+      powerW: r.power_w as number | null,
+      altitudeM: r.altitude_m as number | null,
+      lat: r.lat as number | null,
+      lon: r.lon as number | null,
+      respirationRate: r.respiration_rate as number | null,
+      groundContactMs: r.ground_contact_ms as number | null,
+      groundContactBalanceLeft: r.ground_contact_balance_left as number | null,
+      verticalOscillationCm: r.vertical_oscillation_cm as number | null,
+      verticalRatioPct: r.vertical_ratio_pct as number | null,
+      strideLengthCm: r.stride_length_cm as number | null,
+    }),
+  );
 }
 
 const VOLUME_BUCKET: Record<Granularity, string> = {

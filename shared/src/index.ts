@@ -178,6 +178,29 @@ export interface ActivityDetail extends ActivityListItem {
 }
 
 // ---------------------------------------------------------------------------
+// Activity samples (time-series)
+// ---------------------------------------------------------------------------
+
+export interface ActivitySample {
+  sampleIndex: number;
+  timestampUtc: string;
+  distanceM: number | null;
+  heartRate: number | null;
+  speedMps: number | null;
+  cadence: number | null;
+  powerW: number | null;
+  altitudeM: number | null;
+  lat: number | null;
+  lon: number | null;
+  respirationRate: number | null;
+  groundContactMs: number | null;
+  groundContactBalanceLeft: number | null;
+  verticalOscillationCm: number | null;
+  verticalRatioPct: number | null;
+  strideLengthCm: number | null;
+}
+
+// ---------------------------------------------------------------------------
 // Volume
 // ---------------------------------------------------------------------------
 
