@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { openDb } from '../src/db.js';
 import {
   getActivity,
+  getActivitySamples,
   getActivityTypes,
   getActivityVolume,
   listActivities,
@@ -146,6 +147,41 @@ describe('getActivityVolume', () => {
     expect(points).toEqual([
       { date: '2025-01-05', count: 2, distanceM: 31000, durationS: 9300, elevationGainM: 280 },
     ]);
+  });
+});
+
+describe('getActivitySamples', () => {
+  const samples = [
+    { activity_id: '1', sample_index: 0, timestamp_utc: '2025-01-05T08:00:00Z', distance_m: 0, heart_rate: 145, speed_mps: 3.2, cadence: 168, altitude_m: 50 },
+    { activity_id: '1', sample_index: 1, timestamp_utc: '2025-01-05T08:00:01Z', distance_m: 3.2, heart_rate: 148, speed_mps: 3.3, cadence: 170, altitude_m: 51 },
+    { activity_id: '1', sample_index: 2, timestamp_utc: '2025-01-05T08:00:02Z', distance_m: 6.5, heart_rate: 150, speed_mps: 3.1, cadence: 166, altitude_m: 52 },
+  ];
+
+  function dbWithSamples() {
+    return openDb(createTestDb([], activities, splits, samples));
+  }
+
+  it('returns samples ordered by sample_index', () => {
+    const result = getActivitySamples(dbWithSamples(), '1');
+    expect(result.map((s) => s.sampleIndex)).toEqual([0, 1, 2]);
+  });
+
+  it('maps all fields correctly', () => {
+    const [s] = getActivitySamples(dbWithSamples(), '1');
+    expect(s!.heartRate).toBe(145);
+    expect(s!.speedMps).toBe(3.2);
+    expect(s!.cadence).toBe(168);
+    expect(s!.altitudeM).toBe(50);
+    expect(s!.timestampUtc).toBe('2025-01-05T08:00:00Z');
+  });
+
+  it('returns empty array for unknown activity', () => {
+    expect(getActivitySamples(dbWithSamples(), 'nope')).toEqual([]);
+  });
+
+  it('returns empty array for activity with no samples', () => {
+    const emptyDb = openDb(createTestDb([], activities, splits, []));
+    expect(getActivitySamples(emptyDb, '1')).toEqual([]);
   });
 });
 

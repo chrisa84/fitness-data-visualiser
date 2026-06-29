@@ -1,6 +1,7 @@
 import type {
   ActivityDetail,
   ActivityListResponse,
+  ActivitySample,
   ActivitySortKey,
   ActivityTypeCount,
   CalendarEvent,
@@ -84,6 +85,10 @@ export function fetchActivityTypes() {
 
 export function fetchActivity(id: string) {
   return getJson<ActivityDetail>(`/api/activities/${id}`);
+}
+
+export function fetchActivitySamples(id: string) {
+  return getJson<ActivitySample[]>(`/api/activities/${id}/samples`);
 }
 
 export function fetchVolume(params: {
