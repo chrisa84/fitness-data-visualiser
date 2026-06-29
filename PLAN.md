@@ -201,8 +201,38 @@ page.
 
 New endpoint: `GET /api/activities/:id/samples` → `ActivitySample[]`.
 
+### Phase 9 — GPS route map with metric overlays 🚧
+
+Per-activity map on the Activity Detail page using **Leaflet** + OpenStreetMap
+tiles (MIT licensed, no API key, no billing). Source data: `lat`/`lon` per
+sample already returned by `/api/activities/:id/samples`.
+
+Route rendered as consecutive coloured line segments (one per sample pair),
+recoloured by a user-selected metric without reloading the map:
+
+- **Pace** — blue (fast) → red (slow)
+- **HR** — blue → red
+- **L/R balance** — deviation from 50% drives colour (balanced = neutral,
+  imbalanced = red)
+- **Ground contact time** — low (green) → high (red)
+- **Cadence** — low → high
+
+Single map, metric selector dropdown. Hover tooltip shows metric value at that
+point. Renders below the time-series chart on the Activity Detail page; hidden
+when no GPS data is present.
+
+### Phase 10 — Cross-activity HR zone views
+
+Blocked on **Garmin-Sync Phase 8** (derived analytics tables). Once
+pre-aggregated zone distributions land in the sync DB, surface them here as
+trend charts: time in Z1–Z5 per week/month, anchored to historically-correct
+`lactate_threshold.threshold_hr` at activity date rather than fixed bands.
+
+### Phase 11 — Intraday health charts
+
+Blocked on **Garmin-Sync Phase 7** (intraday sync). Per-minute HR, per-15-min
+stress, per-minute steps surfaced as within-day charts on the Dashboard.
+
 ### Parked (requires Garmin-Sync work first)
 
-GPS routes/maps (needs mapping lib decision), cross-activity HR zone views from
-samples (awaiting Garmin-Sync Phase 8 derived tables), gear/shoe mileage, body
-composition.
+Gear/shoe mileage, body composition.
