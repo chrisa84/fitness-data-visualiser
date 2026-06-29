@@ -8,6 +8,7 @@ import { registerActivityRoutes } from './routes/activities.js';
 import { registerAnalysisRoutes, registerEventRoutes } from './routes/analysis.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerDailyHealthRoutes } from './routes/dailyHealth.js';
+import { registerIntradayRoutes } from './routes/intraday.js';
 import { registerPerformanceRoutes } from './routes/performance.js';
 
 export interface AppOptions {
@@ -63,6 +64,7 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
 
   registerDailyHealthRoutes(app, db);
   registerActivityRoutes(app, db);
+  registerIntradayRoutes(app, db);
   registerPerformanceRoutes(app, db);
   registerAnalysisRoutes(app, db);
   registerEventRoutes(app, eventsDb);

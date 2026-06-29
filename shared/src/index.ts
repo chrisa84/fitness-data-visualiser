@@ -493,6 +493,39 @@ export interface ChatConversationDetail {
 }
 
 // ---------------------------------------------------------------------------
+// Intraday health (per-minute / per-15-min within a day)
+// ---------------------------------------------------------------------------
+
+export interface IntradayHrPoint {
+  timestampUtc: string;
+  heartRate: number;
+}
+
+export interface IntradayStressPoint {
+  timestampUtc: string;
+  stressLevel: number | null;
+}
+
+export interface IntradayStepsPoint {
+  timestampUtc: string;
+  steps: number;
+  activityLevel: number | null;
+}
+
+export interface IntradayRespirationPoint {
+  timestampUtc: string;
+  breathsPerMin: number;
+}
+
+export interface IntradayResponse {
+  date: string;
+  heartRate: IntradayHrPoint[];
+  stress: IntradayStressPoint[];
+  steps: IntradayStepsPoint[];
+  respiration: IntradayRespirationPoint[];
+}
+
+// ---------------------------------------------------------------------------
 // Personal records
 // ---------------------------------------------------------------------------
 

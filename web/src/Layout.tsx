@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/analysis', label: 'Analysis' },
   { to: '/records', label: 'Records' },
   { to: '/events', label: 'Events' },
+  { to: '/intraday', label: 'Intraday' },
   { to: '/chat', label: 'Chat' },
 ];
 

@@ -12,6 +12,7 @@ import type {
   ChatConversationDetail,
   EfficiencyResponse,
   IntensityResponse,
+  IntradayResponse,
   MetricSeriesResponse,
   PerformanceResponse,
   PersonalRecord,
@@ -89,6 +90,10 @@ export function fetchActivity(id: string) {
 
 export function fetchActivitySamples(id: string) {
   return getJson<ActivitySample[]>(`/api/activities/${id}/samples`);
+}
+
+export function fetchIntraday(date: string) {
+  return getJson<IntradayResponse>('/api/intraday', { date });
 }
 
 export function fetchVolume(params: {

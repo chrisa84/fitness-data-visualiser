@@ -10,6 +10,7 @@ import Chat from './pages/Chat';
 import Dashboard from './pages/Dashboard';
 import Efficiency from './pages/Efficiency';
 import Events from './pages/Events';
+import Intraday from './pages/Intraday';
 import Intensity from './pages/Intensity';
 import Load from './pages/Load';
 import Performance from './pages/Performance';
@@ -36,6 +37,7 @@ const router = createBrowserRouter([
       { path: '/analysis', element: <Analysis /> },
       { path: '/records', element: <Records /> },
       { path: '/events', element: <Events /> },
+      { path: '/intraday', element: <Intraday /> },
       { path: '/chat', element: <Chat /> },
     ],
   },

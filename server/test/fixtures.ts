@@ -444,3 +444,30 @@ export function createRecordsDb(activities: Record<string, unknown>[]): string {
   db.close();
   return path;
 }
+
+const INTRADAY_SCHEMA = `
+  CREATE TABLE intraday_heart_rate (date TEXT NOT NULL, timestamp_utc TEXT NOT NULL, heart_rate INTEGER NOT NULL, PRIMARY KEY (date, timestamp_utc));
+  CREATE TABLE intraday_stress (date TEXT NOT NULL, timestamp_utc TEXT NOT NULL, stress_level INTEGER, PRIMARY KEY (date, timestamp_utc));
+  CREATE TABLE intraday_steps (date TEXT NOT NULL, timestamp_utc TEXT NOT NULL, steps INTEGER NOT NULL, activity_level INTEGER, PRIMARY KEY (date, timestamp_utc));
+  CREATE TABLE intraday_respiration (date TEXT NOT NULL, timestamp_utc TEXT NOT NULL, breaths_per_min REAL NOT NULL, PRIMARY KEY (date, timestamp_utc));
+`;
+
+export function createIntradayDb(seed: {
+  heartRate?: { date: string; timestamp_utc: string; heart_rate: number }[];
+  stress?: { date: string; timestamp_utc: string; stress_level: number | null }[];
+  steps?: { date: string; timestamp_utc: string; steps: number; activity_level?: number | null }[];
+  respiration?: { date: string; timestamp_utc: string; breaths_per_min: number }[];
+}): string {
+  const dir = mkdtempSync(join(tmpdir(), 'fitness-vis-intraday-'));
+  const path = join(dir, 'intraday.db');
+  const db = new Database(path);
+  db.exec(INTRADAY_SCHEMA);
+  seedTables(db, {
+    intraday_heart_rate: seed.heartRate ?? [],
+    intraday_stress: (seed.stress ?? []).map((r) => ({ ...r, stress_level: r.stress_level ?? null })),
+    intraday_steps: (seed.steps ?? []).map((r) => ({ activity_level: null, ...r })),
+    intraday_respiration: seed.respiration ?? [],
+  });
+  db.close();
+  return path;
+}
