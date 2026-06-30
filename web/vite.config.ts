@@ -29,6 +29,8 @@ export default defineConfig({
         // Precache the app shell (hashed JS/CSS/HTML). Data is NOT precached —
         // it's fetched live and cached at runtime below.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // MapLibre + ECharts push individual chunks above the 2MB default.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // API responses: always try the network first so charts are fresh, but
         // fall back to the last successful response when offline. The login
         // redirect from oauth2-proxy is never a 200, so it won't get cached.
@@ -47,6 +49,16 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-maplibre': ['maplibre-gl'],
+          'vendor-echarts': ['echarts'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
