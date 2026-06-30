@@ -234,7 +234,7 @@ pre-computes them on-device). No derived tables needed.
   period. Reveals whether the zone *mix* is shifting (e.g. Z2 rising as aerobic
   base builds) without the absolute-hours noise.
 
-### Phase 11 — Intraday health charts 🚧
+### Phase 11 — Intraday health charts ✅
 
 Garmin-Sync Phase 7 complete. Four new tables live: `intraday_heart_rate`
 (per-minute), `intraday_stress` (per-~4min, NULL = rest), `intraday_steps`
@@ -242,8 +242,38 @@ Garmin-Sync Phase 7 complete. Four new tables live: `intraday_heart_rate`
 All indexed on `date`; query pattern is `WHERE date = ? ORDER BY timestamp_utc`.
 
 New dedicated **Intraday** page (not Dashboard — that's already busy). Single
-date picker. Charts: all-day HR line, stress line (nulls = gaps), steps bar
-chart by 15-min block, respiration line.
+date picker (URL-synced). Charts: all-day HR line, stress line (nulls = gaps),
+steps bar chart by 15-min block, respiration line. Each chart hidden when that
+series has no data for the selected date. New endpoint `GET /api/intraday?date=`.
+
+### Phase 12 — Route planner 🚧
+
+Standalone `/planner` page. Draw a running route on a map, get distance and
+estimated finish time based on your actual average pace from recent runs.
+
+**Built (Phase 12a):**
+- Leaflet map, click to place waypoints, drag to adjust
+- **Snap to paths** toggle — OSRM public demo (`router.project-osrm.org`),
+  foot profile, no API key. Falls back to straight line on routing failure.
+- Pace auto-derived from last 50 running activities; editable in `m:ss`
+- Live distance + estimated time display
+- Undo last waypoint, clear all
+- No backend footprint — all client-side except the OSRM call
+
+**Planned (Phase 12b):**
+- **Location search** — Nominatim geocoder (OSM, free, no key), debounced
+  input, dropdown results, map flies to selection
+- **Find my location** button — re-centre on GPS position on demand
+- **Redo** — undo stack complement; restore last removed waypoint
+- **Reverse route** — flip waypoint order, rebuild all segments
+- **Elevation profile** — batch route coords against
+  opentopodata.org (free, no key, SRTM data); ECharts area chart below map
+- **Total elevation gain/loss** — computed from elevation profile, shown in
+  summary bar alongside distance and estimated time
+- **km markers** — interpolate along snapped polyline, drop distance labels at
+  each km boundary
+- **Export GPX** — serialize route geometry to GPX XML, trigger browser
+  download; no API needed
 
 ### Parked (requires Garmin-Sync work first)
 
