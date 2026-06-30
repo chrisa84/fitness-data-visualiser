@@ -3,6 +3,7 @@ import type * as echarts from 'echarts';
 import type { DailyHealthPoint, Granularity } from '@fitness/shared';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useChartRange } from '../useChartRange';
 import { fetchDailyHealth } from '../api';
 import Chart from '../Chart';
 import RangeControls from '../RangeControls';
@@ -11,19 +12,8 @@ import { buildEventSeries, useEvents } from '../events';
 import { appendEvents } from '../chartEvents';
 
 export default function Dashboard() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const granularity = (searchParams.get('granularity') as Granularity) ?? 'day';
-  const from = searchParams.get('from') ?? '';
-  const to = searchParams.get('to') ?? '';
-
-  const setParam = (key: string, value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      return next;
-    });
-  };
+  const [searchParams] = useSearchParams();
+  const { from, to, granularity, setParam } = useChartRange('day');
 
   const events = useEvents();
   const { data, isPending, error } = useQuery({

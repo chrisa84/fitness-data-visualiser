@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Granularity } from '@fitness/shared';
 import { useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useChartRange } from '../useChartRange';
 import { activityGroupOptionValue } from '@fitness/shared';
 import { fetchActivityTypes, fetchVolume } from '../api';
 import BarChart from '../BarChart';
@@ -18,21 +18,9 @@ const METRICS: { key: Metric; label: string; unit: string }[] = [
 ];
 
 export default function Volume() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const granularity = (searchParams.get('granularity') as Granularity) ?? 'week';
+  const { from, to, granularity, setParam, setSearchParams, searchParams } = useChartRange('week');
   const type = searchParams.get('type') ?? activityGroupOptionValue('running');
   const metric = (searchParams.get('metric') as Metric) ?? 'distance';
-  const from = searchParams.get('from') ?? '';
-  const to = searchParams.get('to') ?? '';
-
-  const setParam = (key: string, value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      return next;
-    });
-  };
 
   // The type filter has a non-empty default, so "all types" must be stored as an
   // explicit empty param — deleting it would fall back to the default instead.

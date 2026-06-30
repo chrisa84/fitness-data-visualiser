@@ -4,6 +4,7 @@ import type { Granularity } from '@fitness/shared';
 import { activityGroupOptionValue } from '@fitness/shared';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useChartRange } from '../useChartRange';
 import { fetchActivityTypes, fetchEfficiency } from '../api';
 import Chart from '../Chart';
 import RangeControls from '../RangeControls';
@@ -15,21 +16,10 @@ const GRANULARITIES: Granularity[] = ['week', 'month', 'year'];
 
 export default function Efficiency() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const granularity = (searchParams.get('granularity') as Granularity) ?? 'week';
+  const { from, to, granularity, setParam } = useChartRange('week');
   const type = searchParams.get('type') ?? activityGroupOptionValue('running');
-  const from = searchParams.get('from') ?? '';
-  const to = searchParams.get('to') ?? '';
   const hrMin = Number(searchParams.get('hrMin') ?? 145);
   const hrMax = Number(searchParams.get('hrMax') ?? 155);
-
-  const setParam = (key: string, value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      return next;
-    });
-  };
   const setType = (value: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);

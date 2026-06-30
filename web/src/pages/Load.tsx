@@ -1,25 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { fetchTrainingLoad } from '../api';
 import Chart from '../Chart';
 import RangeControls from '../RangeControls';
 import { bar, baseOption, line } from '../chartHelpers';
+import { useChartRange } from '../useChartRange';
 
 export default function Load() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const from = searchParams.get('from') ?? '';
-  const to = searchParams.get('to') ?? '';
-
-  const setParam = (key: string, value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      return next;
-    });
-  };
+  const { from, to, setParam } = useChartRange();
 
   const { data, isPending, error } = useQuery({
     queryKey: ['training-load', { from, to }],

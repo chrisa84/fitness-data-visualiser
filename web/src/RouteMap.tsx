@@ -69,10 +69,18 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (idx - lo);
 }
 
+function downsample<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr;
+  const step = (arr.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => arr[Math.round(i * step)]!);
+}
+
 function buildGeoJSON(
   gpsPoints: ActivitySample[],
   metric: MetricKey,
 ): GeoJSON.FeatureCollection {
+  // Cap at 1500 points — looks identical on screen, 20× fewer WebGL features for long activities.
+  gpsPoints = downsample(gpsPoints, 1500);
   const values = gpsPoints
     .map(s => metricValue(s, metric))
     .filter((v): v is number => v != null);
