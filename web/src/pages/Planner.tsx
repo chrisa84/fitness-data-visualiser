@@ -74,14 +74,10 @@ async function nominatimSearch(q: string): Promise<SearchResult[]> {
 }
 
 async function fetchElevations(coords: LngLat[]): Promise<number[] | 'error'> {
-  // opentopodata expects lat,lng order; use POST to avoid URL length issues
-  const locations = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
+  // opentopodata expects lat,lng order; GET is a simple CORS request (no preflight)
+  const locs = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
   try {
-    const res = await fetch(TOPO_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locations }),
-    });
+    const res = await fetch(`${TOPO_API}?locations=${locs}`);
     if (!res.ok) return 'error';
     const json = await res.json();
     if (json.status !== 'OK') return 'error';
@@ -483,7 +479,7 @@ export default function Planner() {
           pts.push({ lnglat: seg.coords[i]!, cumM: cum });
         }
       }
-      const sampled = sampleEvenly(pts, 100);
+      const sampled = sampleEvenly(pts, 60);
       setFetchingElev(true);
       setElevError(false);
       const elevs = await fetchElevations(sampled.map(p => p.lnglat));
