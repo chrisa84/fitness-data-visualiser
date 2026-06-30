@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
@@ -91,11 +92,36 @@ function xVal(s: ActivitySample, i: number, hasDist: boolean): number {
   return hasDist && s.distanceM != null ? +(s.distanceM / 1000).toFixed(3) : i;
 }
 
-function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: string | null }) {
+function findNearestSampleIdx(samples: ActivitySample[], xTarget: number, hasDist: boolean): number {
+  if (samples.length === 0) return 0;
+  let lo = 0, hi = samples.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    const xMid = hasDist && samples[mid]!.distanceM != null ? samples[mid]!.distanceM! / 1000 : mid;
+    if (xMid < xTarget) lo = mid + 1; else hi = mid;
+  }
+  if (lo > 0) {
+    const xLo   = hasDist && samples[lo]!.distanceM   != null ? samples[lo]!.distanceM!   / 1000 : lo;
+    const xPrev = hasDist && samples[lo-1]!.distanceM != null ? samples[lo-1]!.distanceM! / 1000 : lo - 1;
+    if (Math.abs(xPrev - xTarget) < Math.abs(xLo - xTarget)) return lo - 1;
+  }
+  return lo;
+}
+
+function SamplesChart({ samples, type, onHighlight }: {
+  samples: ActivitySample[];
+  type: string | null;
+  onHighlight?: (idx: number | null) => void;
+}) {
+  const samplesRef = useRef(samples);
+  samplesRef.current = samples;
+  const hasDistRef = useRef(false);
+
   if (samples.length === 0) return null;
 
   const isRun = type?.includes('running') ?? false;
   const hasDist = samples.some((s) => s.distanceM != null && s.distanceM > 0);
+  hasDistRef.current = hasDist;
   const hasHr = samples.some((s) => s.heartRate != null);
   const hasSpeed = samples.some((s) => s.speedMps != null && s.speedMps >= 0.5);
   const hasAlt = samples.some((s) => s.altitudeM != null);
@@ -307,11 +333,22 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
         }
       : null;
 
+  const handleChartReady = (chart: echarts.ECharts) => {
+    if (!onHighlight) return;
+    chart.getZr().on('mousemove', (e: { offsetX: number; offsetY: number }) => {
+      const pt = chart.convertFromPixel({ seriesIndex: 0 }, [e.offsetX, e.offsetY]) as [number, number] | null;
+      if (pt == null) return;
+      const idx = findNearestSampleIdx(samplesRef.current, pt[0], hasDistRef.current);
+      onHighlight(idx);
+    });
+    chart.getZr().on('mouseout', () => onHighlight(null));
+  };
+
   return (
     <>
       <section>
         <h3>Activity chart</h3>
-        <Chart option={mainOption} height={280} />
+        <Chart option={mainOption} height={280} onReady={handleChartReady} />
       </section>
       {dynamicsOption && (
         <section>
@@ -335,6 +372,8 @@ export default function ActivityDetail() {
     queryFn: () => fetchActivitySamples(id!),
     enabled: !!id,
   });
+
+  const [highlightedIdx, setHighlightedIdx] = useState<number | null>(null);
 
   if (isPending) return <p className="status">Loading…</p>;
   if (error) return <p className="status">Failed to load: {(error as Error).message}</p>;
@@ -413,8 +452,8 @@ export default function ActivityDetail() {
         </section>
       )}
 
-      <SamplesChart samples={samples} type={a.type} />
-      <RouteMap samples={samples} />
+      <SamplesChart samples={samples} type={a.type} onHighlight={setHighlightedIdx} />
+      <RouteMap samples={samples} highlightedSampleIdx={highlightedIdx} />
       <HrZones a={a} />
       <Splits a={a} />
     </>

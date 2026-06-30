@@ -39,7 +39,7 @@ const GREEN: [number, number, number] = [95, 206, 110];
 
 function segmentColour(v: number, min: number, max: number, key: MetricKey): string {
   if (max === min) return lerpColour(BLUE, RED, 0.5);
-  const t = (v - min) / (max - min);
+  const t = Math.max(0, Math.min(1, (v - min) / (max - min)));
   // Higher cadence = better (green); higher elevation = blue (neutral info, not good/bad)
   if (key === 'cadence')   return lerpColour(RED, GREEN, t);
   if (key === 'elevation') return lerpColour(BLUE, RED, t);
@@ -61,6 +61,14 @@ function formatTooltip(v: number, key: MetricKey): string {
   }
 }
 
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (idx - lo);
+}
+
 function buildGeoJSON(
   gpsPoints: ActivitySample[],
   metric: MetricKey,
@@ -68,8 +76,10 @@ function buildGeoJSON(
   const values = gpsPoints
     .map(s => metricValue(s, metric))
     .filter((v): v is number => v != null);
-  const min = values.length ? Math.min(...values) : 0;
-  const max = values.length ? Math.max(...values) : 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  // 5th–95th percentile so a handful of outliers don't compress everything else.
+  const min = percentile(sorted, 5);
+  const max = percentile(sorted, 95);
 
   const features: GeoJSON.Feature[] = [];
   for (let i = 0; i < gpsPoints.length - 1; i++) {
@@ -123,12 +133,14 @@ function addRouteLayers(map: maplibregl.Map) {
 
 interface Props {
   samples: ActivitySample[];
+  highlightedSampleIdx?: number | null;
 }
 
-export default function RouteMap({ samples }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef       = useRef<maplibregl.Map>();
-  const popupRef     = useRef<maplibregl.Popup>();
+export default function RouteMap({ samples, highlightedSampleIdx }: Props) {
+  const containerRef      = useRef<HTMLDivElement>(null);
+  const mapRef            = useRef<maplibregl.Map>();
+  const popupRef          = useRef<maplibregl.Popup>();
+  const highlightMarkerRef = useRef<maplibregl.Marker>();
   const [metric, setMetric]       = useState<MetricKey>('pace');
   const [tileStyle, setTileStyle] = useState<TileStyle>(DEFAULT_TILE_STYLE);
 
@@ -185,6 +197,8 @@ export default function RouteMap({ samples }: Props) {
     });
 
     return () => {
+      highlightMarkerRef.current?.remove();
+      highlightMarkerRef.current = undefined;
       map.remove();
       mapRef.current = undefined;
     };
@@ -199,6 +213,39 @@ export default function RouteMap({ samples }: Props) {
     if (!source) return;
     source.setData(buildGeoJSON(gpsPoints, metric));
   }, [metric, gpsPoints.length]);
+
+  // Move highlight dot when chart cursor changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (highlightedSampleIdx == null) {
+      highlightMarkerRef.current?.remove();
+      return;
+    }
+    // Find the sample at that index (or nearest one with GPS).
+    let target = samples[highlightedSampleIdx];
+    if (!target?.lat || !target?.lon) {
+      for (let d = 1; d < 30; d++) {
+        const lo = samples[highlightedSampleIdx - d];
+        const hi = samples[highlightedSampleIdx + d];
+        if (lo?.lat && lo?.lon) { target = lo; break; }
+        if (hi?.lat && hi?.lon) { target = hi; break; }
+      }
+    }
+    if (!target?.lat || !target?.lon) return;
+
+    if (!highlightMarkerRef.current) {
+      const el = document.createElement('div');
+      el.style.cssText = [
+        'width:14px', 'height:14px', 'border-radius:50%',
+        'background:#fff', 'border:2.5px solid #5fa8e6',
+        'box-shadow:0 0 8px rgba(95,168,230,0.85)',
+        'pointer-events:none',
+      ].join(';');
+      highlightMarkerRef.current = new maplibregl.Marker({ element: el, anchor: 'center' });
+    }
+    highlightMarkerRef.current.setLngLat([target.lon, target.lat]).addTo(map);
+  }, [highlightedSampleIdx, samples]);
 
   if (gpsPoints.length === 0) return null;
 

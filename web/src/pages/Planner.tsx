@@ -28,6 +28,22 @@ const OSRM      = 'https://router.project-osrm.org/route/v1/foot';
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
 const TOPO_API  = 'https://api.opentopodata.org/v1/srtm90m';
 
+const LS_MAP_VIEW = 'planner-map-view';
+const LS_PACE     = 'planner-pace-sec';
+
+function getStoredMapView(): { center: [number, number]; zoom: number } | null {
+  try { return JSON.parse(localStorage.getItem(LS_MAP_VIEW) ?? 'null'); } catch { return null; }
+}
+function saveMapView(center: [number, number], zoom: number) {
+  try { localStorage.setItem(LS_MAP_VIEW, JSON.stringify({ center, zoom })); } catch {}
+}
+function getStoredPace(): number | null {
+  try { const v = localStorage.getItem(LS_PACE); return v ? Number(v) : null; } catch { return null; }
+}
+function savePace(sec: number) {
+  try { localStorage.setItem(LS_PACE, String(sec)); } catch {}
+}
+
 async function osrmRoute(a: LngLat, b: LngLat): Promise<{ coords: LngLat[]; distanceM: number } | null> {
   try {
     const res = await fetch(`${OSRM}/${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`);
@@ -57,15 +73,20 @@ async function nominatimSearch(q: string): Promise<SearchResult[]> {
   } catch { return []; }
 }
 
-async function fetchElevations(coords: LngLat[]): Promise<number[]> {
-  // opentopodata expects lat,lng order
-  const locs = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
+async function fetchElevations(coords: LngLat[]): Promise<number[] | 'error'> {
+  // opentopodata expects lat,lng order; use POST to avoid URL length issues
+  const locations = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
   try {
-    const res = await fetch(`${TOPO_API}?locations=${locs}`);
+    const res = await fetch(TOPO_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locations }),
+    });
+    if (!res.ok) return 'error';
     const json = await res.json();
-    if (json.status !== 'OK') return [];
+    if (json.status !== 'OK') return 'error';
     return (json.results as { elevation: number }[]).map(r => r.elevation ?? 0);
-  } catch { return []; }
+  } catch { return 'error'; }
 }
 
 // ---------------------------------------------------------------------------
@@ -145,19 +166,23 @@ export default function Planner() {
   const [totalM,        setTotalM]        = useState(0);
   const [snap,          setSnap]          = useState(true);
   const [routing,       setRouting]       = useState(false);
-  const [paceSec,       setPaceSec]       = useState(360);
+  const [paceSec,       setPaceSec]       = useState(() => getStoredPace() ?? 360);
   const [segVersion,    setSegVersion]    = useState(0);
   const [elevation,     setElevation]     = useState<ElevPoint[]>([]);
   const [elevGain,      setElevGain]      = useState(0);
   const [elevLoss,      setElevLoss]      = useState(0);
   const [fetchingElev,  setFetchingElev]  = useState(false);
+  const [elevError,     setElevError]     = useState(false);
   const [searchQuery,   setSearchQuery]   = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [saveName,      setSaveName]      = useState('');
   const [saveOpen,      setSaveOpen]      = useState(false);
   const [tileStyle,     setTileStyle]     = useState<TileStyle>(DEFAULT_TILE_STYLE);
-  const [paceInput,     setPaceInput]     = useState('6:00');
+  const [paceInput,     setPaceInput]     = useState(() => {
+    const sec = getStoredPace() ?? 360;
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  });
 
   useEffect(() => { snapRef.current = snap; }, [snap]);
 
@@ -445,7 +470,7 @@ export default function Planner() {
   useEffect(() => {
     clearTimeout(elevTimerRef.current);
     if (!segmentsRef.current.length) {
-      setElevation([]); setElevGain(0); setElevLoss(0);
+      setElevation([]); setElevGain(0); setElevLoss(0); setElevError(false);
       return;
     }
     elevTimerRef.current = setTimeout(async () => {
@@ -460,8 +485,10 @@ export default function Planner() {
       }
       const sampled = sampleEvenly(pts, 100);
       setFetchingElev(true);
+      setElevError(false);
       const elevs = await fetchElevations(sampled.map(p => p.lnglat));
       setFetchingElev(false);
+      if (elevs === 'error') { setElevError(true); return; }
       if (!elevs.length) return;
       const elevPts: ElevPoint[] = sampled.map((p, i) => ({ distM: p.cumM, elevM: elevs[i] ?? 0 }));
       setElevation(elevPts);
@@ -550,13 +577,19 @@ ${trkpts}
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    const stored = getStoredMapView();
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: TILE_STYLE_URLS[DEFAULT_TILE_STYLE],
-      center: [-0.09, 51.505],
-      zoom: 13,
+      center: stored?.center ?? [-0.09, 51.505],
+      zoom:   stored?.zoom   ?? 13,
     });
     mapRef.current = map;
+
+    map.on('moveend', () => {
+      const c = map.getCenter();
+      saveMapView([c.lng, c.lat], map.getZoom());
+    });
 
     map.on('style.load', () => {
       if (!map.getSource('planner-route')) {
@@ -578,10 +611,13 @@ ${trkpts}
       updateRouteSourceRef.current();
     });
 
-    navigator.geolocation?.getCurrentPosition(
-      pos => map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 14 }),
-      () => {},
-    );
+    // Only geolocate on first visit (no stored position).
+    if (!stored) {
+      navigator.geolocation?.getCurrentPosition(
+        pos => map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 14 }),
+        () => {},
+      );
+    }
 
     map.on('click', async e => {
       await addWaypointRef.current([e.lngLat.lng, e.lngLat.lat]);
@@ -644,6 +680,7 @@ ${trkpts}
       if (!isNaN(mins) && !isNaN(secs) && secs < 60) {
         const sec = mins * 60 + secs;
         setPaceSec(sec);
+        savePace(sec);
         setPaceInput(`${mins}:${String(secs).padStart(2, '0')}`);
         return;
       }
@@ -753,6 +790,7 @@ ${trkpts}
         {/* Status */}
         {routing      && <span style={{ color: '#8a93a0', fontSize: '0.8rem', marginLeft: 4 }}>Routing…</span>}
         {fetchingElev && <span style={{ color: '#8a93a0', fontSize: '0.8rem', marginLeft: 4 }}>Elevation…</span>}
+        {elevError    && <span style={{ color: '#e66a5f', fontSize: '0.8rem', marginLeft: 4 }}>Elevation unavailable</span>}
       </div>
 
       {/* Stats bar */}
