@@ -141,7 +141,7 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
       },
     },
     legend: { type: 'scroll', top: 4, right: 8, left: 8, textStyle: { color: '#8a93a0', fontSize: 11 } },
-    grid: { left: 56, right: 56, top: 36, bottom: 56 },
+    grid: { containLabel: true, left: 8, right: 8, top: 44, bottom: 44 },
     xAxis: {
       type: 'value',
       name: hasDist ? 'km' : '',
@@ -152,7 +152,6 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
     yAxis: [
       {
         type: 'value',
-        name: isRun ? 'min/km' : 'km/h',
         inverse: isRun,
         axisLabel: {
           formatter: isRun ? paceLabel : (v: number) => v.toFixed(0),
@@ -162,11 +161,10 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
       },
       {
         type: 'value',
-        name: 'bpm',
         axisLabel: { formatter: (v: number) => String(Math.round(v)), color: '#e66a5f' },
         splitLine: { show: false },
       },
-      { type: 'value', show: false },
+      ...(hasAlt ? [{ type: 'value' as const, show: false }] : []),
     ],
     dataZoom: [
       { type: 'inside', throttle: 50 },
@@ -231,7 +229,7 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
           backgroundColor: 'transparent',
           tooltip: { trigger: 'axis' },
           legend: { type: 'scroll', top: 4, right: 8, left: 8, textStyle: { color: '#8a93a0', fontSize: 11 } },
-          grid: { left: 56, right: 64, top: 36, bottom: 56 },
+          grid: { containLabel: true, left: 8, right: 8, top: 44, bottom: 44 },
           xAxis: {
             type: 'value',
             name: hasDist ? 'km' : '',
@@ -240,26 +238,23 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
             splitLine: { lineStyle: { color: '#2a3038' } },
           },
           yAxis: [
-            {
-              type: 'value',
-              name: 'ms',
-              axisLabel: { color: '#e6b95f' },
+            ...(hasGct ? [{
+              type: 'value' as const,
+              axisLabel: { color: '#e6b95f', formatter: (v: number) => `${Math.round(v)}` },
               splitLine: { lineStyle: { color: '#2a3038' } },
-            },
-            {
-              type: 'value',
-              name: 'spm',
+            }] : [{ type: 'value' as const, show: false }]),
+            ...(hasCadence ? [{
+              type: 'value' as const,
               axisLabel: { color: '#b87fff' },
               splitLine: { show: false },
-            },
-            {
-              type: 'value',
-              name: '% L',
+            }] : [{ type: 'value' as const, show: false }]),
+            ...(hasBalance ? [{
+              type: 'value' as const,
               min: 45,
               max: 55,
               axisLabel: { color: '#5fce6e', formatter: (v: number) => `${v}%` },
               splitLine: { show: false },
-            },
+            }] : []),
           ],
           dataZoom: [
             { type: 'inside', throttle: 50 },

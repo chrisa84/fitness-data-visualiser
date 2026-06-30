@@ -123,17 +123,12 @@ export default function RouteMap({ samples }: Props) {
       const a = gpsPoints[i]!;
       const b = gpsPoints[i + 1]!;
       const v = metricValue(a, metric);
-      const colour = v != null ? segmentColour(v, min, max, metric) : '#444';
-      const seg = L.polyline(
-        [
-          [a.lat!, a.lon!],
-          [b.lat!, b.lon!],
-        ],
-        { color: colour, weight: 4, opacity: 0.85 },
-      );
-      if (v != null) {
-        seg.bindTooltip(formatTooltip(v, metric), { sticky: true });
-      }
+      const colour = v != null ? segmentColour(v, min, max, metric) : '#888';
+      const coords: L.LatLngTuple[] = [[a.lat!, a.lon!], [b.lat!, b.lon!]];
+      // White halo behind the coloured line so it's visible against any tile background
+      L.polyline(coords, { color: '#ffffff', weight: 9, opacity: 0.45, interactive: false }).addTo(group);
+      const seg = L.polyline(coords, { color: colour, weight: 5, opacity: 0.9 });
+      if (v != null) seg.bindTooltip(formatTooltip(v, metric), { sticky: true });
       seg.addTo(group);
     }
   }, [metric, gpsPoints.length]);
