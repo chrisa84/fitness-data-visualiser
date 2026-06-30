@@ -132,7 +132,8 @@ This is what actually enforces "only you" in practice. The app refuses any reque
 whose proxy-injected email doesn't match `ALLOWED_EMAIL`. oauth2-proxy injects the
 authenticated email as a header (`X-Forwarded-Email`); the app sits behind the
 proxy on an internal network and is never directly reachable, so the header can't
-be spoofed. Scope the check to `/api` so the app shell and PWA assets still load.
+be spoofed. The check covers the whole app (shell and PWA assets included) so a
+wrong-account session sees nothing at all.
 
 Add this hook in `server/src/app.ts`, gated by `ALLOWED_EMAIL` so local dev
 (no header) stays open:

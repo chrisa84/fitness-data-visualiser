@@ -157,7 +157,9 @@ anything in `deploy/`. Key points an agent will not infer:
   non-negotiable). A public deploy fronts the app with a dedicated oauth2-proxy
   locked to one account. The only in-app hook is the **optional** `ALLOWED_EMAIL`
   gate (an `onRequest` check reading `X-Forwarded-Email`); it's a no-op unless the
-  env var is set, so local dev stays open. Keep it that way.
+  env var is set, so local dev stays open. Keep it that way. When set, it gates
+  the **whole** app (shell and PWA assets included, not just `/api`) so a
+  wrong-account session sees nothing at all.
 - **PWA wiring lives in `web/vite.config.ts`** (`vite-plugin-pwa`): manifest +
   Workbox service worker, app-shell precache, `NetworkFirst` for `/api` (200s
   only). The data is never precached — the cache is the shell, not the metrics.

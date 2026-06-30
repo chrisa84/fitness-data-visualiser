@@ -135,6 +135,54 @@ describe('events CRUD', () => {
   });
 });
 
+describe('ALLOWED_EMAIL gate', () => {
+  const original = process.env.ALLOWED_EMAIL;
+  afterEach(() => {
+    if (original === undefined) delete process.env.ALLOWED_EMAIL;
+    else process.env.ALLOWED_EMAIL = original;
+  });
+
+  it('403s an api request whose proxy email does not match', async () => {
+    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/health',
+      headers: { 'x-forwarded-email': 'stranger@example.com' },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('403s a non-api request (the app shell) for a wrong account too', async () => {
+    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/',
+      headers: { 'x-forwarded-email': 'stranger@example.com' },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('403s when no proxy email header is present', async () => {
+    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({ method: 'GET', url: '/api/health' });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('allows the matching account (case-insensitive)', async () => {
+    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/health',
+      headers: { 'x-forwarded-email': 'Owner@Example.com' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
 describe('AI chat', () => {
   it('reports disabled status when no API key is configured', async () => {
     app = buildApp({ dbPath: createTestDb(seed), logger: false });
