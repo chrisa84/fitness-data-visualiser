@@ -87,9 +87,9 @@ export default function RouteMap({ samples }: Props) {
     gpsPoints.some((s) => metricValue(s, m.key) != null),
   );
 
-  // Init map once, fit bounds after tiles load.
+  // Init map once GPS points are available. Runs again if gpsPoints arrive after mount.
   useEffect(() => {
-    if (!containerRef.current || gpsPoints.length === 0) return;
+    if (!containerRef.current || gpsPoints.length === 0 || mapRef.current) return;
     const map = L.map(containerRef.current, { zoomControl: true });
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -106,7 +106,7 @@ export default function RouteMap({ samples }: Props) {
       layerGroupRef.current = undefined;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gpsPoints.length]);
 
   // Redraw segments whenever metric or samples change.
   useEffect(() => {

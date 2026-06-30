@@ -180,6 +180,7 @@ export default function Planner() {
   const [saveName,      setSaveName]      = useState('');
   const [saveOpen,      setSaveOpen]      = useState(false);
   const [tileStyle,     setTileStyle]     = useState<TileStyle>('osm');
+  const [paceInput,     setPaceInput]     = useState('6:00');
 
   useEffect(() => { snapRef.current = snap; }, [snap]);
 
@@ -197,7 +198,11 @@ export default function Planner() {
     const runs = activityData.items.filter(a => a.distanceM && a.distanceM > 1000 && a.avgSpeedMps);
     if (!runs.length) return;
     const avgMps = runs.reduce((s, a) => s + (a.avgSpeedMps ?? 0), 0) / runs.length;
-    if (avgMps > 0) setPaceSec(Math.round(1000 / avgMps));
+    if (avgMps > 0) {
+      const sec = Math.round(1000 / avgMps);
+      setPaceSec(sec);
+      setPaceInput(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
+    }
   }, [activityData]);
 
   // ---------------------------------------------------------------------------
@@ -593,15 +598,21 @@ ${trkpts}
   // ---------------------------------------------------------------------------
 
   const estimatedSeconds = paceSec > 0 && totalM > 0 ? (totalM / 1000) * paceSec : 0;
-  const paceDisplay = `${Math.floor(paceSec / 60)}:${String(paceSec % 60).padStart(2, '0')}`;
 
-  const handlePaceInput = (val: string) => {
+  const commitPaceInput = (val: string) => {
     const m = val.match(/^(\d+):(\d{0,2})$/);
     if (m) {
       const mins = parseInt(m[1]!, 10);
       const secs = parseInt(m[2] || '0', 10);
-      if (!isNaN(mins) && !isNaN(secs) && secs < 60) setPaceSec(mins * 60 + secs);
+      if (!isNaN(mins) && !isNaN(secs) && secs < 60) {
+        const sec = mins * 60 + secs;
+        setPaceSec(sec);
+        setPaceInput(`${mins}:${String(secs).padStart(2, '0')}`);
+        return;
+      }
     }
+    // Invalid — reset display to last good value
+    setPaceInput(`${Math.floor(paceSec / 60)}:${String(paceSec % 60).padStart(2, '0')}`);
   };
 
   const btnStyle = (active?: boolean): React.CSSProperties => ({
@@ -675,8 +686,10 @@ ${trkpts}
           <span style={{ fontSize: '0.8rem', color: '#8a93a0' }}>⏱️</span>
           <input
             type="text"
-            value={paceDisplay}
-            onChange={e => handlePaceInput(e.target.value)}
+            value={paceInput}
+            onChange={e => setPaceInput(e.target.value)}
+            onBlur={e => commitPaceInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && commitPaceInput(e.currentTarget.value)}
             style={{ width: '3.6rem', textAlign: 'center', background: 'transparent', border: 'none', color: '#e6e8eb', fontSize: '0.85rem', outline: 'none' }}
           />
           <span style={{ color: '#8a93a0', fontSize: '0.75rem' }}>/km</span>

@@ -220,16 +220,18 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
     ],
   };
 
-  const gctData = hasGct ? samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactMs]) : [];
-  const cadData = hasCadence ? samples.map((s, i) => [xVal(s, i, hasDist), s.cadence]) : [];
+  const hasBalance = isRun && samples.some((s) => s.groundContactBalanceLeft != null);
+  const gctData     = hasGct     ? samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactMs])          : [];
+  const cadData     = hasCadence ? samples.map((s, i) => [xVal(s, i, hasDist), s.cadence])                   : [];
+  const balData     = hasBalance ? samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactBalanceLeft])  : [];
 
   const dynamicsOption: echarts.EChartsOption | null =
-    hasGct || hasCadence
+    hasGct || hasCadence || hasBalance
       ? {
           backgroundColor: 'transparent',
           tooltip: { trigger: 'axis' },
           legend: { type: 'scroll', top: 4, right: 8, left: 8, textStyle: { color: '#8a93a0', fontSize: 11 } },
-          grid: { left: 56, right: 56, top: 36, bottom: 56 },
+          grid: { left: 56, right: 64, top: 36, bottom: 56 },
           xAxis: {
             type: 'value',
             name: hasDist ? 'km' : '',
@@ -248,6 +250,14 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
               type: 'value',
               name: 'spm',
               axisLabel: { color: '#b87fff' },
+              splitLine: { show: false },
+            },
+            {
+              type: 'value',
+              name: '% L',
+              min: 45,
+              max: 55,
+              axisLabel: { color: '#5fce6e', formatter: (v: number) => `${v}%` },
               splitLine: { show: false },
             },
           ],
@@ -281,6 +291,20 @@ function SamplesChart({ samples, type }: { samples: ActivitySample[]; type: stri
                     connectNulls: false,
                     lineStyle: { width: 1.5, color: '#b87fff' },
                     itemStyle: { color: '#b87fff' },
+                  },
+                ]
+              : []),
+            ...(hasBalance
+              ? [
+                  {
+                    type: 'line' as const,
+                    name: 'L/R balance',
+                    data: balData,
+                    yAxisIndex: 2,
+                    showSymbol: false,
+                    connectNulls: false,
+                    lineStyle: { width: 1.5, color: '#5fce6e' },
+                    itemStyle: { color: '#5fce6e' },
                   },
                 ]
               : []),
