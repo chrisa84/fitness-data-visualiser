@@ -182,7 +182,7 @@ export function getActivity(db: Database, activityId: string): ActivityDetail | 
 export function getActivitySamples(db: Database, activityId: string): ActivitySample[] {
   const rows = db
     .prepare(
-      `SELECT sample_index, timestamp_utc, distance_m, heart_rate, speed_mps,
+      `SELECT sample_index, distance_m, heart_rate, speed_mps,
               cadence, power_w, altitude_m, lat, lon, respiration_rate,
               ground_contact_ms, ground_contact_balance_left,
               vertical_oscillation_cm, vertical_ratio_pct, stride_length_cm
@@ -195,7 +195,6 @@ export function getActivitySamples(db: Database, activityId: string): ActivitySa
   return rows.map(
     (r): ActivitySample => ({
       sampleIndex: r.sample_index as number,
-      timestampUtc: r.timestamp_utc as string,
       distanceM: r.distance_m as number | null,
       heartRate: r.heart_rate as number | null,
       speedMps: r.speed_mps as number | null,

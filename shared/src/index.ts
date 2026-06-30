@@ -183,7 +183,7 @@ export interface ActivityDetail extends ActivityListItem {
 
 export interface ActivitySample {
   sampleIndex: number;
-  timestampUtc: string;
+  timestampUtc?: string;
   distanceM: number | null;
   heartRate: number | null;
   speedMps: number | null;

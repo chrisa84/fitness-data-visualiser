@@ -3,11 +3,12 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ActivitySample } from '@fitness/shared';
 
-type MetricKey = 'pace' | 'hr' | 'balance' | 'gct' | 'cadence';
+type MetricKey = 'pace' | 'hr' | 'balance' | 'gct' | 'cadence' | 'elevation';
 
 const METRICS: { key: MetricKey; label: string }[] = [
   { key: 'pace', label: 'Pace' },
   { key: 'hr', label: 'Heart rate' },
+  { key: 'elevation', label: 'Elevation' },
   { key: 'balance', label: 'L/R balance' },
   { key: 'gct', label: 'Ground contact' },
   { key: 'cadence', label: 'Cadence' },
@@ -15,16 +16,12 @@ const METRICS: { key: MetricKey; label: string }[] = [
 
 function metricValue(s: ActivitySample, key: MetricKey): number | null {
   switch (key) {
-    case 'pace':
-      return s.speedMps != null && s.speedMps >= 0.5 ? 1000 / (s.speedMps * 60) : null;
-    case 'hr':
-      return s.heartRate;
-    case 'balance':
-      return s.groundContactBalanceLeft != null ? Math.abs(s.groundContactBalanceLeft - 50) : null;
-    case 'gct':
-      return s.groundContactMs;
-    case 'cadence':
-      return s.cadence;
+    case 'pace':      return s.speedMps != null && s.speedMps >= 0.5 ? 1000 / (s.speedMps * 60) : null;
+    case 'hr':        return s.heartRate;
+    case 'elevation': return s.altitudeM;
+    case 'balance':   return s.groundContactBalanceLeft != null ? Math.abs(s.groundContactBalanceLeft - 50) : null;
+    case 'gct':       return s.groundContactMs;
+    case 'cadence':   return s.cadence;
   }
 }
 
@@ -42,7 +39,9 @@ const GREEN: [number, number, number] = [95, 206, 110];
 function segmentColour(v: number, min: number, max: number, key: MetricKey): string {
   if (max === min) return lerpColour(BLUE, RED, 0.5);
   const t = (v - min) / (max - min);
-  if (key === 'cadence') return lerpColour(RED, GREEN, t);
+  // Higher cadence = better (green); higher elevation = blue (neutral info, not good/bad)
+  if (key === 'cadence')   return lerpColour(RED, GREEN, t);
+  if (key === 'elevation') return lerpColour(BLUE, RED, t);
   return lerpColour(GREEN, RED, t);
 }
 
@@ -53,7 +52,8 @@ function formatTooltip(v: number, key: MetricKey): string {
       const secs = Math.round((v - mins) * 60);
       return `${mins}:${String(secs).padStart(2, '0')} /km`;
     }
-    case 'hr':      return `${Math.round(v)} bpm`;
+    case 'hr':        return `${Math.round(v)} bpm`;
+    case 'elevation': return `${Math.round(v)} m`;
     case 'balance': return `${v.toFixed(1)}° from 50/50`;
     case 'gct':     return `${Math.round(v)} ms`;
     case 'cadence': return `${Math.round(v)} spm`;

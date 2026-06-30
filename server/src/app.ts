@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import fastifyCompress from '@fastify/compress';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import OpenAI from 'openai';
@@ -37,6 +38,7 @@ function parseAllowlist(raw: string | undefined): string[] {
 
 export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logger = true, ai }: AppOptions) {
   const app = Fastify({ logger });
+  void app.register(fastifyCompress, { global: true });
   const db = openDb(dbPath);
   const eventsDb = openEventsDb(eventsDbPath);
 

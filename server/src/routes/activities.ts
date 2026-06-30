@@ -50,11 +50,11 @@ export function registerActivityRoutes(app: FastifyInstance, db: Database): void
 
   app.get('/api/activities/:id/samples', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const activity = getActivity(db, id);
-    if (!activity) {
+    const samples = getActivitySamples(db, id);
+    if (samples.length === 0 && !getActivity(db, id)) {
       return reply.code(404).send({ error: 'not_found', message: `no activity ${id}` });
     }
-    return getActivitySamples(db, id);
+    return samples;
   });
 
   app.get('/api/activity-volume', async (request, reply) => {
