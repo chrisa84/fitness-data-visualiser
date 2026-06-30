@@ -88,6 +88,11 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
     return { status: 'ok', dailySummaryRows: row.n };
   });
 
+  // Runtime config — lets the client pick up secrets that can't be baked in at build time.
+  app.get('/api/config', async () => ({
+    stadiaApiKey: process.env.STADIA_API_KEY ?? '',
+  }));
+
   // Elevation proxy — opentopodata.org doesn't send CORS headers so the browser
   // can't call it directly. We forward server-side and re-serve the result.
   app.get('/api/elevation', async (request, reply) => {

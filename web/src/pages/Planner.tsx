@@ -1,7 +1,8 @@
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type TileStyle, TILE_STYLE_URLS, TILE_STYLE_LABELS, TILE_STYLES, DEFAULT_TILE_STYLE } from '../tileStyles';
+import { type TileStyle, tileStyleUrl, defaultTileStyle, TILE_STYLE_LABELS, TILE_STYLES } from '../tileStyles';
+import { useConfig } from '../useConfig';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { SavedRoute } from '@fitness/shared';
@@ -183,7 +184,8 @@ export default function Planner() {
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [saveName,      setSaveName]      = useState('');
   const [saveOpen,      setSaveOpen]      = useState(false);
-  const [tileStyle,     setTileStyle]     = useState<TileStyle>(DEFAULT_TILE_STYLE);
+  const { stadiaApiKey }                  = useConfig();
+  const [tileStyle,     setTileStyle]     = useState<TileStyle>(() => defaultTileStyle(stadiaApiKey));
   const [paceInput,     setPaceInput]     = useState(() => {
     const sec = getStoredPace() ?? 360;
     return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
@@ -585,7 +587,7 @@ ${trkpts}
     const stored = getStoredMapView();
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: TILE_STYLE_URLS[DEFAULT_TILE_STYLE],
+      style: tileStyleUrl(defaultTileStyle(stadiaApiKey), stadiaApiKey),
       center: stored?.center ?? [-0.09, 51.505],
       zoom:   stored?.zoom   ?? 13,
     });
@@ -638,8 +640,17 @@ ${trkpts}
 
   const switchTileStyle = useCallback((style: TileStyle) => {
     setTileStyle(style);
-    mapRef.current?.setStyle(TILE_STYLE_URLS[style]);
-  }, []);
+    mapRef.current?.setStyle(tileStyleUrl(style, stadiaApiKey));
+  }, [stadiaApiKey]);
+
+  // When the runtime key arrives (config fetch completes after mount), switch to
+  // Outdoors automatically if the user hasn't manually chosen a different style.
+  const prevKeyRef = useRef('');
+  useEffect(() => {
+    if (!stadiaApiKey || stadiaApiKey === prevKeyRef.current) return;
+    prevKeyRef.current = stadiaApiKey;
+    if (tileStyle === 'liberty') switchTileStyle('outdoors');
+  }, [stadiaApiKey, tileStyle, switchTileStyle]);
 
   // ---------------------------------------------------------------------------
   // Elevation chart option

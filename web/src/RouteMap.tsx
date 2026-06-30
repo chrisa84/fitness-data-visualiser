@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ActivitySample } from '@fitness/shared';
-import { type TileStyle, TILE_STYLE_URLS, TILE_STYLE_LABELS, TILE_STYLES, DEFAULT_TILE_STYLE } from './tileStyles';
+import { type TileStyle, tileStyleUrl, defaultTileStyle, TILE_STYLE_LABELS, TILE_STYLES } from './tileStyles';
+import { useConfig } from './useConfig';
 
 type MetricKey = 'pace' | 'hr' | 'balance' | 'gct' | 'cadence' | 'elevation';
 
@@ -146,6 +147,7 @@ interface Props {
 }
 
 export default function RouteMap({ samples, highlightedSampleIdx, onMapHover }: Props) {
+  const { stadiaApiKey }   = useConfig();
   const containerRef       = useRef<HTMLDivElement>(null);
   const mapRef             = useRef<maplibregl.Map>();
   const popupRef           = useRef<maplibregl.Popup>();
@@ -153,7 +155,7 @@ export default function RouteMap({ samples, highlightedSampleIdx, onMapHover }: 
   const onMapHoverRef      = useRef(onMapHover);
   onMapHoverRef.current    = onMapHover;
   const [metric, setMetric]       = useState<MetricKey>('pace');
-  const [tileStyle, setTileStyle] = useState<TileStyle>(DEFAULT_TILE_STYLE);
+  const [tileStyle, setTileStyle] = useState<TileStyle>(() => defaultTileStyle(stadiaApiKey));
 
   // Keep refs so style.load handler always has the latest values without re-registering.
   const metricRef    = useRef(metric);
@@ -179,7 +181,7 @@ export default function RouteMap({ samples, highlightedSampleIdx, onMapHover }: 
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: TILE_STYLE_URLS[DEFAULT_TILE_STYLE],
+      style: tileStyleUrl(defaultTileStyle(stadiaApiKey), stadiaApiKey),
       bounds,
       fitBoundsOptions: { padding: 24 },
     });
@@ -281,7 +283,7 @@ export default function RouteMap({ samples, highlightedSampleIdx, onMapHover }: 
           {TILE_STYLES.map(t => (
             <button
               key={t}
-              onClick={() => { setTileStyle(t); mapRef.current?.setStyle(TILE_STYLE_URLS[t]); }}
+              onClick={() => { setTileStyle(t); mapRef.current?.setStyle(tileStyleUrl(t, stadiaApiKey)); }}
               style={{
                 padding: '2px 8px',
                 fontSize: 12,
