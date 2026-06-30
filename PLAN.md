@@ -260,20 +260,25 @@ estimated finish time based on your actual average pace from recent runs.
 - Undo last waypoint, clear all
 - No backend footprint — all client-side except the OSRM call
 
-**Planned (Phase 12b):**
-- **Location search** — Nominatim geocoder (OSM, free, no key), debounced
-  input, dropdown results, map flies to selection
+**Phase 12b — also built:**
+- **Location search** — Nominatim (OSM, free, no key), 400 ms debounce,
+  dropdown results, map flies to selection
 - **Find my location** button — re-centre on GPS position on demand
-- **Redo** — undo stack complement; restore last removed waypoint
-- **Reverse route** — flip waypoint order, rebuild all segments
-- **Elevation profile** — batch route coords against
-  opentopodata.org (free, no key, SRTM data); ECharts area chart below map
-- **Total elevation gain/loss** — computed from elevation profile, shown in
-  summary bar alongside distance and estimated time
-- **km markers** — interpolate along snapped polyline, drop distance labels at
-  each km boundary
-- **Export GPX** — serialize route geometry to GPX XML, trigger browser
-  download; no API needed
+- **Redo** — undo stack complement; restores last removed waypoint and segment
+- **Reverse route** — flips waypoint order, rebuilds all segments in reverse
+- **Elevation profile** — route coords batched (sampled to ≤100 pts) against
+  opentopodata.org (SRTM, free, no key), 1.2 s debounce after last change;
+  rendered as ECharts area chart below the map
+- **Total elevation gain/loss** — computed from profile, shown in summary bar
+  (↑ ascent in green, ↓ descent in red)
+- **km markers** — interpolated along snapped polyline at each km boundary,
+  rendered as non-interactive Leaflet labels
+- **Export GPX** — serialises full snapped geometry to GPX 1.1 XML, triggers
+  browser download; pure client-side, no API
+
+No backend footprint: all features are client-side. External calls: OSRM
+(routing), Nominatim (search), opentopodata.org (elevation) — all free, no
+keys, personal-use rate limits.
 
 ### Parked (requires Garmin-Sync work first)
 
