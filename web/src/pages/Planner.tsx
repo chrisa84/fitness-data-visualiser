@@ -1,5 +1,5 @@
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
@@ -11,54 +11,49 @@ import Chart from '../Chart';
 // Types
 // ---------------------------------------------------------------------------
 
-interface Waypoint { latlng: L.LatLng; marker: L.Marker }
-interface Segment  { from: number; to: number; line: L.Polyline; distanceM: number; coords: L.LatLng[] }
+type LngLat = [number, number]; // [lng, lat] — GeoJSON / MapLibre convention
+
+interface Waypoint { lnglat: LngLat; marker: maplibregl.Marker; el: HTMLDivElement }
+interface Segment  { from: number; to: number; distanceM: number; coords: LngLat[] }
 interface SearchResult { placeId: number; displayName: string; lat: number; lon: number }
 interface ElevPoint { distM: number; elevM: number }
-type TileStyle = 'osm' | 'topo' | 'carto';
+type TileStyle = 'liberty' | 'bright' | 'fiord';
 
 // ---------------------------------------------------------------------------
-// Tile configs
+// Tile styles (OpenFreeMap — free, no API key)
 // ---------------------------------------------------------------------------
 
-const TILE_CONFIGS: Record<TileStyle, { url: string; attribution: string; maxZoom: number; label: string }> = {
-  osm: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19,
-    label: 'Standard',
-  },
-  topo: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: '© <a href="https://www.openstreetmap.org">OpenStreetMap</a>, © <a href="https://opentopomap.org">OpenTopoMap</a>',
-    maxZoom: 17,
-    label: 'Topo',
-  },
-  carto: {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '© <a href="https://www.openstreetmap.org">OpenStreetMap</a>, © <a href="https://carto.com">CARTO</a>',
-    maxZoom: 19,
-    label: 'Light',
-  },
+const STYLE_URLS: Record<TileStyle, string> = {
+  liberty: 'https://tiles.openfreemap.org/styles/liberty',
+  bright:  'https://tiles.openfreemap.org/styles/bright',
+  fiord:   'https://tiles.openfreemap.org/styles/fiord',
+};
+
+const STYLE_LABELS: Record<TileStyle, string> = {
+  liberty: 'Liberty',
+  bright:  'Bright',
+  fiord:   'Dark',
 };
 
 // ---------------------------------------------------------------------------
-// External APIs (no keys required)
+// External APIs
 // ---------------------------------------------------------------------------
 
 const OSRM      = 'https://router.project-osrm.org/route/v1/foot';
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
 const TOPO_API  = 'https://api.opentopodata.org/v1/srtm90m';
 
-async function osrmRoute(a: L.LatLng, b: L.LatLng): Promise<{ coords: L.LatLng[]; distanceM: number } | null> {
+async function osrmRoute(a: LngLat, b: LngLat): Promise<{ coords: LngLat[]; distanceM: number } | null> {
   try {
-    const res = await fetch(`${OSRM}/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`);
+    const res = await fetch(`${OSRM}/${a[0]},${a[1]};${b[0]},${b[1]}?overview=full&geometries=geojson`);
     if (!res.ok) return null;
     const json = await res.json();
     const route = json.routes?.[0];
     if (!route) return null;
-    const coords = (route.geometry.coordinates as [number, number][]).map(([lng, lat]) => L.latLng(lat, lng));
-    return { coords, distanceM: route.distance };
+    return {
+      coords: route.geometry.coordinates as LngLat[], // already [lng, lat]
+      distanceM: route.distance,
+    };
   } catch { return null; }
 }
 
@@ -77,8 +72,9 @@ async function nominatimSearch(q: string): Promise<SearchResult[]> {
   } catch { return []; }
 }
 
-async function fetchElevations(coords: L.LatLng[]): Promise<number[]> {
-  const locs = coords.map(c => `${c.lat.toFixed(6)},${c.lng.toFixed(6)}`).join('|');
+async function fetchElevations(coords: LngLat[]): Promise<number[]> {
+  // opentopodata expects lat,lng order
+  const locs = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
   try {
     const res = await fetch(`${TOPO_API}?locations=${locs}`);
     const json = await res.json();
@@ -91,12 +87,12 @@ async function fetchElevations(coords: L.LatLng[]): Promise<number[]> {
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-function haversineM(a: L.LatLng, b: L.LatLng): number {
+function haversineM([lng1, lat1]: LngLat, [lng2, lat2]: LngLat): number {
   const R = 6371000;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const s = Math.sin(dLat / 2) ** 2
-    + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 }
 
@@ -124,28 +120,25 @@ function fmtPace(secPerKm: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Marker icons
+// DOM element factories for MapLibre Markers
 // ---------------------------------------------------------------------------
 
-function waypointDivIcon(index: number, total: number): L.DivIcon {
+function makeWaypointEl(index: number, total: number): HTMLDivElement {
   const isStart = index === 0;
   const isEnd   = index === total - 1 && total > 1;
   const bg      = isStart ? '#22c55e' : isEnd ? '#ef4444' : '#5fa8e0';
   const label   = isStart ? 'S' : isEnd ? 'E' : String(index + 1);
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:26px;height:26px;border-radius:50%;background:${bg};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;font-family:system-ui,sans-serif;letter-spacing:0">${label}</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-  });
+  const el      = document.createElement('div');
+  el.style.cssText = `width:26px;height:26px;border-radius:50%;background:${bg};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;font-family:system-ui,sans-serif;cursor:grab`;
+  el.textContent = label;
+  return el;
 }
 
-function kmIcon(label: string): L.DivIcon {
-  return L.divIcon({
-    className: '',
-    html: `<div style="background:#1e2329cc;color:#e6e8eb;border:1px solid #5fa8e0;border-radius:3px;padding:1px 5px;font-size:11px;font-weight:600;white-space:nowrap;backdrop-filter:blur(2px)">${label}</div>`,
-    iconAnchor: [0, 8],
-  });
+function makeKmEl(label: string): HTMLDivElement {
+  const el = document.createElement('div');
+  el.style.cssText = `background:#1e2329cc;color:#e6e8eb;border:1px solid #5fa8e0;border-radius:3px;padding:1px 5px;font-size:11px;font-weight:600;white-space:nowrap;backdrop-filter:blur(2px);pointer-events:none`;
+  el.textContent = label;
+  return el;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,12 +147,11 @@ function kmIcon(label: string): L.DivIcon {
 
 export default function Planner() {
   const containerRef   = useRef<HTMLDivElement>(null);
-  const mapRef         = useRef<L.Map | null>(null);
-  const tileLayerRef   = useRef<L.TileLayer | null>(null);
+  const mapRef         = useRef<maplibregl.Map | null>(null);
   const waypointsRef   = useRef<Waypoint[]>([]);
   const segmentsRef    = useRef<Segment[]>([]);
-  const redoStackRef   = useRef<L.LatLng[]>([]);
-  const kmMarkersRef   = useRef<L.Marker[]>([]);
+  const redoStackRef   = useRef<LngLat[]>([]);
+  const kmMarkersRef   = useRef<maplibregl.Marker[]>([]);
   const snapRef        = useRef(true);
   const buildSegRef    = useRef<(f: number, t: number) => Promise<void>>(async () => {});
   const elevTimerRef   = useRef<ReturnType<typeof setTimeout>>();
@@ -179,7 +171,7 @@ export default function Planner() {
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [saveName,      setSaveName]      = useState('');
   const [saveOpen,      setSaveOpen]      = useState(false);
-  const [tileStyle,     setTileStyle]     = useState<TileStyle>('osm');
+  const [tileStyle,     setTileStyle]     = useState<TileStyle>('liberty');
   const [paceInput,     setPaceInput]     = useState('6:00');
 
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -206,12 +198,35 @@ export default function Planner() {
   }, [activityData]);
 
   // ---------------------------------------------------------------------------
-  // Marker icon refresh
+  // Route source update — writes current segments to MapLibre GeoJSON source
+  // ---------------------------------------------------------------------------
+
+  const updateRouteSource = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const source = map.getSource('planner-route') as maplibregl.GeoJSONSource | undefined;
+    if (!source) return;
+    const features: GeoJSON.Feature[] = segmentsRef.current.map(seg => ({
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'LineString', coordinates: seg.coords },
+    }));
+    source.setData({ type: 'FeatureCollection', features });
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Marker icon refresh (updates existing DOM elements in place)
   // ---------------------------------------------------------------------------
 
   const updateMarkerIcons = useCallback(() => {
     const wps = waypointsRef.current;
-    wps.forEach((wp, i) => wp.marker.setIcon(waypointDivIcon(i, wps.length)));
+    wps.forEach((wp, i) => {
+      const isStart = i === 0;
+      const isEnd   = i === wps.length - 1 && wps.length > 1;
+      const bg      = isStart ? '#22c55e' : isEnd ? '#ef4444' : '#5fa8e0';
+      wp.el.style.background = bg;
+      wp.el.textContent = isStart ? 'S' : isEnd ? 'E' : String(i + 1);
+    });
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -227,13 +242,13 @@ export default function Planner() {
     const segs = segmentsRef.current;
     if (!segs.length) return;
 
-    const pts: { latlng: L.LatLng; cumM: number }[] = [];
+    const pts: { lnglat: LngLat; cumM: number }[] = [];
     let cumDist = 0;
     for (const seg of segs) {
       for (let i = 0; i < seg.coords.length; i++) {
         if (i === 0 && pts.length > 0) continue;
-        if (pts.length > 0) cumDist += haversineM(pts[pts.length - 1]!.latlng, seg.coords[i]!);
-        pts.push({ latlng: seg.coords[i]!, cumM: cumDist });
+        if (pts.length > 0) cumDist += haversineM(pts[pts.length - 1]!.lnglat, seg.coords[i]!);
+        pts.push({ lnglat: seg.coords[i]!, cumM: cumDist });
       }
     }
 
@@ -245,10 +260,11 @@ export default function Planner() {
       const a = pts[idx - 1]!;
       const b = pts[idx]!;
       const t = (target - a.cumM) / (b.cumM - a.cumM);
-      const lat = a.latlng.lat + (b.latlng.lat - a.latlng.lat) * t;
-      const lng = a.latlng.lng + (b.latlng.lng - a.latlng.lng) * t;
+      const lng = a.lnglat[0] + (b.lnglat[0] - a.lnglat[0]) * t;
+      const lat = a.lnglat[1] + (b.lnglat[1] - a.lnglat[1]) * t;
+      const el = makeKmEl(`${km} km`);
       kmMarkersRef.current.push(
-        L.marker([lat, lng], { icon: kmIcon(`${km} km`), interactive: false }).addTo(map)
+        new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map),
       );
     }
   }, []);
@@ -262,24 +278,23 @@ export default function Planner() {
     setTotalM(total);
     drawKmMarkers();
     setSegVersion(v => v + 1);
-  }, [drawKmMarkers]);
+    updateRouteSource();
+  }, [drawKmMarkers, updateRouteSource]);
 
   const removeSegment = useCallback((idx: number) => {
-    segmentsRef.current[idx]?.line.remove();
     segmentsRef.current.splice(idx, 1);
   }, []);
 
   const buildSegment = useCallback(async (fromIdx: number, toIdx: number) => {
-    const map = mapRef.current;
-    if (!map) return;
-    const a = waypointsRef.current[fromIdx]?.latlng;
-    const b = waypointsRef.current[toIdx]?.latlng;
+    if (!mapRef.current) return;
+    const a = waypointsRef.current[fromIdx]?.lnglat;
+    const b = waypointsRef.current[toIdx]?.lnglat;
     if (!a || !b) return;
 
     const existing = segmentsRef.current.findIndex(s => s.from === fromIdx && s.to === toIdx);
     if (existing !== -1) removeSegment(existing);
 
-    let coords: L.LatLng[];
+    let coords: LngLat[];
     let distanceM: number;
 
     if (snapRef.current) {
@@ -293,8 +308,7 @@ export default function Planner() {
       distanceM = haversineM(a, b);
     }
 
-    const line = L.polyline(coords, { color: '#5fa8e0', weight: 5, opacity: 0.9 }).addTo(map);
-    segmentsRef.current.push({ from: fromIdx, to: toIdx, line, distanceM, coords });
+    segmentsRef.current.push({ from: fromIdx, to: toIdx, distanceM, coords });
     recalcTotal();
   }, [removeSegment, recalcTotal]);
 
@@ -304,24 +318,27 @@ export default function Planner() {
   // Waypoint management
   // ---------------------------------------------------------------------------
 
-  const addWaypointAt = useCallback(async (latlng: L.LatLng, clearRedo = true) => {
+  const addWaypointAt = useCallback(async (lnglat: LngLat, clearRedo = true) => {
     const map = mapRef.current;
     if (!map) return;
     if (clearRedo) redoStackRef.current = [];
 
     const idx = waypointsRef.current.length;
-    const marker = L.marker(latlng, {
-      icon: waypointDivIcon(idx, idx + 1),
-      draggable: true,
-    }).addTo(map);
-    waypointsRef.current.push({ latlng, marker });
+    const el  = makeWaypointEl(idx, idx + 1);
+    const marker = new maplibregl.Marker({ element: el, draggable: true })
+      .setLngLat(lnglat)
+      .addTo(map);
+    waypointsRef.current.push({ lnglat, marker, el });
     updateMarkerIcons();
 
     marker.on('dragend', async () => {
-      waypointsRef.current[idx]!.latlng = marker.getLatLng();
+      const pos = marker.getLngLat();
+      const newLnglat: LngLat = [pos.lng, pos.lat];
+      waypointsRef.current[idx]!.lnglat = newLnglat;
       const affected = segmentsRef.current
         .map((s, i) => (s.from === idx || s.to === idx ? i : -1))
-        .filter(i => i !== -1).reverse();
+        .filter(i => i !== -1)
+        .reverse();
       for (const i of affected) removeSegment(i);
       if (idx > 0) await buildSegRef.current(idx - 1, idx);
       if (idx < waypointsRef.current.length - 1) await buildSegRef.current(idx, idx + 1);
@@ -334,41 +351,41 @@ export default function Planner() {
     const wps = waypointsRef.current;
     if (!wps.length) return;
     const removed = wps[wps.length - 1]!;
-    redoStackRef.current.push(removed.latlng);
+    redoStackRef.current.push(removed.lnglat);
     removed.marker.remove();
     wps.pop();
     const lastIdx = wps.length;
     const toRemove = segmentsRef.current
       .map((s, i) => (s.from === lastIdx || s.to === lastIdx ? i : -1))
-      .filter(i => i !== -1).reverse();
+      .filter(i => i !== -1)
+      .reverse();
     for (const i of toRemove) removeSegment(i);
     updateMarkerIcons();
     recalcTotal();
   }, [removeSegment, recalcTotal, updateMarkerIcons]);
 
   const redoPoint = useCallback(async () => {
-    const latlng = redoStackRef.current.pop();
-    if (!latlng) return;
-    await addWaypointAt(latlng, false);
+    const lnglat = redoStackRef.current.pop();
+    if (!lnglat) return;
+    await addWaypointAt(lnglat, false);
   }, [addWaypointAt]);
 
   const reverseRoute = useCallback(async () => {
     if (waypointsRef.current.length < 2) return;
-    for (const s of segmentsRef.current) s.line.remove();
     segmentsRef.current = [];
+    updateRouteSource();
     waypointsRef.current.reverse();
     updateMarkerIcons();
     for (let i = 0; i < waypointsRef.current.length - 1; i++) {
       await buildSegRef.current(i, i + 1);
     }
-  }, [updateMarkerIcons]);
+  }, [updateMarkerIcons, updateRouteSource]);
 
   const clearAll = useCallback(() => {
     for (const w of waypointsRef.current) w.marker.remove();
-    for (const s of segmentsRef.current) s.line.remove();
     for (const m of kmMarkersRef.current) m.remove();
     waypointsRef.current = [];
-    segmentsRef.current = [];
+    segmentsRef.current  = [];
     kmMarkersRef.current = [];
     redoStackRef.current = [];
     setTotalM(0);
@@ -376,7 +393,8 @@ export default function Planner() {
     setElevGain(0);
     setElevLoss(0);
     setSegVersion(v => v + 1);
-  }, []);
+    updateRouteSource();
+  }, [updateRouteSource]);
 
   // ---------------------------------------------------------------------------
   // Saved routes
@@ -403,7 +421,7 @@ export default function Planner() {
     if (!saveName.trim() || totalM === 0) return;
     saveMutation.mutate({
       name: saveName.trim(),
-      waypoints: waypointsRef.current.map(w => ({ lat: w.latlng.lat, lng: w.latlng.lng })),
+      waypoints: waypointsRef.current.map(w => ({ lat: w.lnglat[1], lng: w.lnglat[0] })),
       snap,
       totalDistanceM: totalM,
     });
@@ -414,7 +432,7 @@ export default function Planner() {
     snapRef.current = route.snap;
     setSnap(route.snap);
     for (const wp of route.waypoints) {
-      await addWaypointAt(L.latLng(wp.lat, wp.lng), false);
+      await addWaypointAt([wp.lng, wp.lat], false);
     }
   }, [clearAll, addWaypointAt]);
 
@@ -425,8 +443,8 @@ export default function Planner() {
   useEffect(() => {
     if (waypointsRef.current.length < 2) return;
     const rebuild = async () => {
-      for (const s of segmentsRef.current) s.line.remove();
       segmentsRef.current = [];
+      updateRouteSource();
       for (let i = 0; i < waypointsRef.current.length - 1; i++) {
         await buildSegRef.current(i, i + 1);
       }
@@ -436,7 +454,7 @@ export default function Planner() {
   }, [snap]);
 
   // ---------------------------------------------------------------------------
-  // Elevation profile (debounced, triggers on segVersion)
+  // Elevation profile (debounced)
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
@@ -446,18 +464,18 @@ export default function Planner() {
       return;
     }
     elevTimerRef.current = setTimeout(async () => {
-      const pts: { latlng: L.LatLng; cumM: number }[] = [];
+      const pts: { lnglat: LngLat; cumM: number }[] = [];
       let cum = 0;
       for (const seg of segmentsRef.current) {
         for (let i = 0; i < seg.coords.length; i++) {
           if (i === 0 && pts.length > 0) continue;
-          if (pts.length > 0) cum += haversineM(pts[pts.length - 1]!.latlng, seg.coords[i]!);
-          pts.push({ latlng: seg.coords[i]!, cumM: cum });
+          if (pts.length > 0) cum += haversineM(pts[pts.length - 1]!.lnglat, seg.coords[i]!);
+          pts.push({ lnglat: seg.coords[i]!, cumM: cum });
         }
       }
       const sampled = sampleEvenly(pts, 100);
       setFetchingElev(true);
-      const elevs = await fetchElevations(sampled.map(p => p.latlng));
+      const elevs = await fetchElevations(sampled.map(p => p.lnglat));
       setFetchingElev(false);
       if (!elevs.length) return;
       const elevPts: ElevPoint[] = sampled.map((p, i) => ({ distM: p.cumM, elevM: elevs[i] ?? 0 }));
@@ -480,16 +498,16 @@ export default function Planner() {
   const exportGpx = useCallback(() => {
     const segs = segmentsRef.current;
     if (!segs.length) return;
-    const all: L.LatLng[] = [];
+    const all: LngLat[] = [];
     for (const seg of segs) {
       for (let i = 0; i < seg.coords.length; i++) {
         if (i === 0 && all.length > 0) continue;
         all.push(seg.coords[i]!);
       }
     }
-    const trkpts = all.map(c =>
-      `      <trkpt lat="${c.lat.toFixed(6)}" lon="${c.lng.toFixed(6)}"></trkpt>`
-    ).join('\n');
+    const trkpts = all
+      .map(([lng, lat]) => `      <trkpt lat="${lat.toFixed(6)}" lon="${lng.toFixed(6)}"></trkpt>`)
+      .join('\n');
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Fitness Data Visualiser" xmlns="http://www.topografix.com/GPX/1/1">
   <trk>
@@ -521,7 +539,7 @@ ${trkpts}
   }, []);
 
   const selectResult = useCallback((r: SearchResult) => {
-    mapRef.current?.setView([r.lat, r.lon], 14);
+    mapRef.current?.flyTo({ center: [r.lon, r.lat], zoom: 14 });
     setSearchQuery(r.displayName.split(',')[0] ?? r.displayName);
     setSearchResults([]);
     setSearchOpen(false);
@@ -529,39 +547,73 @@ ${trkpts}
 
   const findMyLocation = useCallback(() => {
     navigator.geolocation?.getCurrentPosition(
-      pos => mapRef.current?.setView([pos.coords.latitude, pos.coords.longitude], 15),
+      pos => mapRef.current?.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 15 }),
       () => {},
     );
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Map init (once — no tile layer added here, tile effect handles it)
+  // Map init
   // ---------------------------------------------------------------------------
+
+  const addWaypointRef = useRef(addWaypointAt);
+  useEffect(() => { addWaypointRef.current = addWaypointAt; }, [addWaypointAt]);
+
+  const updateRouteSourceRef = useRef(updateRouteSource);
+  useEffect(() => { updateRouteSourceRef.current = updateRouteSource; }, [updateRouteSource]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current).setView([51.505, -0.09], 13);
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: STYLE_URLS['liberty'],
+      center: [-0.09, 51.505],
+      zoom: 13,
+    });
     mapRef.current = map;
+
+    map.on('style.load', () => {
+      if (!map.getSource('planner-route')) {
+        map.addSource('planner-route', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (!map.getLayer('planner-route-layer')) {
+        map.addLayer({
+          id: 'planner-route-layer',
+          type: 'line',
+          source: 'planner-route',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#5fa8e0', 'line-width': 5, 'line-opacity': 0.9 },
+        });
+      }
+      // Repopulate after style swap (markers survive setStyle, route source does not).
+      updateRouteSourceRef.current();
+    });
+
     navigator.geolocation?.getCurrentPosition(
-      pos => map.setView([pos.coords.latitude, pos.coords.longitude], 14),
+      pos => map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 14 }),
       () => {},
     );
-    map.on('click', async (e) => { await addWaypointAt(e.latlng); });
+
+    map.on('click', async e => {
+      await addWaypointRef.current([e.lngLat.lng, e.lngLat.lat]);
+    });
+
     return () => { map.remove(); mapRef.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Tile layer — swap when tileStyle changes (also handles initial add)
+  // Tile style switching — setStyle triggers style.load which re-adds source/layer
   // ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    if (tileLayerRef.current) { tileLayerRef.current.remove(); tileLayerRef.current = null; }
-    const cfg = TILE_CONFIGS[tileStyle];
-    tileLayerRef.current = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: cfg.maxZoom }).addTo(map);
-  }, [tileStyle]);
+  const switchTileStyle = useCallback((style: TileStyle) => {
+    setTileStyle(style);
+    mapRef.current?.setStyle(STYLE_URLS[style]);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Elevation chart option
@@ -611,7 +663,6 @@ ${trkpts}
         return;
       }
     }
-    // Invalid — reset display to last good value
     setPaceInput(`${Math.floor(paceSec / 60)}:${String(paceSec % 60).padStart(2, '0')}`);
   };
 
@@ -698,19 +749,19 @@ ${trkpts}
         <div style={{ width: 1, height: 22, background: '#2a3038', margin: '0 0.1rem' }} />
 
         {/* Action buttons */}
-        <button onClick={findMyLocation}  style={btnStyle()} title="Centre on my location">📍 Locate</button>
-        <button onClick={undoLast}        style={btnStyle()} title="Undo last point">↩ Undo</button>
-        <button onClick={redoPoint}       style={btnStyle()} title="Redo">↪ Redo</button>
-        <button onClick={reverseRoute}    style={btnStyle()} title="Reverse route">⇅ Reverse</button>
-        <button onClick={exportGpx}       style={btnStyle()} disabled={totalM === 0} title="Export GPX">⬇ GPX</button>
-        <button onClick={clearAll}        style={{ ...btnStyle(), color: '#e66a5f' }} title="Clear all">✕ Clear</button>
+        <button onClick={findMyLocation} style={btnStyle()} title="Centre on my location">📍 Locate</button>
+        <button onClick={undoLast}       style={btnStyle()} title="Undo last point">↩ Undo</button>
+        <button onClick={redoPoint}      style={btnStyle()} title="Redo">↪ Redo</button>
+        <button onClick={reverseRoute}   style={btnStyle()} title="Reverse route">⇅ Reverse</button>
+        <button onClick={exportGpx}      style={btnStyle()} disabled={totalM === 0} title="Export GPX">⬇ GPX</button>
+        <button onClick={clearAll}       style={{ ...btnStyle(), color: '#e66a5f' }} title="Clear all">✕ Clear</button>
 
         <div style={{ width: 1, height: 22, background: '#2a3038', margin: '0 0.1rem' }} />
 
         {/* Tile switcher */}
-        {(['osm', 'topo', 'carto'] as TileStyle[]).map(t => (
-          <button key={t} onClick={() => setTileStyle(t)} style={btnStyle(tileStyle === t)}>
-            {TILE_CONFIGS[t].label}
+        {(['liberty', 'bright', 'fiord'] as TileStyle[]).map(t => (
+          <button key={t} onClick={() => switchTileStyle(t)} style={btnStyle(tileStyle === t)}>
+            {STYLE_LABELS[t]}
           </button>
         ))}
 
