@@ -4,6 +4,18 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ActivitySample } from '@fitness/shared';
 
 type MetricKey = 'pace' | 'hr' | 'balance' | 'gct' | 'cadence' | 'elevation';
+type TileStyle = 'liberty' | 'bright' | 'fiord';
+
+const STYLE_URLS: Record<TileStyle, string> = {
+  liberty: 'https://tiles.openfreemap.org/styles/liberty',
+  bright:  'https://tiles.openfreemap.org/styles/bright',
+  fiord:   'https://tiles.openfreemap.org/styles/fiord',
+};
+const STYLE_LABELS: Record<TileStyle, string> = {
+  liberty: 'Liberty',
+  bright:  'Bright',
+  fiord:   'Dark',
+};
 
 const METRICS: { key: MetricKey; label: string }[] = [
   { key: 'pace', label: 'Pace' },
@@ -128,7 +140,8 @@ export default function RouteMap({ samples }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<maplibregl.Map>();
   const popupRef     = useRef<maplibregl.Popup>();
-  const [metric, setMetric] = useState<MetricKey>('pace');
+  const [metric, setMetric]     = useState<MetricKey>('pace');
+  const [tileStyle, setTileStyle] = useState<TileStyle>('liberty');
 
   // Keep refs so style.load handler always has the latest values without re-registering.
   const metricRef    = useRef(metric);
@@ -163,12 +176,13 @@ export default function RouteMap({ samples }: Props) {
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
     popupRef.current = popup;
 
-    map.on('style.load', () => {
+    const repopulate = () => {
       addRouteLayers(map);
       (map.getSource('route') as maplibregl.GeoJSONSource).setData(
         buildGeoJSON(gpsRef.current, metricRef.current),
       );
-    });
+    };
+    map.on('style.load', repopulate);
 
     map.on('mousemove', 'route-line', e => {
       map.getCanvas().style.cursor = 'pointer';
@@ -201,24 +215,36 @@ export default function RouteMap({ samples }: Props) {
 
   return (
     <section>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0 }}>Route</h3>
         <select
           value={metric}
           onChange={e => setMetric(e.target.value as MetricKey)}
-          style={{
-            background: '#1e2329',
-            color: '#e6e8eb',
-            border: '1px solid #2a3038',
-            borderRadius: 4,
-            padding: '2px 6px',
-            fontSize: 13,
-          }}
+          style={{ background: '#1e2329', color: '#e6e8eb', border: '1px solid #2a3038', borderRadius: 4, padding: '2px 6px', fontSize: 13 }}
         >
           {availableMetrics.map(m => (
             <option key={m.key} value={m.key}>{m.label}</option>
           ))}
         </select>
+        <div style={{ display: 'flex', gap: '0.3rem', marginLeft: 'auto' }}>
+          {(['liberty', 'bright', 'fiord'] as TileStyle[]).map(t => (
+            <button
+              key={t}
+              onClick={() => { setTileStyle(t); mapRef.current?.setStyle(STYLE_URLS[t]); }}
+              style={{
+                padding: '2px 8px',
+                fontSize: 12,
+                borderRadius: 4,
+                border: tileStyle === t ? '1px solid #5fa8e0' : '1px solid #2a3038',
+                background: tileStyle === t ? '#1a3a52' : '#1e2329',
+                color: tileStyle === t ? '#5fa8e0' : '#c0c7d0',
+                cursor: 'pointer',
+              }}
+            >
+              {STYLE_LABELS[t]}
+            </button>
+          ))}
+        </div>
       </div>
       <div
         ref={containerRef}
