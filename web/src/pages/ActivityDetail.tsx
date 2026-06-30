@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
@@ -108,14 +108,27 @@ function findNearestSampleIdx(samples: ActivitySample[], xTarget: number, hasDis
   return lo;
 }
 
-function SamplesChart({ samples, type, onHighlight }: {
+function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
   samples: ActivitySample[];
   type: string | null;
   onHighlight?: (idx: number | null) => void;
+  mapHoveredIdx?: number | null;
 }) {
   const samplesRef = useRef(samples);
   samplesRef.current = samples;
   const hasDistRef = useRef(false);
+  const mainChartRef     = useRef<import('echarts').ECharts>();
+  const dynamicsChartRef = useRef<import('echarts').ECharts>();
+
+  useEffect(() => {
+    if (mapHoveredIdx == null) {
+      mainChartRef.current?.dispatchAction({ type: 'hideTip' });
+      dynamicsChartRef.current?.dispatchAction({ type: 'hideTip' });
+      return;
+    }
+    mainChartRef.current?.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: mapHoveredIdx });
+    dynamicsChartRef.current?.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: mapHoveredIdx });
+  }, [mapHoveredIdx]);
 
   if (samples.length === 0) return null;
 
@@ -333,27 +346,29 @@ function SamplesChart({ samples, type, onHighlight }: {
         }
       : null;
 
-  const handleChartReady = (chart: echarts.ECharts) => {
-    if (!onHighlight) return;
-    chart.getZr().on('mousemove', (e: { offsetX: number; offsetY: number }) => {
-      const pt = chart.convertFromPixel({ seriesIndex: 0 }, [e.offsetX, e.offsetY]) as [number, number] | null;
-      if (pt == null) return;
-      const idx = findNearestSampleIdx(samplesRef.current, pt[0], hasDistRef.current);
-      onHighlight(idx);
-    });
-    chart.getZr().on('mouseout', () => onHighlight(null));
-  };
+  const makeChartReady = (chartRef: React.MutableRefObject<import('echarts').ECharts | undefined>) =>
+    (chart: import('echarts').ECharts) => {
+      chartRef.current = chart;
+      if (!onHighlight) return;
+      chart.getZr().on('mousemove', (e: { offsetX: number; offsetY: number }) => {
+        const pt = chart.convertFromPixel({ seriesIndex: 0 }, [e.offsetX, e.offsetY]) as [number, number] | null;
+        if (pt == null) return;
+        const idx = findNearestSampleIdx(samplesRef.current, pt[0], hasDistRef.current);
+        onHighlight(idx);
+      });
+      chart.getZr().on('mouseout', () => onHighlight(null));
+    };
 
   return (
     <>
       <section>
         <h3>Activity chart</h3>
-        <Chart option={mainOption} height={280} onReady={handleChartReady} />
+        <Chart option={mainOption} height={280} onReady={makeChartReady(mainChartRef)} />
       </section>
       {dynamicsOption && (
         <section>
           <h3>Running form</h3>
-          <Chart option={dynamicsOption} height={220} />
+          <Chart option={dynamicsOption} height={220} onReady={makeChartReady(dynamicsChartRef)} />
         </section>
       )}
     </>
@@ -374,6 +389,7 @@ export default function ActivityDetail() {
   });
 
   const [highlightedIdx, setHighlightedIdx] = useState<number | null>(null);
+  const [mapHoveredIdx,  setMapHoveredIdx]  = useState<number | null>(null);
 
   if (isPending) return <p className="status">Loading…</p>;
   if (error) return <p className="status">Failed to load: {(error as Error).message}</p>;
@@ -452,8 +468,8 @@ export default function ActivityDetail() {
         </section>
       )}
 
-      <SamplesChart samples={samples} type={a.type} onHighlight={setHighlightedIdx} />
-      <RouteMap samples={samples} highlightedSampleIdx={highlightedIdx} />
+      <SamplesChart samples={samples} type={a.type} onHighlight={setHighlightedIdx} mapHoveredIdx={mapHoveredIdx} />
+      <RouteMap samples={samples} highlightedSampleIdx={highlightedIdx} onMapHover={setMapHoveredIdx} />
       <HrZones a={a} />
       <Splits a={a} />
     </>

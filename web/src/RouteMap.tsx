@@ -90,7 +90,7 @@ function buildGeoJSON(
     const tooltipText = v != null ? formatTooltip(v, metric) : null;
     features.push({
       type: 'Feature',
-      properties: { color, tooltipText },
+      properties: { color, tooltipText, sampleIndex: i },
       geometry: {
         type: 'LineString',
         coordinates: [[a.lon!, a.lat!], [b.lon!, b.lat!]],
@@ -134,13 +134,16 @@ function addRouteLayers(map: maplibregl.Map) {
 interface Props {
   samples: ActivitySample[];
   highlightedSampleIdx?: number | null;
+  onMapHover?: (idx: number | null) => void;
 }
 
-export default function RouteMap({ samples, highlightedSampleIdx }: Props) {
-  const containerRef      = useRef<HTMLDivElement>(null);
-  const mapRef            = useRef<maplibregl.Map>();
-  const popupRef          = useRef<maplibregl.Popup>();
+export default function RouteMap({ samples, highlightedSampleIdx, onMapHover }: Props) {
+  const containerRef       = useRef<HTMLDivElement>(null);
+  const mapRef             = useRef<maplibregl.Map>();
+  const popupRef           = useRef<maplibregl.Popup>();
   const highlightMarkerRef = useRef<maplibregl.Marker>();
+  const onMapHoverRef      = useRef(onMapHover);
+  onMapHoverRef.current    = onMapHover;
   const [metric, setMetric]       = useState<MetricKey>('pace');
   const [tileStyle, setTileStyle] = useState<TileStyle>(DEFAULT_TILE_STYLE);
 
@@ -187,13 +190,17 @@ export default function RouteMap({ samples, highlightedSampleIdx }: Props) {
 
     map.on('mousemove', 'route-line', e => {
       map.getCanvas().style.cursor = 'pointer';
-      const text = e.features?.[0]?.properties?.tooltipText as string | null;
+      const props = e.features?.[0]?.properties;
+      const text = props?.tooltipText as string | null;
       if (text) popup.setLngLat(e.lngLat).setHTML(text).addTo(map);
+      const si = props?.sampleIndex as number | undefined;
+      if (si != null) onMapHoverRef.current?.(si);
     });
 
     map.on('mouseleave', 'route-line', () => {
       map.getCanvas().style.cursor = '';
       popup.remove();
+      onMapHoverRef.current?.(null);
     });
 
     return () => {
