@@ -78,11 +78,20 @@ async function fetchElevations(coords: LngLat[]): Promise<number[] | 'error'> {
   const locs = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
   try {
     const res = await fetch(`${TOPO_API}?locations=${locs}`);
-    if (!res.ok) return 'error';
+    if (!res.ok) {
+      console.error('opentopodata HTTP error', res.status, await res.text().catch(() => ''));
+      return 'error';
+    }
     const json = await res.json();
-    if (json.status !== 'OK') return 'error';
+    if (json.status !== 'OK') {
+      console.error('opentopodata non-OK status', json);
+      return 'error';
+    }
     return (json.results as { elevation: number }[]).map(r => r.elevation ?? 0);
-  } catch { return 'error'; }
+  } catch (e) {
+    console.error('opentopodata fetch failed', e);
+    return 'error';
+  }
 }
 
 // ---------------------------------------------------------------------------
