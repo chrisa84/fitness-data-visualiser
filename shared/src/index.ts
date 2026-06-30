@@ -493,6 +493,27 @@ export interface ChatConversationDetail {
 }
 
 // ---------------------------------------------------------------------------
+// Saved routes (visualiser-owned writable state)
+// ---------------------------------------------------------------------------
+
+export interface SavedRouteWaypoint {
+  lat: number;
+  lng: number;
+}
+
+export interface SavedRoute {
+  id: number;
+  name: string;
+  waypoints: SavedRouteWaypoint[];
+  snap: boolean;
+  totalDistanceM: number | null;
+  createdAt: string;
+}
+
+export type SavedRouteInput = Pick<SavedRoute, 'name' | 'waypoints' | 'snap'> &
+  Partial<Pick<SavedRoute, 'totalDistanceM'>>;
+
+// ---------------------------------------------------------------------------
 // Intraday health (per-minute / per-15-min within a day)
 // ---------------------------------------------------------------------------
 

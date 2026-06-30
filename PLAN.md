@@ -246,7 +246,7 @@ date picker (URL-synced). Charts: all-day HR line, stress line (nulls = gaps),
 steps bar chart by 15-min block, respiration line. Each chart hidden when that
 series has no data for the selected date. New endpoint `GET /api/intraday?date=`.
 
-### Phase 12 — Route planner 🚧
+### Phase 12 — Route planner ✅
 
 Standalone `/planner` page. Draw a running route on a map, get distance and
 estimated finish time based on your actual average pace from recent runs.
@@ -276,9 +276,20 @@ estimated finish time based on your actual average pace from recent runs.
 - **Export GPX** — serialises full snapped geometry to GPX 1.1 XML, triggers
   browser download; pure client-side, no API
 
-No backend footprint: all features are client-side. External calls: OSRM
-(routing), Nominatim (search), opentopodata.org (elevation) — all free, no
-keys, personal-use rate limits.
+**Phase 12c — Route persistence:**
+- **Save / load / delete** routes via `visualiser-events.db` (same writable DB
+  as events and chat). New `saved_route` table: `id`, `name`, `waypoints`
+  (JSON), `snap`, `total_distance_m`, `created_at`.
+- New endpoints: `GET /api/routes`, `POST /api/routes`,
+  `DELETE /api/routes/:id`.
+- Planner UI: "Save current" button with inline name input; list of saved
+  routes below the elevation profile showing name, distance, date, Load and
+  Delete. Loading re-adds waypoints in sequence (re-routing via OSRM).
+
+No backend footprint for drawing: all map features are client-side. External
+calls: OSRM (routing), Nominatim (search), opentopodata.org (elevation) — all
+free, no keys, personal-use rate limits. Route persistence uses the existing
+writable DB — no new infrastructure.
 
 ### Parked (requires Garmin-Sync work first)
 

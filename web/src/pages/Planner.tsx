@@ -1,9 +1,10 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
-import { fetchActivities } from '../api';
+import type { SavedRoute } from '@fitness/shared';
+import { fetchActivities, fetchRoutes, createSavedRoute, deleteSavedRoute } from '../api';
 import Chart from '../Chart';
 
 // ---------------------------------------------------------------------------
@@ -143,6 +144,8 @@ export default function Planner() {
   const [searchQuery,  setSearchQuery]  = useState('');
   const [searchResults,setSearchResults]= useState<SearchResult[]>([]);
   const [searchOpen,   setSearchOpen]   = useState(false);
+  const [saveName,     setSaveName]     = useState('');
+  const [saveOpen,     setSaveOpen]     = useState(false);
 
   // Keep snapRef in sync with snap state so closures always read current value
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -321,6 +324,42 @@ export default function Planner() {
     setElevLoss(0);
     setSegVersion(v => v + 1);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Saved routes
+  // ---------------------------------------------------------------------------
+
+  const queryClient = useQueryClient();
+  const { data: savedRoutes = [] } = useQuery({ queryKey: ['saved-routes'], queryFn: fetchRoutes });
+
+  const saveMutation = useMutation({
+    mutationFn: createSavedRoute,
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['saved-routes'] }); setSaveOpen(false); setSaveName(''); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteSavedRoute,
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['saved-routes'] }); },
+  });
+
+  const saveRoute = useCallback(() => {
+    if (!saveName.trim() || totalM === 0) return;
+    saveMutation.mutate({
+      name: saveName.trim(),
+      waypoints: waypointsRef.current.map(w => ({ lat: w.latlng.lat, lng: w.latlng.lng })),
+      snap,
+      totalDistanceM: totalM,
+    });
+  }, [saveName, totalM, snap, saveMutation]);
+
+  const loadRoute = useCallback(async (route: SavedRoute) => {
+    clearAll();
+    snapRef.current = route.snap;
+    setSnap(route.snap);
+    for (const wp of route.waypoints) {
+      await addWaypointAt(L.latLng(wp.lat, wp.lng), false);
+    }
+  }, [clearAll, addWaypointAt]);
 
   // ---------------------------------------------------------------------------
   // Rebuild segments when snap toggles
@@ -572,6 +611,55 @@ ${trkpts}
 
       {/* Elevation profile */}
       {elevation.length > 1 && <Chart option={elevOption} height={200} />}
+
+      {/* Saved routes */}
+      <div style={{ borderTop: '1px solid #2a3038', paddingTop: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+          <strong style={{ color: '#e6e8eb', fontSize: '0.9rem' }}>Saved routes</strong>
+          {!saveOpen && (
+            <button onClick={() => setSaveOpen(true)} disabled={totalM === 0}>Save current</button>
+          )}
+          {saveOpen && (
+            <>
+              <input
+                type="text"
+                placeholder="Route name…"
+                value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && saveRoute()}
+                autoFocus
+                style={{ padding: '0.3rem 0.5rem', background: '#1e2329', color: '#e6e8eb', border: '1px solid #2a3038', borderRadius: 4, fontSize: '0.85rem' }}
+              />
+              <button onClick={saveRoute} disabled={!saveName.trim() || saveMutation.isPending}>
+                {saveMutation.isPending ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => { setSaveOpen(false); setSaveName(''); }}>Cancel</button>
+            </>
+          )}
+        </div>
+
+        {savedRoutes.length === 0 && (
+          <p style={{ color: '#8a93a0', fontSize: '0.85rem', margin: 0 }}>No saved routes yet.</p>
+        )}
+
+        {savedRoutes.map(r => (
+          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid #2a3038', fontSize: '0.85rem' }}>
+            <span style={{ flex: 1, color: '#e6e8eb' }}>{r.name}</span>
+            {r.totalDistanceM != null && (
+              <span style={{ color: '#8a93a0' }}>{fmtDist(r.totalDistanceM)}</span>
+            )}
+            <span style={{ color: '#8a93a0' }}>{r.createdAt.slice(0, 10)}</span>
+            <button onClick={() => void loadRoute(r)}>Load</button>
+            <button
+              onClick={() => deleteMutation.mutate(r.id)}
+              disabled={deleteMutation.isPending}
+              style={{ color: '#e66a5f' }}
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

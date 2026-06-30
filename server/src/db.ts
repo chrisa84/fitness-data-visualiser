@@ -44,6 +44,15 @@ export function openEventsDb(path: string): Database.Database {
       created_at      TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_chat_message_conv ON chat_message(conversation_id);
+
+    CREATE TABLE IF NOT EXISTS saved_route (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      name             TEXT NOT NULL,
+      waypoints        TEXT NOT NULL,
+      snap             INTEGER NOT NULL DEFAULT 1,
+      total_distance_m REAL,
+      created_at       TEXT NOT NULL
+    );
   `);
 
   // Migration: add chat_message.context to databases created before it existed.

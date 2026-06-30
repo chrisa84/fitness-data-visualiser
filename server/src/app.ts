@@ -10,6 +10,7 @@ import { registerChatRoutes } from './routes/chat.js';
 import { registerDailyHealthRoutes } from './routes/dailyHealth.js';
 import { registerIntradayRoutes } from './routes/intraday.js';
 import { registerPerformanceRoutes } from './routes/performance.js';
+import { registerRouteRoutes } from './routes/routes.js';
 
 export interface AppOptions {
   dbPath: string;
@@ -68,6 +69,7 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   registerPerformanceRoutes(app, db);
   registerAnalysisRoutes(app, db);
   registerEventRoutes(app, eventsDb);
+  registerRouteRoutes(app, eventsDb);
   registerChatRoutes(app, { client: aiClient, model: ai?.model ?? 'unset', db, eventsDb });
 
   // In production (single-container deploy) the API also serves the built web

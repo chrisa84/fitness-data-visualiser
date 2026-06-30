@@ -17,6 +17,8 @@ import type {
   PerformanceResponse,
   PersonalRecord,
   RunningDynamicsResponse,
+  SavedRoute,
+  SavedRouteInput,
   TrainingLoadResponse,
   VolumeResponse,
 } from '@fitness/shared';
@@ -175,6 +177,19 @@ async function sendJson<T>(method: string, path: string, body: unknown): Promise
     throw new Error(err?.message ?? `Request failed with status ${res.status}`);
   }
   return res.json();
+}
+
+export function fetchRoutes() {
+  return getJson<SavedRoute[]>('/api/routes');
+}
+
+export function createSavedRoute(input: SavedRouteInput) {
+  return sendJson<SavedRoute>('POST', '/api/routes', input);
+}
+
+export async function deleteSavedRoute(id: number): Promise<void> {
+  const res = await apiFetch(`/api/routes/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete route (${res.status})`);
 }
 
 export function createEvent(input: EventInput) {
