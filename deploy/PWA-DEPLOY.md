@@ -55,7 +55,7 @@ check.
   | `PORT` | `3001` |
   | `WEB_DIST_PATH` | `/app/web/dist` |
   | `OPENROUTER_API_KEY` | _(optional — enables the Chat tab)_ |
-  | `ALLOWED_EMAIL` | `you@example.com` _(only if wiring the optional check in 1e)_ |
+  | `ALLOWED_EMAILS` | `you@example.com,partner@example.com` _(the account gate, 1e — required in deploy posture)_ |
 
 Take the app's **UUID** from the Coolify URL; the deploy script reads it from
 `FITNESS_APP_UUID`.
@@ -120,33 +120,37 @@ network, host port `<oauth2-port>` → container `4180`.
 > **Gotcha:** `UPSTREAMS` is plural — singular `UPSTREAM` is silently ignored by
 > oauth2-proxy v7.
 
-> **Single-account lock (what we actually run):** `EMAIL_DOMAINS=gmail.com` only
-> restricts to gmail accounts that are *test users* on your Google client — which
-> may be more than one person. The narrowing to a **single** account is enforced
-> by the app-level `ALLOWED_EMAIL` gate (1e). We use that rather than the
-> emails-file because the file approach hits a permissions snag (see 1b).
+> **Account lock (what we actually run):** `EMAIL_DOMAINS=gmail.com` only restricts
+> to gmail accounts that clear Google consent — in *Testing* status that means your
+> listed **test users** *and any account with an IAM role on the GCP project*, which
+> is more than one account. The narrowing to your specific account(s) is enforced by
+> the app-level `ALLOWED_EMAILS` gate (1e). Belt-and-braces: also lock it at the edge
+> with `OAUTH2_PROXY_AUTHENTICATED_EMAILS_FILE` and/or by trimming the test-user list
+> and project IAM principals, so a foreign account can't even get a session.
 
-### 1e. Single-account gate — the app-level check (recommended)
+### 1e. Account gate — the app-level check (recommended)
 
 This is what actually enforces "only you" in practice. The app refuses any request
-whose proxy-injected email doesn't match `ALLOWED_EMAIL`. oauth2-proxy injects the
-authenticated email as a header (`X-Forwarded-Email`); the app sits behind the
-proxy on an internal network and is never directly reachable, so the header can't
-be spoofed. The check covers the whole app (shell and PWA assets included) so a
-wrong-account session sees nothing at all.
+whose proxy-injected email isn't in `ALLOWED_EMAILS` (comma-separated; `ALLOWED_EMAIL`
+is a legacy single-value alias). oauth2-proxy injects the authenticated email as a
+header (`X-Forwarded-Email`); the app sits behind the proxy on an internal network
+and is never directly reachable, so the header can't be spoofed. The check covers
+the whole app (shell and PWA assets included) so a wrong-account session sees nothing
+at all, and it **fails closed** — in deploy posture (`WEB_DIST_PATH` set, or
+`REQUIRE_AUTH=1`) a missing allowlist makes the server refuse to start.
 
-Add this hook in `server/src/app.ts`, gated by `ALLOWED_EMAIL` so local dev
-(no header) stays open:
+Add this hook in `server/src/app.ts`. It stays a no-op when no allowlist is set and
+auth isn't required, so local dev on 127.0.0.1 stays open:
 
 ```ts
-// Optional single-account gate. Active only when ALLOWED_EMAIL is set (prod
-// behind oauth2-proxy); unset locally so dev on 127.0.0.1 stays open.
-const allowedEmail = process.env.ALLOWED_EMAIL?.toLowerCase();
-if (allowedEmail) {
+// Account gate. Whole-app, fails closed in deploy posture (see app.ts for the
+// REQUIRE_AUTH / WEB_DIST_PATH logic); unset locally so dev on 127.0.0.1 stays open.
+const allowedEmails = parseAllowlist(process.env.ALLOWED_EMAILS ?? process.env.ALLOWED_EMAIL);
+if (allowedEmails.length > 0) {
   app.addHook('onRequest', async (req, reply) => {
     const raw = req.headers['x-forwarded-email'] ?? req.headers['x-auth-request-email'];
     const email = Array.isArray(raw) ? raw[0] : raw;
-    if (typeof email !== 'string' || email.toLowerCase() !== allowedEmail) {
+    if (typeof email !== 'string' || !allowedEmails.includes(email.toLowerCase())) {
       return reply.code(403).send({ error: 'forbidden' });
     }
   });

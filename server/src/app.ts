@@ -26,6 +26,15 @@ export interface AppOptions {
   };
 }
 
+/** Parse a comma-separated email allowlist into lowercased, trimmed entries. */
+function parseAllowlist(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+}
+
 export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logger = true, ai }: AppOptions) {
   const app = Fastify({ logger });
   const db = openDb(dbPath);
@@ -41,18 +50,32 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
     eventsDb.close();
   });
 
-  // Optional single-account gate for an authenticated (oauth2-proxy) deploy. When
-  // ALLOWED_EMAIL is set, every request must carry a matching proxy-injected email
-  // header (the app sits behind the proxy on an internal network, so the header
-  // can't be spoofed). This gates the whole app — the shell and PWA assets too,
-  // not just /api — so a wrong-account session sees nothing at all. Unset locally
-  // — loopback has no auth — so dev is unaffected.
-  const allowedEmail = process.env.ALLOWED_EMAIL?.toLowerCase();
-  if (allowedEmail) {
+  // Account gate for an authenticated (oauth2-proxy) deploy. When an allowlist is
+  // configured, every request must carry a proxy-injected email header that matches
+  // (the app sits behind the proxy on an internal network, so the header can't be
+  // spoofed). This gates the whole app — shell and PWA assets too, not just /api —
+  // so a wrong-account session sees nothing at all.
+  //
+  // Fail closed: in deploy posture (serving the built web bundle) the gate is
+  // mandatory, so a forgotten allowlist refuses to start rather than silently
+  // opening to anyone the proxy authenticates. Local dev is API-only (no bundle)
+  // and on loopback, so it stays open with no allowlist.
+  const allowedEmails = parseAllowlist(process.env.ALLOWED_EMAILS ?? process.env.ALLOWED_EMAIL);
+  const requireAuth =
+    process.env.REQUIRE_AUTH != null
+      ? /^(1|true|yes)$/i.test(process.env.REQUIRE_AUTH)
+      : Boolean(webDistPath);
+  if (requireAuth && allowedEmails.length === 0) {
+    throw new Error(
+      'Refusing to start: auth is required (deploy posture) but no ALLOWED_EMAILS is configured. ' +
+        'Set ALLOWED_EMAILS to the permitted account(s), or set REQUIRE_AUTH=0 to run open.',
+    );
+  }
+  if (allowedEmails.length > 0) {
     app.addHook('onRequest', async (request, reply) => {
       const raw = request.headers['x-forwarded-email'] ?? request.headers['x-auth-request-email'];
       const email = Array.isArray(raw) ? raw[0] : raw;
-      if (typeof email !== 'string' || email.toLowerCase() !== allowedEmail) {
+      if (typeof email !== 'string' || !allowedEmails.includes(email.toLowerCase())) {
         return reply.code(403).send({ error: 'forbidden' });
       }
     });

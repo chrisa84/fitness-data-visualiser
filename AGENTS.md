@@ -155,11 +155,14 @@ anything in `deploy/`. Key points an agent will not infer:
 
 - **Auth is at the edge, never in the app.** Loopback has no auth by design (a
   non-negotiable). A public deploy fronts the app with a dedicated oauth2-proxy
-  locked to one account. The only in-app hook is the **optional** `ALLOWED_EMAIL`
-  gate (an `onRequest` check reading `X-Forwarded-Email`); it's a no-op unless the
-  env var is set, so local dev stays open. Keep it that way. When set, it gates
-  the **whole** app (shell and PWA assets included, not just `/api`) so a
-  wrong-account session sees nothing at all.
+  locked to one account. The in-app hook is the `ALLOWED_EMAILS` gate (an
+  `onRequest` check reading `X-Forwarded-Email`, comma-separated allowlist;
+  `ALLOWED_EMAIL` is a legacy alias). It's a no-op with no allowlist **unless**
+  auth is required, so local dev stays open. When set it gates the **whole** app
+  (shell and PWA assets included, not just `/api`) so a wrong-account session sees
+  nothing at all. It **fails closed**: in deploy posture (`WEB_DIST_PATH` set, or
+  `REQUIRE_AUTH=1`) a missing allowlist makes the server refuse to start rather
+  than silently open. Keep local dev (no bundle) able to run open.
 - **PWA wiring lives in `web/vite.config.ts`** (`vite-plugin-pwa`): manifest +
   Workbox service worker, app-shell precache, `NetworkFirst` for `/api` (200s
   only). The data is never precached — the cache is the shell, not the metrics.

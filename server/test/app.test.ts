@@ -135,15 +135,21 @@ describe('events CRUD', () => {
   });
 });
 
-describe('ALLOWED_EMAIL gate', () => {
-  const original = process.env.ALLOWED_EMAIL;
+describe('account allowlist gate', () => {
+  const original = {
+    ALLOWED_EMAIL: process.env.ALLOWED_EMAIL,
+    ALLOWED_EMAILS: process.env.ALLOWED_EMAILS,
+    REQUIRE_AUTH: process.env.REQUIRE_AUTH,
+  };
   afterEach(() => {
-    if (original === undefined) delete process.env.ALLOWED_EMAIL;
-    else process.env.ALLOWED_EMAIL = original;
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
 
   it('403s an api request whose proxy email does not match', async () => {
-    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    process.env.ALLOWED_EMAILS = 'owner@example.com';
     app = buildApp({ dbPath: createTestDb(seed), logger: false });
     const res = await app.inject({
       method: 'GET',
@@ -154,7 +160,7 @@ describe('ALLOWED_EMAIL gate', () => {
   });
 
   it('403s a non-api request (the app shell) for a wrong account too', async () => {
-    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    process.env.ALLOWED_EMAILS = 'owner@example.com';
     app = buildApp({ dbPath: createTestDb(seed), logger: false });
     const res = await app.inject({
       method: 'GET',
@@ -165,20 +171,59 @@ describe('ALLOWED_EMAIL gate', () => {
   });
 
   it('403s when no proxy email header is present', async () => {
-    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    process.env.ALLOWED_EMAILS = 'owner@example.com';
     app = buildApp({ dbPath: createTestDb(seed), logger: false });
     const res = await app.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(403);
   });
 
   it('allows the matching account (case-insensitive)', async () => {
-    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    process.env.ALLOWED_EMAILS = 'owner@example.com';
     app = buildApp({ dbPath: createTestDb(seed), logger: false });
     const res = await app.inject({
       method: 'GET',
       url: '/api/health',
       headers: { 'x-forwarded-email': 'Owner@Example.com' },
     });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('allows any account in a multi-email allowlist', async () => {
+    process.env.ALLOWED_EMAILS = 'owner@example.com, partner@example.com';
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/health',
+      headers: { 'x-forwarded-email': 'partner@example.com' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('still honours the legacy ALLOWED_EMAIL alias', async () => {
+    delete process.env.ALLOWED_EMAILS;
+    process.env.ALLOWED_EMAIL = 'owner@example.com';
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/health',
+      headers: { 'x-forwarded-email': 'owner@example.com' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('fails closed: refuses to start when auth is required but unconfigured', () => {
+    delete process.env.ALLOWED_EMAILS;
+    delete process.env.ALLOWED_EMAIL;
+    process.env.REQUIRE_AUTH = '1';
+    expect(() => buildApp({ dbPath: createTestDb(seed), logger: false })).toThrow(/ALLOWED_EMAILS/);
+  });
+
+  it('stays open locally when auth is not required and no allowlist is set', async () => {
+    delete process.env.ALLOWED_EMAILS;
+    delete process.env.ALLOWED_EMAIL;
+    delete process.env.REQUIRE_AUTH;
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(200);
   });
 });
