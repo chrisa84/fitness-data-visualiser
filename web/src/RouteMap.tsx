@@ -2,20 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { ActivitySample } from '@fitness/shared';
+import { type TileStyle, TILE_STYLE_URLS, TILE_STYLE_LABELS, TILE_STYLES, DEFAULT_TILE_STYLE } from './tileStyles';
 
 type MetricKey = 'pace' | 'hr' | 'balance' | 'gct' | 'cadence' | 'elevation';
-type TileStyle = 'liberty' | 'bright' | 'fiord';
-
-const STYLE_URLS: Record<TileStyle, string> = {
-  liberty: 'https://tiles.openfreemap.org/styles/liberty',
-  bright:  'https://tiles.openfreemap.org/styles/bright',
-  fiord:   'https://tiles.openfreemap.org/styles/fiord',
-};
-const STYLE_LABELS: Record<TileStyle, string> = {
-  liberty: 'Liberty',
-  bright:  'Bright',
-  fiord:   'Dark',
-};
 
 const METRICS: { key: MetricKey; label: string }[] = [
   { key: 'pace', label: 'Pace' },
@@ -140,8 +129,8 @@ export default function RouteMap({ samples }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<maplibregl.Map>();
   const popupRef     = useRef<maplibregl.Popup>();
-  const [metric, setMetric]     = useState<MetricKey>('pace');
-  const [tileStyle, setTileStyle] = useState<TileStyle>('liberty');
+  const [metric, setMetric]       = useState<MetricKey>('pace');
+  const [tileStyle, setTileStyle] = useState<TileStyle>(DEFAULT_TILE_STYLE);
 
   // Keep refs so style.load handler always has the latest values without re-registering.
   const metricRef    = useRef(metric);
@@ -167,7 +156,7 @@ export default function RouteMap({ samples }: Props) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: TILE_STYLE_URLS[DEFAULT_TILE_STYLE],
       bounds,
       fitBoundsOptions: { padding: 24 },
     });
@@ -227,10 +216,10 @@ export default function RouteMap({ samples }: Props) {
           ))}
         </select>
         <div style={{ display: 'flex', gap: '0.3rem', marginLeft: 'auto' }}>
-          {(['liberty', 'bright', 'fiord'] as TileStyle[]).map(t => (
+          {TILE_STYLES.map(t => (
             <button
               key={t}
-              onClick={() => { setTileStyle(t); mapRef.current?.setStyle(STYLE_URLS[t]); }}
+              onClick={() => { setTileStyle(t); mapRef.current?.setStyle(TILE_STYLE_URLS[t]); }}
               style={{
                 padding: '2px 8px',
                 fontSize: 12,
@@ -241,7 +230,7 @@ export default function RouteMap({ samples }: Props) {
                 cursor: 'pointer',
               }}
             >
-              {STYLE_LABELS[t]}
+              {TILE_STYLE_LABELS[t]}
             </button>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type TileStyle, TILE_STYLE_URLS, TILE_STYLE_LABELS, TILE_STYLES, DEFAULT_TILE_STYLE } from '../tileStyles';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { SavedRoute } from '@fitness/shared';
@@ -17,23 +18,7 @@ interface Waypoint { lnglat: LngLat; marker: maplibregl.Marker; el: HTMLDivEleme
 interface Segment  { from: number; to: number; distanceM: number; coords: LngLat[] }
 interface SearchResult { placeId: number; displayName: string; lat: number; lon: number }
 interface ElevPoint { distM: number; elevM: number }
-type TileStyle = 'liberty' | 'bright' | 'fiord';
 
-// ---------------------------------------------------------------------------
-// Tile styles (OpenFreeMap — free, no API key)
-// ---------------------------------------------------------------------------
-
-const STYLE_URLS: Record<TileStyle, string> = {
-  liberty: 'https://tiles.openfreemap.org/styles/liberty',
-  bright:  'https://tiles.openfreemap.org/styles/bright',
-  fiord:   'https://tiles.openfreemap.org/styles/fiord',
-};
-
-const STYLE_LABELS: Record<TileStyle, string> = {
-  liberty: 'Liberty',
-  bright:  'Bright',
-  fiord:   'Dark',
-};
 
 // ---------------------------------------------------------------------------
 // External APIs
@@ -171,7 +156,7 @@ export default function Planner() {
   const [searchOpen,    setSearchOpen]    = useState(false);
   const [saveName,      setSaveName]      = useState('');
   const [saveOpen,      setSaveOpen]      = useState(false);
-  const [tileStyle,     setTileStyle]     = useState<TileStyle>('liberty');
+  const [tileStyle,     setTileStyle]     = useState<TileStyle>(DEFAULT_TILE_STYLE);
   const [paceInput,     setPaceInput]     = useState('6:00');
 
   useEffect(() => { snapRef.current = snap; }, [snap]);
@@ -567,7 +552,7 @@ ${trkpts}
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLE_URLS['liberty'],
+      style: TILE_STYLE_URLS[DEFAULT_TILE_STYLE],
       center: [-0.09, 51.505],
       zoom: 13,
     });
@@ -612,7 +597,7 @@ ${trkpts}
 
   const switchTileStyle = useCallback((style: TileStyle) => {
     setTileStyle(style);
-    mapRef.current?.setStyle(STYLE_URLS[style]);
+    mapRef.current?.setStyle(TILE_STYLE_URLS[style]);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -759,9 +744,9 @@ ${trkpts}
         <div style={{ width: 1, height: 22, background: '#2a3038', margin: '0 0.1rem' }} />
 
         {/* Tile switcher */}
-        {(['liberty', 'bright', 'fiord'] as TileStyle[]).map(t => (
+        {TILE_STYLES.map(t => (
           <button key={t} onClick={() => switchTileStyle(t)} style={btnStyle(tileStyle === t)}>
-            {STYLE_LABELS[t]}
+            {TILE_STYLE_LABELS[t]}
           </button>
         ))}
 
