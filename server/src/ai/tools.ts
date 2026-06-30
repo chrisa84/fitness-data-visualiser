@@ -7,6 +7,7 @@ import {
 } from '../repositories/activities.js';
 import { listEvents } from '../repositories/events.js';
 import { getEfficiencySeries } from '../repositories/efficiency.js';
+import { getIntraday } from '../repositories/intraday.js';
 import { getMetricSeries } from '../repositories/metrics.js';
 import { getPerformanceSeries } from '../repositories/performance.js';
 import { getRecords } from '../repositories/records.js';
@@ -154,6 +155,19 @@ export const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
+      name: 'get_intraday',
+      description:
+        'Per-minute intraday heart rate, per-~4-minute stress, per-15-minute step counts, and per-minute respiration for a single day. Use to analyse a specific day in detail — e.g. HR during a morning run, stress pattern, or step distribution.',
+      parameters: {
+        type: 'object',
+        properties: { date: ISO_DATE },
+        required: ['date'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'run_sql',
       description:
         'Run a single read-only SELECT/WITH query against the Garmin SQLite database for anything the other tools cannot express. Tables include activity, daily_summary, sleep, hrv, training_status, training_readiness, race_predictions, etc.',
@@ -231,6 +245,8 @@ export function executeTool(name: string, args: Args, ctx: ToolContext): unknown
       return getRecords(ctx.db);
     case 'list_events':
       return listEvents(ctx.eventsDb, args.from as string | undefined, args.to as string | undefined);
+    case 'get_intraday':
+      return getIntraday(ctx.db, (args.date as string) ?? new Date().toISOString().slice(0, 10));
     case 'run_sql':
       return runReadOnlySql(ctx.db, String(args.query ?? ''));
     default:
