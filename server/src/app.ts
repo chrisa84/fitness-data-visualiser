@@ -88,6 +88,19 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
     return { status: 'ok', dailySummaryRows: row.n };
   });
 
+  // Elevation proxy — opentopodata.org doesn't send CORS headers so the browser
+  // can't call it directly. We forward server-side and re-serve the result.
+  app.get('/api/elevation', async (request, reply) => {
+    const { locations } = request.query as { locations?: string };
+    if (!locations) return reply.code(400).send({ error: 'locations required' });
+    const upstream = await fetch(
+      `https://api.opentopodata.org/v1/srtm90m?locations=${encodeURIComponent(locations)}`,
+    );
+    if (!upstream.ok) return reply.code(502).send({ error: 'upstream error', status: upstream.status });
+    const json = await upstream.json();
+    return json;
+  });
+
   registerDailyHealthRoutes(app, db);
   registerActivityRoutes(app, db);
   registerIntradayRoutes(app, db);

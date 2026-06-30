@@ -26,7 +26,7 @@ interface ElevPoint { distM: number; elevM: number }
 
 const OSRM      = 'https://router.project-osrm.org/route/v1/foot';
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
-const TOPO_API  = 'https://api.opentopodata.org/v1/srtm90m';
+const TOPO_API  = '/api/elevation';
 
 const LS_MAP_VIEW = 'planner-map-view';
 const LS_PACE     = 'planner-pace-sec';
@@ -74,7 +74,7 @@ async function nominatimSearch(q: string): Promise<SearchResult[]> {
 }
 
 async function fetchElevations(coords: LngLat[]): Promise<number[] | 'error'> {
-  // opentopodata expects lat,lng order; GET is a simple CORS request (no preflight)
+  // proxied through /api/elevation to avoid CORS; opentopodata expects lat,lng order
   const locs = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
   try {
     const res = await fetch(`${TOPO_API}?locations=${locs}`);
