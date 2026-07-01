@@ -2,6 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type {
   GeneratedTrainingPlan,
+  PlanReviewFeeling,
+  PlanReviewScope,
+  ProposedPlanAdjustment,
+  ProposedWorkoutAddition,
+  ProposedWorkoutModification,
+  ProposedWorkoutRemoval,
   TrainingPlanAutofill,
   TrainingPlanAutofillOverrides,
   TrainingPlanDetail,
@@ -12,12 +18,14 @@ import type {
 import { WORKOUT_TYPES } from '@fitness/shared';
 import { useEffect, useRef, useState } from 'react';
 import {
+  applyPlanReview,
   createTrainingPlan,
   deleteTrainingPlanWorkout,
   endTrainingPlan,
   fetchEvents,
   fetchTrainingPlanAutofill,
   generateTrainingPlan,
+  reviewTrainingPlan,
   reviseTrainingPlan,
   updateTrainingPlanWorkout,
 } from '../api';
@@ -822,6 +830,235 @@ function WorkoutRow({ workout }: { workout: TrainingPlanWorkout }) {
   );
 }
 
+function summarizeWorkoutLine(w: {
+  date: string;
+  workoutType: WorkoutType;
+  title: string;
+  targetDistanceM?: number | null;
+  targetDurationS?: number | null;
+  targetPaceSecPerKm?: number | null;
+  targetPaceMinSecPerKm?: number | null;
+  targetPaceMaxSecPerKm?: number | null;
+  description?: string | null;
+  notes?: string | null;
+}): string {
+  const distance = w.targetDistanceM != null ? formatKm(w.targetDistanceM, 1) : null;
+  const details = workoutDetailsLine(w);
+  return [`${w.date} ${w.workoutType} "${w.title}"`, distance, details].filter((v): v is string => Boolean(v)).join(' · ');
+}
+
+type ReviewItemKey = `modify:${number}` | `remove:${number}` | `add:${number}`;
+
+/** Inline "Ask AI to review" panel: intake form, then a diff preview with pre-checked accept/discard. */
+function PlanReviewPanel({ detail }: { detail: TrainingPlanDetail }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [scope, setScope] = useState<PlanReviewScope>('next-week');
+  const [feeling, setFeeling] = useState<PlanReviewFeeling>('good');
+  const [notes, setNotes] = useState('');
+  const [proposal, setProposal] = useState<ProposedPlanAdjustment | null>(null);
+  const [checked, setChecked] = useState<Record<ReviewItemKey, boolean>>({} as Record<ReviewItemKey, boolean>);
+
+  const workoutById = new Map(detail.workouts.map((w) => [w.id, w]));
+
+  const review = useMutation({
+    mutationFn: () => reviewTrainingPlan(detail.plan.id, { scope, feeling, notes: notes || undefined }),
+    onSuccess: (p) => {
+      setProposal(p);
+      const initial: Record<ReviewItemKey, boolean> = {} as Record<ReviewItemKey, boolean>;
+      p.modify.forEach((m) => (initial[`modify:${m.workoutId}`] = true));
+      p.remove.forEach((r) => (initial[`remove:${r.workoutId}`] = true));
+      p.add.forEach((_, i) => (initial[`add:${i}`] = true));
+      setChecked(initial);
+    },
+  });
+
+  const apply = useMutation({
+    mutationFn: () => {
+      const p = proposal!;
+      return applyPlanReview(detail.plan.id, {
+        rationale: p.adjustmentReason,
+        modify: p.modify.filter((m) => checked[`modify:${m.workoutId}`]),
+        remove: p.remove.filter((r) => checked[`remove:${r.workoutId}`]),
+        add: p.add.filter((_, i) => checked[`add:${i}`]),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['training-plans'] });
+      setProposal(null);
+      setOpen(false);
+    },
+  });
+
+  const setAll = (value: boolean) => {
+    if (!proposal) return;
+    const next: Record<ReviewItemKey, boolean> = {} as Record<ReviewItemKey, boolean>;
+    proposal.modify.forEach((m) => (next[`modify:${m.workoutId}`] = value));
+    proposal.remove.forEach((r) => (next[`remove:${r.workoutId}`] = value));
+    proposal.add.forEach((_, i) => (next[`add:${i}`] = value));
+    setChecked(next);
+  };
+
+  const hasChanges = proposal != null && (proposal.modify.length > 0 || proposal.remove.length > 0 || proposal.add.length > 0);
+  const anyChecked = Object.values(checked).some(Boolean);
+
+  if (!open) {
+    return (
+      <div className="controls">
+        <button onClick={() => setOpen(true)}>Ask AI to review my plan</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="settings-card">
+      <h3>Ask AI to review my plan</h3>
+      {!proposal && (
+        <>
+          <div className="controls">
+            <label>
+              <input type="radio" checked={scope === 'next-week'} onChange={() => setScope('next-week')} /> Review next week
+            </label>
+            <label>
+              <input type="radio" checked={scope === 'remaining'} onChange={() => setScope('remaining')} /> Review the remaining plan
+            </label>
+          </div>
+          <div className="controls">
+            <label>
+              feeling{' '}
+              <select value={feeling} onChange={(e) => setFeeling(e.target.value as PlanReviewFeeling)}>
+                <option value="good">good</option>
+                <option value="tired">tired</option>
+                <option value="struggling">struggling</option>
+                <option value="injured">injured</option>
+              </select>
+            </label>
+          </div>
+          <div className="controls" style={{ display: 'block' }}>
+            <label style={{ display: 'block', width: '100%' }}>
+              Anything about your schedule or an injury we should know? (optional, used for this review only)
+              <br />
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
+              />
+            </label>
+          </div>
+          <div className="controls">
+            <button disabled={review.isPending} onClick={() => review.mutate()}>
+              Review
+            </button>
+            <button onClick={() => setOpen(false)}>Cancel</button>
+            {review.error && <span className="status">Failed to review: {(review.error as Error).message}</span>}
+          </div>
+        </>
+      )}
+
+      {proposal && (
+        <>
+          <p className="status">{proposal.overallAssessment}</p>
+          <p className="status">{proposal.adjustmentReason}</p>
+
+          {!hasChanges && <p className="status">No changes proposed — the plan looks on track.</p>}
+
+          {hasChanges && (
+            <>
+              <div className="controls">
+                <button onClick={() => setAll(true)}>Accept all</button>
+                <button onClick={() => setAll(false)}>Discard all</button>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Before</th>
+                    <th>After</th>
+                    <th>Why</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proposal.modify.map((m: ProposedWorkoutModification) => {
+                    const before = workoutById.get(m.workoutId);
+                    const key: ReviewItemKey = `modify:${m.workoutId}`;
+                    return (
+                      <tr key={key}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(checked[key])}
+                            onChange={(e) => setChecked({ ...checked, [key]: e.target.checked })}
+                          />
+                        </td>
+                        <td>{before ? summarizeWorkoutLine(before) : `workout ${m.workoutId}`}</td>
+                        <td>{before ? summarizeWorkoutLine({ ...before, ...m.patch }) : '—'}</td>
+                        <td>{m.explanation}</td>
+                      </tr>
+                    );
+                  })}
+                  {proposal.remove.map((r: ProposedWorkoutRemoval) => {
+                    const before = workoutById.get(r.workoutId);
+                    const key: ReviewItemKey = `remove:${r.workoutId}`;
+                    return (
+                      <tr key={key}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(checked[key])}
+                            onChange={(e) => setChecked({ ...checked, [key]: e.target.checked })}
+                          />
+                        </td>
+                        <td>{before ? summarizeWorkoutLine(before) : `workout ${r.workoutId}`}</td>
+                        <td>Removed</td>
+                        <td>{r.explanation}</td>
+                      </tr>
+                    );
+                  })}
+                  {proposal.add.map((a: ProposedWorkoutAddition, i: number) => {
+                    const key: ReviewItemKey = `add:${i}`;
+                    return (
+                      <tr key={key}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(checked[key])}
+                            onChange={(e) => setChecked({ ...checked, [key]: e.target.checked })}
+                          />
+                        </td>
+                        <td>—</td>
+                        <td>{summarizeWorkoutLine(a)}</td>
+                        <td>{a.explanation}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
+          )}
+
+          <div className="controls">
+            {hasChanges && (
+              <button disabled={!anyChecked || apply.isPending} onClick={() => apply.mutate()}>
+                Apply selected changes
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setProposal(null);
+                setOpen(false);
+              }}
+            >
+              {hasChanges ? 'Discard' : 'Close'}
+            </button>
+            {apply.error && <span className="status">Failed to apply: {(apply.error as Error).message}</span>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ActivePlanView({ detail }: { detail: TrainingPlanDetail }) {
   const queryClient = useQueryClient();
   const end = useMutation({
@@ -847,6 +1084,7 @@ function ActivePlanView({ detail }: { detail: TrainingPlanDetail }) {
           End plan
         </button>
       </div>
+      <PlanReviewPanel detail={detail} />
       {[...weeks.entries()].map(([weekStart, workouts]) => (
         <div key={weekStart}>
           <h3>Week of {weekStart}</h3>

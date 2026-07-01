@@ -671,28 +671,99 @@ Deliberately separate from Phase 15 below — this operates on an *unsaved*
 draft with no usage history, so it has no dependency on the plan having
 been lived in yet, unlike Phase 15's planned-vs-actual comparison.
 
-### Phase 15 — Adaptive plan check-in (design — future, depends on Phase 14)
+### Phase 15A — Review my active plan (design — next up, depends on Phase 14)
 
 Training plans go stale as fitness changes over 12 weeks. Rather than
 regenerating anything automatically, give the user a manual review action:
+an "Ask AI to review" button on the Training page, inline near the
+active-plan checklist (not a new route — keeps it next to the state it's
+reviewing, same page `revise` already lives on).
 
-- **Manual trigger only** — a button on the Training page ("ask AI to review
-  my plan"). No scheduled/background AI calls; matches how the rest of the
-  app only calls the AI on request.
-- Feeds the model the plan's remaining (incomplete, future-dated) workouts
-  plus a fresh autofill-style summary of what's actually happened since the
-  plan started (ticked-off vs. skipped workouts, actual recent volume/pace
-  vs. what was prescribed) — a "planned vs. actual" delta, same
-  small-fixed-size philosophy as the initial generation.
-- A new `propose_plan_adjustment` tool call (zod-validated) returns a set of
-  `{ workoutId, action: 'modify' | 'remove', ...fields }` for **future**
-  workouts only — the schema should make it structurally impossible to touch
-  a completed or past-dated workout, protecting history.
-- Shown as a diff, same preview-before-save pattern as initial generation;
-  the user accepts individual lines or all/nothing — nothing is ever
-  auto-applied.
-- Deliberately its own phase, after Phase 14's core ships and is usable
-  standalone.
+**Intake:** scope (`next-week` | `remaining`), feeling (`good | tired |
+struggling | injured`), optional free-text schedule/injury notes. Notes are
+**ephemeral** — sent to the model as a plain user-role message for this one
+call, same pattern as `revise`'s `instructions`, and never persisted. If the
+user wants a real injury/travel entry logged, that's what the existing
+Events page is for; this form deliberately doesn't duplicate it.
+
+**Server-side evidence, reusing existing repository functions rather than
+inventing new ones:** workouts due/completed/missed in scope (`completed_at`
+already gives completed vs. future; "missed" is simply `date < today &&
+completed_at IS NULL` — there's no stored "missed" flag, it's derived),
+planned vs. actual **weekly aggregate** volume (`getWeeklyVolumeTrend`,
+already zero-filled), recent pace evidence (`getRepresentativeRuns`),
+training-load/readiness trend (`training_status`/`training_readiness` via the
+performance repository — already pulled into autofill's `trainingLoad`/
+`readinessScore`), and `listEvents` for recent injury/illness/travel context.
+**Weekly aggregates only for this phase, deliberately** — matching individual
+Garmin activities to individual prescribed workouts is Phase 15B, not needed
+to give useful adjustment advice at the week-volume level.
+
+**New `propose_plan_adjustment` tool**, separate from `propose_plan` (own
+file `ai/planReview.ts`, own schema in `schemas/trainingPlan.ts`) since the
+output shape is fundamentally different — a set of patches against existing
+workout IDs, not a full workout array:
+```
+{ overallAssessment, adjustmentReason,
+  modify: [{ workoutId, patch: {...workout fields}, explanation }],
+  remove: [{ workoutId, explanation }],
+  add:    [{ date, ...workout fields, explanation }] }
+```
+
+**Hard protections enforced in code, not prompt-only** (mirrors the
+deterministic post-generation checks from Phase 14.1 — a schema constraint
+alone isn't enough, the merged/resulting state needs checking): reject any
+`modify`/`remove` targeting a workout that's completed (`completed_at IS NOT
+NULL`) or past-dated; reject touching the race-day workout, or an `add` with
+`workoutType: 'race'`; reject any date outside `[start_date, end_date]`;
+reuse the existing pace-range/tempo-description zod refinements on every
+patched/added workout; reuse the existing "no hard session in the final 2
+days before the race" check against the *resulting* plan, not just the
+proposed rows in isolation. Any violation is a clean rejection before the
+response reaches the client — same failure mode as generation, no partially
+valid diff for the UI to reason about.
+
+**Preview, not auto-apply.** The response renders as a diff list — one row
+per proposed change (before → after, or "Removed" / "New"), each with the
+model's explanation and a checkbox, **pre-checked by default** (the user
+already opted into "review my plan," so unchecking the odd bad suggestion is
+less friction than checking every good one). "Accept all" / "Discard all"
+convenience controls, or fine-grained per-row selection. Only the checked
+subset is sent to a separate apply call.
+
+**Apply is transactional and re-validated, not blindly trusted from the
+preview response** — time may have passed between preview and apply (a
+workout could have been ticked complete or deleted in the meantime), so the
+same hard-protection checks run again server-side before writing. A new
+`training_plan_revision` table (`id, plan_id, created_at, rationale,
+changes_json`) stores exactly the accepted-and-applied before/after values
+plus the model's rationale — a small history, not a full undo stack; keeps
+the last ~10 per plan.
+
+**New endpoints:** `POST /api/training-plans/:id/review` (proposal, not
+persisted), `POST /api/training-plans/:id/review/apply` (transactional
+write + revision-history row).
+
+### Phase 15B — Planned-workout matching (design — future, depends on 15A)
+
+Only after 15A ships and gets real usage: optional matching between logged
+Garmin activities and prescribed workouts, so adherence can be computed
+properly (planned vs. actual pace/distance/completion) instead of the
+weekly-aggregate approximation 15A uses.
+
+- Suggest matches by date, activity type, distance, and duration —
+  deliberately starting as *suggestions*, not automatic linking; matching
+  rules that sound obvious on paper (same-day but two runs logged, a
+  workout done a day late, a treadmill run vs. an outdoor prescription) get
+  surprisingly slippery once there's real data to test them against, so this
+  is intentionally sequenced after real usage rather than designed upfront.
+- User confirms or corrects suggested matches; confirmed match stores the
+  Garmin `activity.id` on the corresponding `training_plan_workout` row (new
+  nullable column) — the writable events DB referencing an ID in the
+  read-only Garmin DB, never the reverse.
+- Once matched, adherence (planned vs. actual pace/distance/completion) is a
+  straightforward per-workout diff — this phase is really about the matching
+  UX/rules, not the arithmetic once a match exists.
 
 ### Parked (requires Garmin-Sync work first)
 

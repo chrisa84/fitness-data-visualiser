@@ -33,6 +33,10 @@ import type {
   GenerateTrainingPlanRequest,
   GeneratedTrainingPlan,
   ReviseTrainingPlanRequest,
+  ReviewPlanRequest,
+  ProposedPlanAdjustment,
+  ApplyPlanReviewRequest,
+  TrainingPlanRevision,
   VolumeResponse,
 } from '@fitness/shared';
 
@@ -316,4 +320,12 @@ export function generateTrainingPlan(input: GenerateTrainingPlanRequest) {
 
 export function reviseTrainingPlan(input: ReviseTrainingPlanRequest) {
   return sendJson<GeneratedTrainingPlan>('POST', '/api/training-plans/revise', input);
+}
+
+export function reviewTrainingPlan(planId: number, input: ReviewPlanRequest) {
+  return sendJson<ProposedPlanAdjustment>('POST', `/api/training-plans/${planId}/review`, input);
+}
+
+export function applyPlanReview(planId: number, input: ApplyPlanReviewRequest) {
+  return sendJson<TrainingPlanRevision>('POST', `/api/training-plans/${planId}/review/apply`, input);
 }

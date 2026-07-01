@@ -99,6 +99,15 @@ export function openEventsDb(path: string): Database.Database {
       created_at             TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_training_plan_workout_plan ON training_plan_workout(plan_id);
+
+    CREATE TABLE IF NOT EXISTS training_plan_revision (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id      INTEGER NOT NULL,
+      created_at   TEXT NOT NULL,
+      rationale    TEXT NOT NULL,
+      changes_json TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_training_plan_revision_plan ON training_plan_revision(plan_id);
   `);
 
   // Migration: add chat_message.context to databases created before it existed.

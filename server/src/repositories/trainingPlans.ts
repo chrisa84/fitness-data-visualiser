@@ -26,7 +26,8 @@ export class ActivePlanExistsError extends Error {
  */
 export class WorkoutValidationError extends Error {}
 
-function assertMergedWorkoutValid(plan: TrainingPlan, merged: TrainingPlanWorkout): void {
+/** Exported for reuse by `ai/planReview.ts` (Phase 15A), which needs the same window/pace/description checks on a modify-patch or a new `add` row. */
+export function assertMergedWorkoutValid(plan: TrainingPlan, merged: TrainingPlanWorkout): void {
   if (merged.date < plan.startDate || merged.date > plan.endDate) {
     throw new WorkoutValidationError(
       `workout date ${merged.date} falls outside the plan window ${plan.startDate}–${plan.endDate}`,

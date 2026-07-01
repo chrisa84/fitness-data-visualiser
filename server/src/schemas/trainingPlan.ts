@@ -20,13 +20,17 @@ function workoutsWithinWindow(p: { startDate: string; endDate: string; workouts?
   return p.workouts.every((w) => w.date >= p.startDate && w.date <= p.endDate);
 }
 
-/** Tempo/interval sessions need real structure (reps/pace/recovery), not just a distance. */
-function hasMeaningfulDescriptionForHardEfforts(w: { workoutType: string; description?: string | null }): boolean {
+/**
+ * Tempo/interval sessions need real structure (reps/pace/recovery), not just a
+ * distance. Exported so `planReview.ts` can run the same check on a merged
+ * modify-patch / new add row without re-implementing it.
+ */
+export function hasMeaningfulDescriptionForHardEfforts(w: { workoutType: string; description?: string | null }): boolean {
   if (w.workoutType !== 'tempo' && w.workoutType !== 'interval') return true;
   return (w.description ?? '').trim().length >= 10;
 }
 
-function paceRangeOrdered(w: { targetPaceMinSecPerKm?: number | null; targetPaceMaxSecPerKm?: number | null }): boolean {
+export function paceRangeOrdered(w: { targetPaceMinSecPerKm?: number | null; targetPaceMaxSecPerKm?: number | null }): boolean {
   if (w.targetPaceMinSecPerKm == null || w.targetPaceMaxSecPerKm == null) return true;
   return w.targetPaceMinSecPerKm <= w.targetPaceMaxSecPerKm;
 }
@@ -134,4 +138,64 @@ export const reviseTrainingPlanBody = z.object({
   currentWorkouts: z.array(trainingPlanWorkoutBody).min(1).max(200),
   currentRationale: z.string().max(2000).optional(),
   instructions: z.string().min(1).max(2000),
+});
+
+// ---------------------------------------------------------------------------
+// Plan review (Phase 15A) — patches against an existing active plan's
+// workout IDs, not a full regeneration.
+// ---------------------------------------------------------------------------
+
+export const reviewPlanBody = z.object({
+  scope: z.enum(['next-week', 'remaining']),
+  feeling: z.enum(['good', 'tired', 'struggling', 'injured']),
+  notes: z.string().max(2000).optional(),
+});
+
+/**
+ * A partial patch against an existing workout — deliberately excludes
+ * `completedAt`, so the schema itself makes it structurally impossible for a
+ * review patch to touch completion state, on top of the hard-protection
+ * checks in `planReview.ts`. Not refined (pace order / tempo description)
+ * here, same reasoning as `trainingPlanWorkoutUpdateBody`: a partial patch
+ * can't be checked in isolation, only after merging onto the existing row.
+ */
+const workoutPatchSchema = trainingPlanWorkoutObject.partial();
+
+const proposedModifySchema = z.object({
+  workoutId: z.number().int(),
+  patch: workoutPatchSchema,
+  explanation: z.string().max(1000),
+});
+
+const proposedRemoveSchema = z.object({
+  workoutId: z.number().int(),
+  explanation: z.string().max(1000),
+});
+
+const proposedAddSchema = trainingPlanWorkoutObject
+  .extend({ explanation: z.string().max(1000) })
+  .refine(hasMeaningfulDescriptionForHardEfforts, {
+    message: 'tempo/interval workouts need a meaningful description (e.g. reps, pace, recovery)',
+    path: ['description'],
+  })
+  .refine(paceRangeOrdered, {
+    message: 'targetPaceMinSecPerKm must not be greater than targetPaceMaxSecPerKm',
+    path: ['targetPaceMinSecPerKm'],
+  });
+
+/** Just the AI's actual review output — hard protections are enforced separately in `planReview.ts`. */
+export const aiProposedPlanAdjustmentSchema = z.object({
+  overallAssessment: z.string().max(2000),
+  adjustmentReason: z.string().max(2000),
+  modify: z.array(proposedModifySchema).max(50),
+  remove: z.array(proposedRemoveSchema).max(50),
+  add: z.array(proposedAddSchema).max(50),
+});
+
+/** Only the changes the user accepted, re-validated server-side before applying. */
+export const applyPlanReviewBody = z.object({
+  rationale: z.string().max(2000),
+  modify: z.array(proposedModifySchema).max(50),
+  remove: z.array(proposedRemoveSchema).max(50),
+  add: z.array(proposedAddSchema).max(50),
 });

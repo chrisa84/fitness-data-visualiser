@@ -691,6 +691,67 @@ export interface GeneratedTrainingPlan {
 }
 
 // ---------------------------------------------------------------------------
+// AI plan review (Phase 15A) — patches against an existing active plan, not
+// a full regeneration. Notes are ephemeral: sent to the model for one review
+// call and never persisted (the Events page is where a real injury/travel
+// entry belongs).
+// ---------------------------------------------------------------------------
+
+export type PlanReviewScope = 'next-week' | 'remaining';
+export type PlanReviewFeeling = 'good' | 'tired' | 'struggling' | 'injured';
+
+export interface ReviewPlanRequest {
+  scope: PlanReviewScope;
+  feeling: PlanReviewFeeling;
+  notes?: string;
+}
+
+export interface ProposedWorkoutModification {
+  workoutId: number;
+  patch: Partial<TrainingPlanWorkoutInput>;
+  explanation: string;
+}
+
+export interface ProposedWorkoutRemoval {
+  workoutId: number;
+  explanation: string;
+}
+
+export type ProposedWorkoutAddition = TrainingPlanWorkoutInput & { explanation: string };
+
+/** The AI's structured review output — nothing here is applied until the user accepts it. */
+export interface ProposedPlanAdjustment {
+  overallAssessment: string;
+  adjustmentReason: string;
+  modify: ProposedWorkoutModification[];
+  remove: ProposedWorkoutRemoval[];
+  add: ProposedWorkoutAddition[];
+}
+
+/** Only the changes the user checked, echoed back for a re-validated, transactional apply. */
+export interface ApplyPlanReviewRequest {
+  rationale: string;
+  modify: ProposedWorkoutModification[];
+  remove: ProposedWorkoutRemoval[];
+  add: ProposedWorkoutAddition[];
+}
+
+export interface TrainingPlanRevisionChange {
+  workoutId: number | null;
+  before: TrainingPlanWorkout | null;
+  after: TrainingPlanWorkout | null;
+  explanation: string;
+}
+
+export interface TrainingPlanRevision {
+  id: number;
+  planId: number;
+  createdAt: string;
+  rationale: string;
+  changes: TrainingPlanRevisionChange[];
+}
+
+// ---------------------------------------------------------------------------
 // Saved routes (visualiser-owned writable state)
 // ---------------------------------------------------------------------------
 

@@ -39,7 +39,7 @@ export interface RevisionContext {
  * to juggle a dozen tool schemas plus a large structured output in one go.
  */
 const PLAN_TOOL_NAMES = ['get_records', 'get_performance_series', 'get_activity_volume', 'list_events'];
-const PLAN_DATA_TOOLS = TOOL_DEFINITIONS.filter(
+export const PLAN_DATA_TOOLS = TOOL_DEFINITIONS.filter(
   (t) => t.type === 'function' && PLAN_TOOL_NAMES.includes(t.function.name),
 );
 
@@ -90,7 +90,8 @@ const PROPOSE_PLAN_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   },
 };
 
-function mmss(seconds: number): string {
+/** Exported for reuse by `planReview.ts` (Phase 15A), which formats the same kind of values. */
+export function mmss(seconds: number): string {
   const s = Math.round(seconds);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -98,7 +99,7 @@ function mmss(seconds: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-function round1(n: number): number {
+export function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
@@ -106,7 +107,8 @@ function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
 }
 
-function daysBeforeISO(date: string, days: number): string {
+/** Exported for reuse by `planReview.ts`, which needs the same "N days before this date" check for race-day proximity. */
+export function daysBeforeISO(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
