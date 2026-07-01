@@ -466,10 +466,21 @@ supported plain string form. Accepting an early `propose_plan` call (before
 the forced step) short-circuits the loop immediately. The arguments are
 zod-validated against `generatedPlanSchema` (`schemas/trainingPlan.ts`,
 sharing the same `workout_type` enum and shape as the plain-CRUD body) — a
-bad value throws `PlanGenerationError` (logged server-side, returned as
-`502`) rather than free-texting past validation. A malformed/degraded
-provider response (missing `choices` entirely) is guarded against rather
-than crashing on an unchecked index.
+bad value throws `PlanGenerationError` rather than free-texting past
+validation. A malformed/degraded provider response (missing `choices`
+entirely) is guarded against rather than crashing on an unchecked index.
+The route's catch block logs and returns a clean `502` JSON body for *any*
+caught error, not just `PlanGenerationError` — a genuine OpenRouter/network
+failure comes back as `error: 'ai_error'` with the real message, matching
+`chat.ts`'s equivalent catch-all, instead of an unlogged re-thrown exception.
+
+The system prompt carries explicit coaching guidance beyond "design a plan":
+taper only when `isRace`, cap hard sessions to one tempo + one interval per
+week, flag an infeasible goal in `rationale` and still propose the safest
+reasonable version rather than refusing, and ground `rationale` in the
+actual autofill numbers (not generic encouragement) so the user can see
+*why* the plan looks the way it does. This exists specifically to help
+weaker/cheaper models produce a sane, explainable plan.
 
 **Flow:** fill form (optionally autofill) → Generate → preview as an editable
 table (nothing saved yet) → adjust inputs and regenerate, or edit rows

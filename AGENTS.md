@@ -174,8 +174,17 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   `runChat` — that one must stay generic for ordinary chat. The
   `propose_plan` arguments are zod-validated against
   `schemas/trainingPlan.ts`'s `generatedPlanSchema`; a bad value throws
-  `PlanGenerationError` (→ `502`, logged via `request.log.error`), it does
-  not silently fall back to prose.
+  `PlanGenerationError`. `routes/trainingPlanGeneration.ts`'s catch block
+  logs and returns a clean `502` JSON body (`{error, message}`) for **any**
+  caught error, not just `PlanGenerationError` — matching `chat.ts`'s
+  catch-all — so a genuine OpenRouter/network failure surfaces as
+  `error: 'ai_error'` with the real message instead of an unlogged, re-thrown
+  exception. The system prompt also carries explicit coaching guidance
+  (taper only when `isRace`, cap hard sessions to one tempo + one interval
+  per week, flag infeasible goals in `rationale` instead of refusing, ground
+  `rationale` in the actual autofill numbers) — these aren't obvious from
+  the tool schema alone and exist specifically to help weaker/cheaper models
+  produce a sane plan; don't strip them out as "just prose."
 - **`GET /api/training-plans/autofill` costs zero AI tokens.** It's plain
   repository queries (`repositories/trainingPlanAutofill.ts`, reusing
   `getActivityVolume`/`getRecords`/`getPerformanceSeries`) — don't route it
