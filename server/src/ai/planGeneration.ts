@@ -184,7 +184,12 @@ export function buildPlanSummary(
 
   const activeNonRunning = autofill.nonRunningLoad.filter((g) => g.count > 0);
   if (activeNonRunning.length > 0) {
-    lines.push(`Other current training: ${activeNonRunning.map((g) => `${g.group} ${g.count}x/${g.distanceKm}km`).join('; ')}.`);
+    const nonRunning = activeNonRunning
+      .map((g) => `${g.group} ${g.count}x/${g.distanceKm}km (avg ${round1(g.distanceKm / g.count)}km/session)`)
+      .join('; ');
+    lines.push(
+      `Other current training (last 12 weeks): ${nonRunning}. A high session count with a low per-session average is likely incidental daily activity (e.g. auto-detected walks), not deliberate training — weigh it accordingly.`,
+    );
   }
   if (input.autofill?.nonRunningLoadSummary) lines.push(`User note on other training: ${input.autofill.nonRunningLoadSummary}.`);
   if (input.autofill?.paceNotes) lines.push(`User note on recent pace/effort: ${input.autofill.paceNotes}.`);

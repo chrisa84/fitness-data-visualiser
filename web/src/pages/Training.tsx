@@ -71,7 +71,9 @@ function parseDurationInput(str: string): number | undefined {
 function summarizeNonRunningLoad(data: TrainingPlanAutofill): string | null {
   const active = data.nonRunningLoad.filter((g) => g.count > 0);
   if (active.length === 0) return null;
-  return active.map((g) => `${g.group}: ${g.count} sessions, ${g.distanceKm} km`).join('; ');
+  return active
+    .map((g) => `${g.group}: ${g.count} sessions, ${g.distanceKm} km (avg ${(g.distanceKm / g.count).toFixed(1)} km/session)`)
+    .join('; ');
 }
 
 function paceDisplay(w: {
