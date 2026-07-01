@@ -11,6 +11,19 @@ const ISO_DATE = { type: 'string', description: 'date as YYYY-MM-DD' } as const;
 /** Thrown when the model fails to produce a valid `propose_plan` call within the step limit. */
 export class PlanGenerationError extends Error {}
 
+/**
+ * Only the tools actually relevant to plan design — not the full chat toolset.
+ * The autofill summary already covers records/performance/volume/events; this
+ * is just an escape hatch for a longer look-back, not a general research kit.
+ * Keeping the per-request tool schema small matters for weaker/cheaper models,
+ * which are more likely to time out or return a malformed response when asked
+ * to juggle a dozen tool schemas plus a large structured output in one go.
+ */
+const PLAN_TOOL_NAMES = ['get_records', 'get_performance_series', 'get_activity_volume', 'list_events'];
+const PLAN_DATA_TOOLS = TOOL_DEFINITIONS.filter(
+  (t) => t.type === 'function' && PLAN_TOOL_NAMES.includes(t.function.name),
+);
+
 const PROPOSE_PLAN_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   type: 'function',
   function: {
@@ -82,7 +95,7 @@ export function buildPlanSummary(input: GenerateTrainingPlanRequest, events: Cal
 function systemPrompt(today: string, summary: string): string {
   return [
     `You are an experienced running coach embedded in a personal Garmin data app. Today is ${today}.`,
-    'Design a training plan for the user described below, grounded in the fitness summary — not a generic template. You have the same data tools available as the chat assistant (including run_sql) if the summary genuinely is not enough, but it usually is.',
+    'Design a training plan for the user described below, grounded in the fitness summary — not a generic template. You have a few extra data tools (records, performance trends, activity volume, logged events) if the summary genuinely is not enough, but it usually already covers what you need.',
     '',
     'Coaching rules:',
     '- Judge whether the stated goal is realistic in the time available given the fitness summary. If it looks like a stretch, or currently unachievable, say so plainly in `rationale` and propose the safest reasonable version of it (an easier pace target, or note the timeline is tight) rather than refusing to produce a plan.',
@@ -114,7 +127,7 @@ export async function generatePlan(opts: {
   summary: string;
 }): Promise<GeneratedTrainingPlan> {
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
-  const tools = [...TOOL_DEFINITIONS, PROPOSE_PLAN_TOOL];
+  const tools = [...PLAN_DATA_TOOLS, PROPOSE_PLAN_TOOL];
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt(today, opts.summary) },
   ];
@@ -127,7 +140,9 @@ export async function generatePlan(opts: {
       tools,
       tool_choice: forced ? { type: 'function', function: { name: 'propose_plan' } } : 'auto',
     });
-    const msg = resp.choices[0]?.message;
+    // Guard against a malformed/degraded provider response (missing `choices`
+    // entirely, not just an empty message) rather than crashing on `[0]`.
+    const msg = resp.choices?.[0]?.message;
     if (!msg) throw new PlanGenerationError('no response from model');
     messages.push(msg);
 

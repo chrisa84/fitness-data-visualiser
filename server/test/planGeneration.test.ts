@@ -122,6 +122,27 @@ describe('generatePlan', () => {
     );
     expect(create).toHaveBeenCalledTimes(8);
   });
+
+  it('throws a clean PlanGenerationError rather than crashing on a malformed provider response', async () => {
+    const create = vi.fn().mockResolvedValueOnce({}); // no `choices` at all
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await expect(generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' })).rejects.toThrow(
+      PlanGenerationError,
+    );
+  });
+
+  it('only offers a small, plan-relevant subset of tools, not the full chat toolset', async () => {
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' });
+
+    const toolNames = (create.mock.calls[0]![0].tools as { function: { name: string } }[]).map((t) => t.function.name);
+    expect(new Set(toolNames)).toEqual(
+      new Set(['get_records', 'get_performance_series', 'get_activity_volume', 'list_events', 'propose_plan']),
+    );
+  });
 });
 
 describe('getTrainingPlanAutofill', () => {

@@ -45,6 +45,7 @@ export function registerTrainingPlanGenerationRoutes(
       return plan;
     } catch (e) {
       if (e instanceof PlanGenerationError) {
+        request.log.error(e);
         return reply.code(502).send({ error: 'plan_generation_failed', message: e.message });
       }
       throw e;
