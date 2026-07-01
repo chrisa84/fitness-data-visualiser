@@ -114,10 +114,18 @@ function systemPrompt(today: string, summary: string): string {
 /**
  * Runs a dedicated tool-use loop (separate from `runChat`, which must stay
  * generic for ordinary chat) that forces termination in a `propose_plan`
- * call: `tool_choice` is `'auto'` on every step except the last allowed one,
- * where it is forced to `propose_plan` — forcing from step 0 would prevent
- * the model calling data tools first, since a forced single-function choice
- * disallows any other call that turn.
+ * call: `tool_choice` is `'auto'` with the full plan-data tool set on every
+ * step except the last allowed one, where the tool list is narrowed to just
+ * `propose_plan` and `tool_choice` is set to `'required'`.
+ *
+ * `'required'` (call *some* tool) rather than the named-function form
+ * (`{type:'function', function:{name:'propose_plan'}}`) deliberately —
+ * forcing one specific function by name needs each provider/aggregator to
+ * correctly translate that exact semantic, which is a known weak spot for
+ * non-OpenAI-native backends (Gemini, DeepSeek, etc. routed through
+ * OpenRouter). `'required'` is the older, far more universally supported
+ * part of the tool-choice spec, and narrowing the tool list to one entry
+ * makes it unambiguous without needing the named-function form at all.
  */
 export async function generatePlan(opts: {
   client: CompletionClient;
@@ -137,8 +145,8 @@ export async function generatePlan(opts: {
     const resp = await opts.client.chat.completions.create({
       model: opts.model,
       messages,
-      tools,
-      tool_choice: forced ? { type: 'function', function: { name: 'propose_plan' } } : 'auto',
+      tools: forced ? [PROPOSE_PLAN_TOOL] : tools,
+      tool_choice: forced ? 'required' : 'auto',
     });
     // Guard against a malformed/degraded provider response (missing `choices`
     // entirely, not just an empty message) rather than crashing on `[0]`.

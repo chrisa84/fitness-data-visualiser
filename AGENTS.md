@@ -157,14 +157,25 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   a date with no workout row *is* the rest day, and prescribing non-running
   sessions was scoped out (see `PLAN.md` Phase 14 for why).
 - **Plan generation forces a terminal tool call — it does not reuse
-  `runChat`.** `ai/planGeneration.ts`'s `generatePlan` runs its own loop
-  against the same `TOOL_DEFINITIONS`/`executeTool`, but sets `tool_choice`
-  to force `propose_plan` on the last allowed step (never from step 0, which
-  would block the model from calling data tools first). Don't add this
-  forcing logic to `ai/chat.ts`'s `runChat` — that one must stay generic for
-  ordinary chat. The `propose_plan` arguments are zod-validated against
+  `runChat`.** `ai/planGeneration.ts`'s `generatePlan` runs its own loop,
+  dispatching through the same `executeTool`, but only offers a small
+  plan-relevant subset of `TOOL_DEFINITIONS` (`PLAN_DATA_TOOLS`:
+  `get_records`, `get_performance_series`, `get_activity_volume`,
+  `list_events`) — not the full chat toolset, which is unnecessary weight for
+  this task and more likely to trip up weaker/cheaper models. On the last
+  allowed step, the tool list narrows to just `propose_plan` and
+  `tool_choice` becomes `'required'` — deliberately **not** the named-function
+  form (`{type:'function', function:{name:'propose_plan'}}`); forcing one
+  specific function by name needs each provider/aggregator to translate that
+  exact semantic correctly, which is a known weak spot for non-OpenAI-native
+  backends (Gemini, DeepSeek, etc. via OpenRouter) — `'required'` with a
+  single-entry tool list gets the same guarantee without depending on that.
+  Don't add either the tool-trimming or the forcing logic to `ai/chat.ts`'s
+  `runChat` — that one must stay generic for ordinary chat. The
+  `propose_plan` arguments are zod-validated against
   `schemas/trainingPlan.ts`'s `generatedPlanSchema`; a bad value throws
-  `PlanGenerationError` (→ `502`), it does not silently fall back to prose.
+  `PlanGenerationError` (→ `502`, logged via `request.log.error`), it does
+  not silently fall back to prose.
 - **`GET /api/training-plans/autofill` costs zero AI tokens.** It's plain
   repository queries (`repositories/trainingPlanAutofill.ts`, reusing
   `getActivityVolume`/`getRecords`/`getPerformanceSeries`) — don't route it

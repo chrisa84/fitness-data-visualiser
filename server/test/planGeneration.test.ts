@@ -85,11 +85,11 @@ describe('generatePlan', () => {
     expect(create).toHaveBeenCalledTimes(8);
     for (let i = 0; i < 7; i += 1) {
       expect(create.mock.calls[i]![0].tool_choice).toBe('auto');
+      expect(create.mock.calls[i]![0].tools.length).toBeGreaterThan(1);
     }
-    expect(create.mock.calls[7]![0].tool_choice).toEqual({
-      type: 'function',
-      function: { name: 'propose_plan' },
-    });
+    expect(create.mock.calls[7]![0].tool_choice).toBe('required');
+    const finalTools = create.mock.calls[7]![0].tools as { function: { name: string } }[];
+    expect(finalTools.map((t) => t.function.name)).toEqual(['propose_plan']);
   });
 
   it('continues the loop (with a nudge) instead of accepting free text as an answer', async () => {

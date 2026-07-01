@@ -447,18 +447,29 @@ page — Events is already the source of truth with its own edit UI, so the
 plan form doesn't duplicate it. If nothing's logged for the range, a small
 nudge to add one is shown instead.
 
-`ai/planGeneration.ts` reuses `ai/tools.ts`'s `TOOL_DEFINITIONS`/`executeTool`
-in a **sibling** loop to `ai/chat.ts`'s `runChat` (that function stays generic
-for ordinary chat, untouched) — same shape, but `tool_choice` is `'auto'` on
-every step except the final allowed one, where it's forced to
-`{ type: 'function', function: { name: 'propose_plan' } }`. Forcing from step
-0 would block the model calling data tools first, since a forced
-single-function choice disallows any other call that turn; accepting an
-early `propose_plan` call (before the forced step) short-circuits the loop
-immediately. The arguments are zod-validated against `generatedPlanSchema`
-(`schemas/trainingPlan.ts`, sharing the same `workout_type` enum and shape as
-the plain-CRUD body) — a bad value throws `PlanGenerationError` rather than
-free-texting past validation.
+`ai/planGeneration.ts` dispatches through `ai/tools.ts`'s `executeTool` in a
+**sibling** loop to `ai/chat.ts`'s `runChat` (that function stays generic for
+ordinary chat, untouched), but only offers a small plan-relevant subset of
+`TOOL_DEFINITIONS` (`get_records`, `get_performance_series`,
+`get_activity_volume`, `list_events`) rather than the full chat toolset —
+the autofill summary already covers what plan design needs, and a smaller
+per-request tool/schema payload is meaningfully more reliable across models,
+especially cheaper/faster ones. `tool_choice` is `'auto'` on every step
+except the final allowed one, where the tool list narrows to just
+`propose_plan` and `tool_choice` becomes `'required'` — **not** the
+named-function form (`{type:'function', function:{name:'propose_plan'}}`),
+which needs each provider/aggregator to correctly translate "force this one
+specific function," a known weak spot for non-OpenAI-native backends
+(Gemini, DeepSeek, etc. via OpenRouter). `'required'` with a single-entry
+tool list gets the same guarantee through the far more universally
+supported plain string form. Accepting an early `propose_plan` call (before
+the forced step) short-circuits the loop immediately. The arguments are
+zod-validated against `generatedPlanSchema` (`schemas/trainingPlan.ts`,
+sharing the same `workout_type` enum and shape as the plain-CRUD body) — a
+bad value throws `PlanGenerationError` (logged server-side, returned as
+`502`) rather than free-texting past validation. A malformed/degraded
+provider response (missing `choices` entirely) is guarded against rather
+than crashing on an unchecked index.
 
 **Flow:** fill form (optionally autofill) → Generate → preview as an editable
 table (nothing saved yet) → adjust inputs and regenerate, or edit rows
