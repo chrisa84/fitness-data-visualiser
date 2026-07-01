@@ -583,6 +583,24 @@ deterministic check, comprehensive progression validation, a full
 availability calendar (preferred days is the bounded version that shipped),
 and adaptive planned-vs-actual review (still Phase 15, below).
 
+**Follow-up correctness pass**, caught by a second independent review plus
+live testing right after the above shipped: the `durationWeeks` end-date
+math was off by one (`startDate + durationWeeks*7`, not `*7 - 1` — see
+`computeEndDate` in `routes/trainingPlanGeneration.ts`); the autofill
+overrides sync effect re-fired on every background refetch, not just the
+explicit Refresh button, clobbering in-progress edits; the pace-range
+`min`/`max` field descriptions were backwards (numerically smaller = faster,
+not "slow end"), producing displayed ranges like "5:30–5:00/km" — fixed at
+both the prompt-description source and defensively in
+`formatPaceFromSecPerKm` (always renders faster→slower regardless of
+argument order); `representativeRuns` didn't carry activity type/elevation,
+so a trail effort's pace could get treated as flat-road pace; workout
+`notes` were stored but never rendered in any of the three workout tables
+despite being agreed scope; `trainingPlanBaseBody.goalDescription`'s
+`min(1)` requirement was never relaxed alongside making the field optional
+on the generate side, so saving a plan with no goal text 400'd; and several
+`minWidth`-pixel textareas didn't respect narrow viewports.
+
 ### Phase 15 — Adaptive plan check-in (design — future, depends on Phase 14)
 
 Training plans go stale as fitness changes over 12 weeks. Rather than

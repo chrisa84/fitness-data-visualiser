@@ -162,10 +162,15 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   landing outside the stated plan window (a "race" row one day past the
   plan's own `endDate`). `GenerateTrainingPlanRequest` now carries `isRace`,
   `raceDate`, `goalRaceDistanceM`, `goalTargetDurationS` and `durationWeeks`
-  as explicit form fields; `routes/trainingPlanGeneration.ts` computes
-  `endDate` deterministically (`raceDate` when racing, else
-  `startDate + durationWeeks*7`) *before* calling `generatePlan` — the model
-  is told these as hard facts, it never chooses them.
+  as explicit form fields; `routes/trainingPlanGeneration.ts`'s exported
+  `computeEndDate` computes `endDate` deterministically (`raceDate` when
+  racing, else `startDate + durationWeeks*7 - 1` days — **not** `*7`; a
+  1-week plan starting Monday ends the following Sunday, 7 days total, not
+  the Monday after, since `startDate` itself is the first of those days)
+  *before* calling `generatePlan` — the model is told these as hard facts,
+  it never chooses them. `Training.tsx`'s own client-side mirror of this
+  calculation (for the events-overlap preview) must stay in sync with the
+  same `*7 - 1` — it drifted once already.
 - **The AI's actual output is just `{ rationale, workouts[] }`
   (`AiProposedPlan` in `ai/planGeneration.ts`, not exported from `shared`).**
   The route merges this with the user-supplied hard facts above to build the
@@ -225,7 +230,21 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   by activity) — not all-time personal records (`getRecords` is unrelated
   and unused here; `longest_ride`/`biggest_climb`/`highest_vo2max` records
   have nothing to do with running pace and were the source of the original
-  "wtf is this" garbage output before this rework).
+  "wtf is this" garbage output before this rework). `representativeRuns`
+  carries the activity `type` and `elevationGainM` alongside pace — trail/
+  hilly effort pace isn't comparable to flat road pace, so the prompt is
+  told to treat them differently rather than setting a road-pace target off
+  a hilly run.
+- **`Training.tsx`'s autofill-overrides sync effect fires once, not on every
+  refetch.** `useQuery`'s defaults (`refetchOnWindowFocus`/
+  `refetchOnReconnect`) mean `autofillQuery.data` can change in the
+  background — e.g. foregrounding the installed PWA — with no user action.
+  A naive `useEffect(() => setOverrides(...), [autofillQuery.data])` would
+  silently clobber whatever the user had already typed into the editable
+  fields. It's guarded with a `useRef` so it only syncs from the first
+  successful fetch; "Refresh from Garmin" still updates the read-only
+  trend/representative-run display (which reads `autofillQuery.data`
+  directly), just not the editable override fields.
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
   `Accept: application/json` and reloads the page on a `401` so an expired
   oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's

@@ -60,6 +60,22 @@ describe('generatePlan', () => {
     expect(systemMessage).toContain('goal summary');
   });
 
+  it('describes the pace-range fields so min is the faster/smaller value and max the slower/larger one', async () => {
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false });
+
+    const tools = create.mock.calls[0]![0].tools as {
+      function: { name: string; parameters: { properties: { workouts: { items: { properties: Record<string, { description?: string }> } } } } };
+    }[];
+    const workoutProps = tools.find((t) => t.function.name === 'propose_plan')!.function.parameters.properties.workouts.items.properties;
+    expect(workoutProps.targetPaceMinSecPerKm!.description).toMatch(/smaller/i);
+    expect(workoutProps.targetPaceMinSecPerKm!.description).toMatch(/faster/i);
+    expect(workoutProps.targetPaceMaxSecPerKm!.description).toMatch(/larger/i);
+    expect(workoutProps.targetPaceMaxSecPerKm!.description).toMatch(/slower/i);
+  });
+
   it('instructs the model that a general-fitness goal needs no taper', async () => {
     const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
@@ -201,7 +217,7 @@ describe('getTrainingPlanAutofill', () => {
     const path = createTrainingPlanAutofillDb({
       activity: [
         { activity_id: '1', type: 'running', start_time_local: '2026-01-05 08:00:00', distance_m: 10000, duration_s: 3000, fastest_5k_s: 1400 },
-        { activity_id: '2', type: 'running', start_time_local: '2026-01-12 08:00:00', distance_m: 15000, duration_s: 4800 },
+        { activity_id: '2', type: 'trail_running', start_time_local: '2026-01-12 08:00:00', distance_m: 15000, duration_s: 4800, elevation_gain_m: 320 },
         { activity_id: '3', type: 'cycling', start_time_local: '2026-01-08 08:00:00', distance_m: 30000, duration_s: 4500 },
       ],
       training_status: [{ date: '2026-01-10', vo2max: 50, acute_load: 200, chronic_load: 180, acwr: 1.1 }],
@@ -219,7 +235,10 @@ describe('getTrainingPlanAutofill', () => {
 
     expect(autofill.longestRecentRunKm).toBe(15);
     expect(autofill.representativeRuns.length).toBeGreaterThan(0);
-    expect(autofill.representativeRuns.some((r) => r.label === 'longest' && r.distanceKm === 15)).toBe(true);
+    const longestRun = autofill.representativeRuns.find((r) => r.label === 'longest');
+    expect(longestRun?.distanceKm).toBe(15);
+    expect(longestRun?.type).toBe('trail_running');
+    expect(longestRun?.elevationGainM).toBe(320);
 
     expect(autofill.vo2max).toBe(50);
     expect(autofill.trainingLoad.acute).toBe(200);

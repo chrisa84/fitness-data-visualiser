@@ -9,7 +9,7 @@ import type {
   TrainingPlanWorkoutInput,
 } from '@fitness/shared';
 import { WORKOUT_TYPES } from '@fitness/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   createTrainingPlan,
   deleteTrainingPlanWorkout,
@@ -19,7 +19,7 @@ import {
   generateTrainingPlan,
   updateTrainingPlanWorkout,
 } from '../api';
-import { formatDuration, formatKm, formatPaceFromSecPerKm } from '../format';
+import { formatDuration, formatKm, formatPaceFromSecPerKm, formatType } from '../format';
 import { useActiveTrainingPlan, useTrainingPlanDetail, useTrainingPlans } from '../trainingPlans';
 
 const DAYS = [
@@ -91,10 +91,15 @@ function workoutDetailsLine(w: {
   targetPaceMaxSecPerKm?: number | null;
   targetDurationS?: number | null;
   description?: string | null;
+  notes?: string | null;
 }): string {
   const pace = paceDisplay(w);
-  const parts = [pace !== '—' ? pace : null, w.targetDurationS ? formatDuration(w.targetDurationS) : null, w.description]
-    .filter((v): v is string => Boolean(v));
+  const parts = [
+    pace !== '—' ? pace : null,
+    w.targetDurationS ? formatDuration(w.targetDurationS) : null,
+    w.description,
+    w.notes ? `note: ${w.notes}` : null,
+  ].filter((v): v is string => Boolean(v));
   return parts.join(' · ');
 }
 
@@ -158,7 +163,11 @@ function FitnessContextCard({
         <p className="status">
           Representative recent runs (last 3 months):{' '}
           {autofill.representativeRuns
-            .map((r) => `${r.date} ${r.label.replace('_', ' ')}: ${formatKm(r.distanceKm * 1000, 1)} in ${formatDuration(r.durationS)}`)
+            .map(
+              (r) =>
+                `${r.date} ${r.label.replace('_', ' ')} (${formatType(r.type)}): ${formatKm(r.distanceKm * 1000, 1)} in ${formatDuration(r.durationS)}` +
+                `${r.elevationGainM ? `, +${Math.round(r.elevationGainM)}m` : ''}`,
+            )
             .join('; ')}
         </p>
       )}
@@ -170,27 +179,27 @@ function FitnessContextCard({
         </p>
       )}
 
-      <div className="controls">
-        <label style={{ display: 'block', minWidth: 300 }}>
+      <div className="controls" style={{ display: 'block' }}>
+        <label style={{ display: 'block', width: '100%' }}>
           Anything about your recent pace/effort we should know? (optional)
           <br />
           <textarea
             value={overrides.paceNotes ?? ''}
             onChange={(e) => setOverrides({ ...overrides, paceNotes: e.target.value })}
             rows={2}
-            style={{ width: '100%', minWidth: 300 }}
+            style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
           />
         </label>
       </div>
-      <div className="controls">
-        <label style={{ display: 'block', minWidth: 300 }}>
-          Other current training (non-running) — edit if this looks wrong
+      <div className="controls" style={{ display: 'block' }}>
+        <label style={{ display: 'block', width: '100%' }}>
+          Other current training (non-running: cycling/swimming/walking, last 12 wks) — edit if this looks wrong
           <br />
           <textarea
             value={overrides.nonRunningLoadSummary ?? (autofill ? summarizeNonRunningLoad(autofill) ?? '' : '')}
             onChange={(e) => setOverrides({ ...overrides, nonRunningLoadSummary: e.target.value })}
             rows={2}
-            style={{ width: '100%', minWidth: 300 }}
+            style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
           />
         </label>
       </div>
@@ -206,8 +215,15 @@ function IntakeForm() {
 
   const autofillQuery = useQuery({ queryKey: ['training-plan-autofill'], queryFn: fetchTrainingPlanAutofill });
 
+  // Populate the editable overrides once, from the first successful fetch — never again.
+  // TanStack Query's defaults (refetchOnWindowFocus/refetchOnReconnect) mean autofillQuery.data
+  // can silently change later (e.g. backgrounding/foregrounding the PWA), and re-syncing then
+  // would clobber whatever the user has already typed. "Refresh from Garmin" still updates the
+  // read-only trend/representative-run display below, just not these editable fields.
+  const hasSyncedOverrides = useRef(false);
   useEffect(() => {
-    if (!autofillQuery.data) return;
+    if (!autofillQuery.data || hasSyncedOverrides.current) return;
+    hasSyncedOverrides.current = true;
     const data = autofillQuery.data;
     setOverrides({
       weeklyVolumeAvgKm: data.weeklyVolumeAvgKm,
@@ -222,7 +238,7 @@ function IntakeForm() {
   const endDate = form.isRace
     ? form.raceDate || undefined
     : form.startDate
-      ? addDays(form.startDate, form.durationWeeks * 7)
+      ? addDays(form.startDate, form.durationWeeks * 7 - 1)
       : undefined;
 
   const events = useQuery({
@@ -391,8 +407,8 @@ function IntakeForm() {
         )}
       </div>
 
-      <div className="controls">
-        <label>
+      <div className="controls" style={{ display: 'block' }}>
+        <label style={{ display: 'block', width: '100%' }}>
           Anything about your goal worth knowing? (optional)
           <br />
           <textarea
@@ -400,29 +416,29 @@ function IntakeForm() {
             value={form.goalDescription}
             onChange={(e) => setForm({ ...form, goalDescription: e.target.value })}
             rows={2}
-            style={{ minWidth: 280 }}
+            style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
           />
         </label>
       </div>
-      <div className="controls">
-        <label>
+      <div className="controls" style={{ display: 'block' }}>
+        <label style={{ display: 'block', width: '100%' }}>
           Anything else you're currently training that's not logged here? (optional)
           <br />
           <textarea
             value={form.otherTraining}
             onChange={(e) => setForm({ ...form, otherTraining: e.target.value })}
             rows={2}
-            style={{ minWidth: 320 }}
+            style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
           />
         </label>
-        <label>
-          Anything coming up in this window we should know about? (optional)
+        <label style={{ display: 'block', width: '100%' }}>
+          Anything coming up{form.startDate && endDate ? ` between ${form.startDate} and ${endDate}` : ' in the plan window'} we should know about? (optional)
           <br />
           <textarea
             value={form.upcomingNotes}
             onChange={(e) => setForm({ ...form, upcomingNotes: e.target.value })}
             rows={2}
-            style={{ minWidth: 320 }}
+            style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
           />
         </label>
       </div>
@@ -576,7 +592,8 @@ function ActivePlanView({ detail }: { detail: TrainingPlanDetail }) {
   return (
     <>
       <p className="status">
-        {detail.plan.goalDescription} — {detail.plan.startDate} to {detail.plan.endDate}, {detail.plan.daysPerWeek}{' '}
+        {detail.plan.goalDescription ? `${detail.plan.goalDescription} — ` : ''}
+        {detail.plan.startDate} to {detail.plan.endDate}, {detail.plan.daysPerWeek}{' '}
         days/week.
       </p>
       <div className="controls">
@@ -631,7 +648,7 @@ function HistorySection() {
         <tbody>
           {ended.data.map((plan) => (
             <tr key={plan.id}>
-              <td>{plan.goalDescription}</td>
+              <td>{plan.goalDescription || '—'}</td>
               <td>
                 {plan.startDate} to {plan.endDate}
               </td>

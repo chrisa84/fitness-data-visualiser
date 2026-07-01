@@ -64,9 +64,14 @@ const PROPOSE_PLAN_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
               },
               targetPaceMinSecPerKm: {
                 type: 'number',
-                description: 'seconds per km, slow end of a pace range — use for easy/long runs instead of a single pace',
+                description:
+                  'seconds per km — the numerically SMALLER value, i.e. the FASTER end of a pace range (lower seconds/km = faster). Use for easy/long runs instead of a single pace.',
               },
-              targetPaceMaxSecPerKm: { type: 'number', description: 'seconds per km, fast end of a pace range' },
+              targetPaceMaxSecPerKm: {
+                type: 'number',
+                description:
+                  'seconds per km — the numerically LARGER value, i.e. the SLOWER end of a pace range (higher seconds/km = slower).',
+              },
               notes: { type: 'string' },
             },
             required: ['date', 'title', 'workoutType'],
@@ -146,11 +151,14 @@ export function buildPlanSummary(
     const runs = autofill.representativeRuns
       .map(
         (r) =>
-          `${r.date} (${r.label.replace('_', ' ')}): ${r.distanceKm}km in ${mmss(r.durationS)}` +
-          `${r.avgPaceSecPerKm != null ? ` (${mmss(r.avgPaceSecPerKm)}/km)` : ''}`,
+          `${r.date} (${r.label.replace('_', ' ')}, ${r.type ?? 'unknown type'}): ${r.distanceKm}km in ${mmss(r.durationS)}` +
+          `${r.avgPaceSecPerKm != null ? ` (${mmss(r.avgPaceSecPerKm)}/km)` : ''}` +
+          `${r.elevationGainM != null && r.elevationGainM > 0 ? `, +${Math.round(r.elevationGainM)}m climb` : ''}`,
       )
       .join('; ');
-    lines.push(`Representative recent runs (last 3 months, varying length/intensity): ${runs}.`);
+    lines.push(
+      `Representative recent runs (last 3 months, varying length/intensity): ${runs}. Note the activity type and climb — trail/hilly pace is not comparable to flat road pace, don't set road-pace targets off a hilly effort.`,
+    );
   }
 
   const vo2max = input.autofill?.vo2max ?? autofill.vo2max;
@@ -213,7 +221,7 @@ function systemPrompt(today: string, summary: string, isRace: boolean): string {
     '- Keep hard efforts sparse: at most one tempo and one interval session per week, and never on back-to-back days. Include a weekly long run once the goal distance or weekly volume justifies one.',
     '- Only schedule the given number of training days per week — every other date is implicitly a rest day, do not create a workout row for it.',
     '- If preferred training days are given, honor them where reasonable — they are a preference, not a hard requirement.',
-    '- Give every workout a `targetPaceSecPerKm`. For easy and long runs a single pace is unrealistic — use `targetPaceMinSecPerKm`/`targetPaceMaxSecPerKm` for a range instead (or as well). For tempo/interval workouts also give `targetDurationS` or `targetDistanceM` for the effort itself, and use `description` for real structure (e.g. "6x800m @ pace w/ 3min jog recovery") — a bare distance is not enough for a hard session.',
+    '- Give every workout a `targetPaceSecPerKm`. For easy and long runs a single pace is unrealistic — use `targetPaceMinSecPerKm`/`targetPaceMaxSecPerKm` for a range instead (or as well): `targetPaceMinSecPerKm` must be the numerically SMALLER/FASTER value and `targetPaceMaxSecPerKm` the numerically LARGER/SLOWER value (seconds per km — fewer seconds means faster). For tempo/interval workouts also give `targetDurationS` or `targetDistanceM` for the effort itself, and use `description` for real structure (e.g. "6x800m @ pace w/ 3min jog recovery") — a bare distance is not enough for a hard session.',
     '- All numeric targets use the units named in the schema exactly (metres, seconds, seconds per kilometre) — never kilometres or minutes.',
     '',
     'In `rationale` (2-4 sentences), explain the plan in terms of the actual numbers in the summary below — name the specific figures that shaped a decision (e.g. "your weekly volume has been flat around X km, so the first two weeks stay conservative" or "readiness has been low, so I front-loaded easier sessions") rather than generic encouragement. If you flagged a feasibility concern above, repeat it here.',

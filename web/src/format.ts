@@ -28,16 +28,22 @@ function mmssPerKm(secPerKm: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** Pace directly from seconds/km — a single value, or a min–max range. */
+/**
+ * Pace directly from seconds/km — a single value, or a min–max range.
+ * Always renders faster→slower regardless of which argument order the
+ * values arrive in (fewer seconds/km = faster), so a mislabeled min/max
+ * still displays a sane range instead of e.g. "5:30–5:00/km".
+ */
 export function formatPaceFromSecPerKm(
   secPerKm: number | null | undefined,
   maxSecPerKm?: number | null,
 ): string {
-  if (secPerKm == null && maxSecPerKm == null) return '—';
-  if (secPerKm != null && maxSecPerKm != null && maxSecPerKm !== secPerKm) {
-    return `${mmssPerKm(secPerKm)}–${mmssPerKm(maxSecPerKm)} /km`;
-  }
-  return `${mmssPerKm((secPerKm ?? maxSecPerKm)!)} /km`;
+  const values = [secPerKm, maxSecPerKm].filter((v): v is number => v != null);
+  if (values.length === 0) return '—';
+  const fastest = Math.min(...values);
+  const slowest = Math.max(...values);
+  if (fastest === slowest) return `${mmssPerKm(fastest)} /km`;
+  return `${mmssPerKm(fastest)}–${mmssPerKm(slowest)} /km`;
 }
 
 export function formatDateTime(iso: string | null | undefined): string {

@@ -585,9 +585,12 @@ export type TrainingPlanInput = Pick<TrainingPlan, 'goalDescription' | 'startDat
 export interface RepresentativeRun {
   label: 'longest' | 'fastest_effort' | 'typical' | 'most_recent';
   date: string;
+  /** Garmin activity type, e.g. 'running' | 'trail_running' | 'treadmill_running' — trail pace isn't road pace. */
+  type: string | null;
   distanceKm: number;
   durationS: number;
   avgPaceSecPerKm: number | null;
+  elevationGainM: number | null;
 }
 
 /** Precomputed, fixed-size fitness summary fed to the plan-generation prompt — never raw daily rows. */

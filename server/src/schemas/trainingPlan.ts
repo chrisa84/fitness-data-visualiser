@@ -49,7 +49,9 @@ export const trainingPlanWorkoutUpdateBody = trainingPlanWorkoutObject.partial()
 });
 
 export const trainingPlanBaseBody = z.object({
-  goalDescription: z.string().min(1).max(2000),
+  // Optional supplementary colour, not the primary intake field (Phase 14.1 —
+  // race/distance/date/duration are now explicit structured fields instead).
+  goalDescription: z.string().max(2000),
   startDate: isoDate,
   endDate: isoDate,
   daysPerWeek: z.number().int().min(1).max(7),

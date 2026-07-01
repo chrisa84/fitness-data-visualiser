@@ -98,13 +98,20 @@ function getRepresentativeRuns(
   const typeClause = typeFilterClause(runningTypes, params);
   const rows = db
     .prepare(
-      `SELECT activity_id, date(start_time_local) AS date, distance_m, duration_s
+      `SELECT activity_id, date(start_time_local) AS date, type, distance_m, duration_s, elevation_gain_m
        FROM activity
        WHERE date(start_time_local) BETWEEN @from AND @to
          AND distance_m > 0 AND duration_s > 0
          ${typeClause ? `AND ${typeClause}` : ''}`,
     )
-    .all(params) as { activity_id: string; date: string; distance_m: number; duration_s: number }[];
+    .all(params) as {
+    activity_id: string;
+    date: string;
+    type: string | null;
+    distance_m: number;
+    duration_s: number;
+    elevation_gain_m: number | null;
+  }[];
   if (rows.length === 0) return [];
 
   const runs = rows.map((r) => ({ ...r, paceSecPerKm: r.duration_s / (r.distance_m / 1000) }));
@@ -118,9 +125,11 @@ function getRepresentativeRuns(
     picked.push({
       label,
       date: candidate.date,
+      type: candidate.type,
       distanceKm: round1(candidate.distance_m / 1000),
       durationS: candidate.duration_s,
       avgPaceSecPerKm: Math.round(candidate.paceSecPerKm),
+      elevationGainM: candidate.elevation_gain_m,
     });
   };
 

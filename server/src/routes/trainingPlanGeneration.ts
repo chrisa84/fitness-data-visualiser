@@ -21,6 +21,19 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The plan's end date is a hard fact computed here, never something the
+ * model chooses: race day itself when racing, otherwise a span of exactly
+ * `durationWeeks` weeks starting on `startDate` — `durationWeeks*7 - 1`
+ * days later, since `startDate` itself is the first of those days (a
+ * 1-week plan starting Monday ends the following Sunday, not the Monday
+ * after).
+ */
+export function computeEndDate(input: { isRace: boolean; raceDate?: string; startDate: string; durationWeeks?: number }): string {
+  if (input.isRace) return input.raceDate!;
+  return addDays(input.startDate, input.durationWeeks! * 7 - 1);
+}
+
 /** AI-backed plan generation. The autofill endpoint is plain queries (no AI, no client needed). */
 export function registerTrainingPlanGenerationRoutes(
   app: FastifyInstance,
@@ -38,9 +51,7 @@ export function registerTrainingPlanGenerationRoutes(
     if (!parsed.success) return badRequest(reply, parsed.error);
 
     const input = parsed.data;
-    // The plan's end date is a hard fact computed here, never something the model chooses:
-    // race day itself when racing, otherwise startDate + the requested number of weeks.
-    const endDate = input.isRace ? input.raceDate! : addDays(input.startDate, input.durationWeeks! * 7);
+    const endDate = computeEndDate(input);
 
     const events = listEvents(opts.eventsDb, input.startDate, endDate);
     const autofill = getTrainingPlanAutofill(opts.db);
