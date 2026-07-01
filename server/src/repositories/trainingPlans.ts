@@ -44,6 +44,8 @@ function mapWorkout(r: Record<string, unknown>): TrainingPlanWorkout {
     targetDistanceM: (r.target_distance_m as number | null) ?? null,
     targetDurationS: (r.target_duration_s as number | null) ?? null,
     targetPaceSecPerKm: (r.target_pace_sec_per_km as number | null) ?? null,
+    targetPaceMinSecPerKm: (r.target_pace_min_sec_per_km as number | null) ?? null,
+    targetPaceMaxSecPerKm: (r.target_pace_max_sec_per_km as number | null) ?? null,
     completedAt: (r.completed_at as string | null) ?? null,
     notes: (r.notes as string | null) ?? null,
     createdAt: r.created_at as string,
@@ -90,9 +92,11 @@ function insertWorkout(db: Database, planId: number, input: TrainingPlanWorkoutI
     .prepare(
       `INSERT INTO training_plan_workout
          (plan_id, date, title, description, workout_type, target_distance_m,
-          target_duration_s, target_pace_sec_per_km, notes, created_at)
+          target_duration_s, target_pace_sec_per_km, target_pace_min_sec_per_km,
+          target_pace_max_sec_per_km, notes, created_at)
        VALUES (@planId, @date, @title, @description, @workoutType, @targetDistanceM,
-               @targetDurationS, @targetPaceSecPerKm, @notes, @createdAt)`,
+               @targetDurationS, @targetPaceSecPerKm, @targetPaceMinSecPerKm,
+               @targetPaceMaxSecPerKm, @notes, @createdAt)`,
     )
     .run({
       planId,
@@ -103,6 +107,8 @@ function insertWorkout(db: Database, planId: number, input: TrainingPlanWorkoutI
       targetDistanceM: input.targetDistanceM ?? null,
       targetDurationS: input.targetDurationS ?? null,
       targetPaceSecPerKm: input.targetPaceSecPerKm ?? null,
+      targetPaceMinSecPerKm: input.targetPaceMinSecPerKm ?? null,
+      targetPaceMaxSecPerKm: input.targetPaceMaxSecPerKm ?? null,
       notes: input.notes ?? null,
       createdAt: new Date().toISOString(),
     });
@@ -189,7 +195,8 @@ export function updateWorkout(
     `UPDATE training_plan_workout
      SET date = @date, title = @title, description = @description, workout_type = @workoutType,
          target_distance_m = @targetDistanceM, target_duration_s = @targetDurationS,
-         target_pace_sec_per_km = @targetPaceSecPerKm, notes = @notes, completed_at = @completedAt
+         target_pace_sec_per_km = @targetPaceSecPerKm, target_pace_min_sec_per_km = @targetPaceMinSecPerKm,
+         target_pace_max_sec_per_km = @targetPaceMaxSecPerKm, notes = @notes, completed_at = @completedAt
      WHERE id = @id`,
   ).run({
     id,
@@ -200,6 +207,8 @@ export function updateWorkout(
     targetDistanceM: merged.targetDistanceM ?? null,
     targetDurationS: merged.targetDurationS ?? null,
     targetPaceSecPerKm: merged.targetPaceSecPerKm ?? null,
+    targetPaceMinSecPerKm: merged.targetPaceMinSecPerKm ?? null,
+    targetPaceMaxSecPerKm: merged.targetPaceMaxSecPerKm ?? null,
     notes: merged.notes ?? null,
     completedAt: merged.completedAt ?? null,
   });

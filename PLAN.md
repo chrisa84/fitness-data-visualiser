@@ -464,10 +464,11 @@ specific function," a known weak spot for non-OpenAI-native backends
 tool list gets the same guarantee through the far more universally
 supported plain string form. Accepting an early `propose_plan` call (before
 the forced step) short-circuits the loop immediately. The arguments are
-zod-validated against `generatedPlanSchema` (`schemas/trainingPlan.ts`,
-sharing the same `workout_type` enum and shape as the plain-CRUD body) — a
+zod-validated against `schemas/trainingPlan.ts` (sharing the same
+`workout_type` enum and workout shape as the plain-CRUD body) — a
 bad value throws `PlanGenerationError` rather than free-texting past
-validation. A malformed/degraded provider response (missing `choices`
+validation. (Superseded by Phase 14.1 below: the AI's own output schema
+shrank considerably once dates/race facts became user-supplied.) A malformed/degraded provider response (missing `choices`
 entirely) is guarded against rather than crashing on an unchecked index.
 The route's catch block logs and returns a clean `502` JSON body for *any*
 caught error, not just `PlanGenerationError` — a genuine OpenRouter/network
@@ -487,6 +488,100 @@ table (nothing saved yet) → adjust inputs and regenerate, or edit rows
 directly, or Save → `POST /api/training-plans` persists plan + workouts. The
 Training page shows the active plan as a checklist (tick complete / edit /
 delete per row) plus a list of past ended plans for history.
+
+### Phase 14.1 — Training plan generator rethink ✅
+
+Live-testing Phase 14 on the deployed instance surfaced real bugs and UX
+gaps in the generator's inputs and outputs (a second independent review
+cross-checked the same root causes). This phase fixed them without a
+wholesale redesign — see `AGENTS.md`'s gotchas for the mechanics; this is
+the "why."
+
+**Race date/distance/duration are now explicit user-supplied facts,
+reversing Phase 14's original call.** Phase 14 deliberately kept `isRace`
+etc. AI-inferred from free text, reasoning that a form toggle was
+unnecessary ceremony. In practice this meant the model had to guess both
+whether there was a race and exactly when it was, and nothing bounded a
+workout's date to the plan's own window — a live-generated plan put its
+`race` row a day *after* the stated `endDate`. The intake form now asks
+directly: race toggle → distance/date/optional target time, or (for a
+general-fitness goal) a plan-length-in-weeks field instead of a fake end
+date. `routes/trainingPlanGeneration.ts` computes `endDate` deterministically
+(race day itself, or `startDate + durationWeeks`) before calling
+`generatePlan` — never something the model chooses. This also shrank what
+the model has to get right: `propose_plan`'s required output dropped from
+the full plan (goal/dates/race fields/workouts) to just `{ rationale,
+workouts[] }`, continuing this project's pattern of treating "required
+structured-output surface area" as the thing that breaks across weaker
+models, not something to keep adding to freely.
+
+**Deterministic checks after a valid `propose_plan` parse**, not just
+prompt guidance: every workout date within `[startDate, endDate]`; when
+racing, exactly one `race` row on `endDate` with no `long`/`tempo`/
+`interval` session in the final 2 days before it. Deliberately narrow —
+broader coaching rules (weekly progression sanity, hard-day spacing beyond
+the race week, session-frequency matching) stay prompt-only, since those
+are judgment calls that could false-positive on a legitimate plan, unlike
+the two checks above which are unambiguous. No repair/retry pass on
+failure — a violation is a `502`, same as any other generation failure; the
+user clicks Regenerate.
+
+**Autofill data got three fixes, all confirmed bugs, not redesign
+opinions:**
+- Weekly volume averaged the *last returned* bucket from a plain
+  `GROUP BY`, which is (a) almost always the current in-progress week
+  (since `to` defaults to today) and (b) silently skips weeks with zero
+  runs instead of counting them as zero, inflating the average either way.
+  Replaced with a real zero-filled calendar-week spine (6 complete
+  Monday-start weeks, via a SQL `VALUES` spine).
+- "Relevant pace" concatenated *every* all-time personal record —
+  including `longest_ride`, `biggest_climb`, `highest_vo2max` — into one
+  string, which is where the original "wtf is this" raw-number-dump bug
+  came from even after the formatting fix. Replaced with `representativeRuns`:
+  up to 4 real runs from the last ~90 days (longest / fastest effort /
+  typical / most recent), which is what "a selection of runs of varying
+  intensity and length" actually means, versus all-time bests or a single
+  algorithmic prediction.
+- ACWR got a fixed "sweet spot / high risk" label in an earlier draft of
+  this rework; dropped before shipping as false precision — it now surfaces
+  as a plain trend (values over the lookback window), no editorial banding.
+
+The fitness-context card is no longer gated behind an "Autofill" button —
+autofill is plain SQL (zero AI tokens) so it loads automatically on page
+mount; the button is now "Refresh from Garmin." Structured values (volume
+trend, representative runs, load trend) are re-fetched fresh by the route
+at generate time regardless of what's in the request body — only a small
+set of scalars (`weeklyVolumeAvgKm`, `longestRecentRunKm`, `vo2max`) plus
+two free-text nuance fields (`nonRunningLoadSummary`, `paceNotes`) round-trip
+through `TrainingPlanAutofillOverrides` as user-editable overrides, avoiding
+the class of bug where a mangled/oversized free-text string broke
+validation (hit earlier this session with `relevantPace`).
+
+**Workout output:** `targetPaceMinSecPerKm`/`targetPaceMaxSecPerKm` added
+alongside the existing point-estimate `targetPaceSecPerKm` (new nullable
+columns on `training_plan_workout`, migrated via the same `PRAGMA
+table_info` + `ALTER TABLE` pattern as `chat_message.context`) — a single
+pace doesn't describe an easy/long run realistically. Tempo/interval
+workouts now require a real `description` (zod-enforced minimum length) —
+a bare distance isn't enough for a hard session. The Training page surfaces
+pace/duration/description in all three workout tables (draft preview,
+active-plan checklist, history), which the schema always supported but the
+UI silently dropped.
+
+**Preferred training days** (optional, soft prompt guidance, not a hard
+schema constraint) were added since the intake form now asks for enough
+structure that "which days" became a reasonable next question — deliberately
+kept advisory rather than validated, to avoid reintroducing the reliability
+risk of over-constraining the model.
+
+**Explicitly not built this round** (considered, deferred): fully
+structured warm-up/repetition/recovery step objects (pace ranges + a
+required description cover the immediate complaint; a full structured
+workout shape is a bigger schema/UI change for later if the simpler version
+still feels limiting), automatic repair/regeneration on a failed
+deterministic check, comprehensive progression validation, a full
+availability calendar (preferred days is the bounded version that shipped),
+and adaptive planned-vs-actual review (still Phase 15, below).
 
 ### Phase 15 — Adaptive plan check-in (design — future, depends on Phase 14)
 

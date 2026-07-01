@@ -544,7 +544,10 @@ export interface TrainingPlanWorkout {
   workoutType: WorkoutType;
   targetDistanceM: number | null;
   targetDurationS: number | null;
+  /** Point-estimate pace. For easy/long runs prefer the min/max range instead. */
   targetPaceSecPerKm: number | null;
+  targetPaceMinSecPerKm: number | null;
+  targetPaceMaxSecPerKm: number | null;
   completedAt: string | null;
   notes: string | null;
   createdAt: string;
@@ -559,7 +562,13 @@ export type TrainingPlanWorkoutInput = Pick<TrainingPlanWorkout, 'date' | 'title
   Partial<
     Pick<
       TrainingPlanWorkout,
-      'description' | 'targetDistanceM' | 'targetDurationS' | 'targetPaceSecPerKm' | 'notes'
+      | 'description'
+      | 'targetDistanceM'
+      | 'targetDurationS'
+      | 'targetPaceSecPerKm'
+      | 'targetPaceMinSecPerKm'
+      | 'targetPaceMaxSecPerKm'
+      | 'notes'
     >
   >;
 
@@ -572,13 +581,31 @@ export type TrainingPlanInput = Pick<TrainingPlan, 'goalDescription' | 'startDat
     workouts?: TrainingPlanWorkoutInput[];
   };
 
+/** One real recent run, picked to illustrate a specific facet of recent fitness. */
+export interface RepresentativeRun {
+  label: 'longest' | 'fastest_effort' | 'typical' | 'most_recent';
+  date: string;
+  distanceKm: number;
+  durationS: number;
+  avgPaceSecPerKm: number | null;
+}
+
 /** Precomputed, fixed-size fitness summary fed to the plan-generation prompt — never raw daily rows. */
 export interface TrainingPlanAutofill {
-  weeklyVolume: { weekStart: string; distanceKm: number; runCount: number }[];
+  /** Last 6 complete calendar weeks, zero-filled (Monday-start). */
+  weeklyVolumeTrend: { weekStart: string; distanceKm: number; runCount: number }[];
+  weeklyVolumeAvgKm: number | null;
   longestRecentRunKm: number | null;
-  records: PersonalRecord[];
+  /** Up to 4 real runs from the last ~3 months, varying in length/intensity. */
+  representativeRuns: RepresentativeRun[];
   vo2max: number | null;
-  trainingLoad: { acute: number | null; chronic: number | null; acwr: number | null };
+  trainingLoad: {
+    acute: number | null;
+    chronic: number | null;
+    acwr: number | null;
+    /** ACWR values over the lookback window, oldest first — plain numbers, no risk labels. */
+    acwrTrend: number[];
+  };
   readinessScore: number | null;
   racePredictions: {
     race5kS: number | null;
@@ -591,20 +618,28 @@ export interface TrainingPlanAutofill {
 
 /** User-editable overrides of the autofilled values, sent back with the generate request. */
 export interface TrainingPlanAutofillOverrides {
-  weeklyVolumeKm?: number | null;
+  weeklyVolumeAvgKm?: number | null;
   longestRecentRunKm?: number | null;
-  relevantPace?: string | null;
   vo2max?: number | null;
-  trainingLoadSummary?: string | null;
-  readinessScore?: number | null;
   nonRunningLoadSummary?: string | null;
+  /** Free-text nuance about recent pace/effort not captured by the representative runs list. */
+  paceNotes?: string | null;
 }
 
 export interface GenerateTrainingPlanRequest {
-  goalDescription: string;
+  goalDescription?: string;
+  isRace: boolean;
+  /** Required when isRace. */
+  goalRaceDistanceM?: number | null;
+  goalTargetDurationS?: number | null;
+  /** Required when isRace — the plan's endDate is set to this exactly. */
+  raceDate?: string;
   startDate: string;
-  endDate: string;
+  /** Required when !isRace — endDate is computed as startDate + durationWeeks. */
+  durationWeeks?: number;
   daysPerWeek: number;
+  preferredDays?: string[];
+  preferredLongRunDay?: string;
   autofill?: TrainingPlanAutofillOverrides;
   /** Untracked training load the app has no visibility into (e.g. gym sessions). */
   otherTraining?: string;
@@ -612,7 +647,11 @@ export interface GenerateTrainingPlanRequest {
   upcomingNotes?: string;
 }
 
-/** The AI's structured plan proposal — nothing is persisted until the user saves it. */
+/**
+ * The training plan draft returned to the client — dates/race facts are the
+ * user-supplied ones (echoed back, not chosen by the model); `rationale` and
+ * `workouts` are the AI's actual output. Nothing is persisted until saved.
+ */
 export interface GeneratedTrainingPlan {
   goalDescription: string;
   isRace: boolean;

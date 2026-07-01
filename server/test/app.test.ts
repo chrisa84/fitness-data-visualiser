@@ -375,7 +375,7 @@ describe('training plan generation', () => {
     app = buildApp({ dbPath: createTrainingPlanAutofillDb({}), logger: false });
     const res = await app.inject({ method: 'GET', url: '/api/training-plans/autofill' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toHaveProperty('weeklyVolume');
+    expect(res.json()).toHaveProperty('weeklyVolumeTrend');
   });
 
   it('returns 503 from /api/training-plans/generate when not configured', async () => {
@@ -383,13 +383,13 @@ describe('training plan generation', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/training-plans/generate',
-      payload: { goalDescription: 'half marathon', startDate: '2026-01-01', endDate: '2026-03-01', daysPerWeek: 4 },
+      payload: { isRace: false, startDate: '2026-01-01', durationWeeks: 8, daysPerWeek: 4 },
     });
     expect(res.statusCode).toBe(503);
     expect(res.json().error).toBe('ai_not_configured');
   });
 
-  it('rejects a generate request whose range exceeds the 12-week horizon', async () => {
+  it('rejects a generate request whose race date exceeds the 12-week horizon', async () => {
     // A dummy key so the request reaches validation instead of the 503 not-configured path.
     app = buildApp({
       dbPath: createTrainingPlanAutofillDb({}),
@@ -399,7 +399,13 @@ describe('training plan generation', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/training-plans/generate',
-      payload: { goalDescription: 'half marathon', startDate: '2026-01-01', endDate: '2026-12-01', daysPerWeek: 4 },
+      payload: {
+        isRace: true,
+        startDate: '2026-01-01',
+        raceDate: '2026-12-01',
+        goalRaceDistanceM: 21097,
+        daysPerWeek: 4,
+      },
     });
     expect(res.statusCode).toBe(400);
   });

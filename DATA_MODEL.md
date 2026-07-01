@@ -220,7 +220,7 @@ conversation (creating one if no `conversationId` is supplied).
 | ------------------------- | ------------------------ | -------------------------------------------------- |
 | `id`                      | INTEGER PK AUTOINCREMENT |                                                    |
 | `goal_description`        | TEXT NOT NULL            | Free-text goal, e.g. "half marathon in 1:50".     |
-| `is_race`                 | INTEGER NOT NULL DEFAULT 0 | 0/1. Decided by the AI at generation time, not a form field. |
+| `is_race`                 | INTEGER NOT NULL DEFAULT 0 | 0/1. User-supplied on the intake form (Phase 14.1) — not decided by the AI. |
 | `goal_race_distance_m`    | REAL NULL                | Set only when `is_race`.                          |
 | `goal_target_duration_s`  | INTEGER NULL             | Set only when `is_race`.                          |
 | `start_date` / `end_date` | TEXT NOT NULL            | ISO dates. Range capped at 84 days (12 weeks) by `MAX_HORIZON_DAYS` in `schemas/trainingPlan.ts`. |
@@ -238,6 +238,7 @@ Index: `idx_training_plan_status` on `(status)`.
 | `title` / `description`   | TEXT NOT NULL / TEXT NULL |                                                   |
 | `workout_type`            | TEXT NOT NULL            | One of `WORKOUT_TYPES` (`shared/`): `easy`, `long`, `tempo`, `interval`, `race`. No `rest`/`cross_training` — see `PLAN.md` Phase 14. |
 | `target_distance_m` / `target_duration_s` / `target_pace_sec_per_km` | REAL/INTEGER/INTEGER, all NULL | Whatever the plan prescribes for that session; any can be absent. |
+| `target_pace_min_sec_per_km` / `target_pace_max_sec_per_km` | INTEGER NULL | Pace range — used for easy/long runs instead of (or alongside) the single point estimate above. Added Phase 14.1 via `PRAGMA table_info` + `ALTER TABLE`, same migration pattern as `chat_message.context`. |
 | `completed_at`            | TEXT NULL                | Set/cleared by the user ticking the checklist — never touched by AI generation. |
 | `notes`                   | TEXT NULL                |                                                    |
 | `created_at`              | TEXT NOT NULL            |                                                    |

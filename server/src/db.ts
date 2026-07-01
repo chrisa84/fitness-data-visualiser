@@ -92,6 +92,8 @@ export function openEventsDb(path: string): Database.Database {
       target_distance_m      REAL,
       target_duration_s      INTEGER,
       target_pace_sec_per_km INTEGER,
+      target_pace_min_sec_per_km INTEGER,
+      target_pace_max_sec_per_km INTEGER,
       completed_at           TEXT,
       notes                  TEXT,
       created_at             TEXT NOT NULL
@@ -103,6 +105,15 @@ export function openEventsDb(path: string): Database.Database {
   const messageColumns = db.prepare('PRAGMA table_info(chat_message)').all() as { name: string }[];
   if (!messageColumns.some((c) => c.name === 'context')) {
     db.exec('ALTER TABLE chat_message ADD COLUMN context TEXT');
+  }
+
+  // Migration: add training_plan_workout pace-range columns to databases created before they existed.
+  const workoutColumns = db.prepare('PRAGMA table_info(training_plan_workout)').all() as { name: string }[];
+  if (!workoutColumns.some((c) => c.name === 'target_pace_min_sec_per_km')) {
+    db.exec('ALTER TABLE training_plan_workout ADD COLUMN target_pace_min_sec_per_km INTEGER');
+  }
+  if (!workoutColumns.some((c) => c.name === 'target_pace_max_sec_per_km')) {
+    db.exec('ALTER TABLE training_plan_workout ADD COLUMN target_pace_max_sec_per_km INTEGER');
   }
 
   // Seed the single ai_settings row with today's defaults on first run.

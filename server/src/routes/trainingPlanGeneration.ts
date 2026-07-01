@@ -1,5 +1,6 @@
 import type { Database } from 'better-sqlite3';
 import type { FastifyInstance } from 'fastify';
+import type { GeneratedTrainingPlan } from '@fitness/shared';
 import { PlanGenerationError, buildPlanSummary, generatePlan } from '../ai/planGeneration.js';
 import type { CompletionClient } from '../ai/chat.js';
 import { getAiSettings } from '../repositories/aiSettings.js';
@@ -12,6 +13,12 @@ export interface TrainingPlanGenerationRouteOptions {
   client: CompletionClient | null;
   db: Database;
   eventsDb: Database;
+}
+
+function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
 /** AI-backed plan generation. The autofill endpoint is plain queries (no AI, no client needed). */
@@ -30,18 +37,37 @@ export function registerTrainingPlanGenerationRoutes(
     const parsed = generateTrainingPlanBody.safeParse(request.body);
     if (!parsed.success) return badRequest(reply, parsed.error);
 
-    const { startDate, endDate } = parsed.data;
-    const events = listEvents(opts.eventsDb, startDate, endDate);
-    const summary = buildPlanSummary(parsed.data, events);
+    const input = parsed.data;
+    // The plan's end date is a hard fact computed here, never something the model chooses:
+    // race day itself when racing, otherwise startDate + the requested number of weeks.
+    const endDate = input.isRace ? input.raceDate! : addDays(input.startDate, input.durationWeeks! * 7);
+
+    const events = listEvents(opts.eventsDb, input.startDate, endDate);
+    const autofill = getTrainingPlanAutofill(opts.db);
+    const summary = buildPlanSummary(input, endDate, autofill, events);
     const model = getAiSettings(opts.eventsDb).plan.selected;
 
     try {
-      const plan = await generatePlan({
+      const ai = await generatePlan({
         client: opts.client,
         model,
         ctx: { db: opts.db, eventsDb: opts.eventsDb },
         summary,
+        startDate: input.startDate,
+        endDate,
+        isRace: input.isRace,
       });
+      const plan: GeneratedTrainingPlan = {
+        goalDescription: input.goalDescription ?? '',
+        isRace: input.isRace,
+        goalRaceDistanceM: input.goalRaceDistanceM ?? null,
+        goalTargetDurationS: input.goalTargetDurationS ?? null,
+        startDate: input.startDate,
+        endDate,
+        daysPerWeek: input.daysPerWeek,
+        rationale: ai.rationale,
+        workouts: ai.workouts,
+      };
       return plan;
     } catch (e) {
       request.log.error(e);

@@ -331,11 +331,18 @@ so they exercise the tool-use loop without any network calls. One test
 
 ## Version history
 
+- Training plan generator rethink: race date/distance/plan-length are now
+  explicit intake fields (not AI-inferred), fitness context auto-loads
+  (no button gate) and is built from a zero-filled weekly-volume spine plus
+  representative recent runs instead of all-time PRs, workouts carry a
+  pace range and required interval/tempo descriptions surfaced across all
+  three workout tables, and a race day/no-hard-near-race check runs
+  deterministically after generation. See `PLAN.md` Phase 14.1.
 - Training plan generator: Training page — goal/dates/days-per-week intake
-  (with an "autofill from your data" button and read-only overlapping-events
-  context), AI-generated preview via a forced structured tool call, editable
-  before saving, active plan as a per-week checklist, ended plans stay
-  browsable. First consumer of the Plan AI model role.
+  with read-only overlapping-events context, AI-generated preview via a
+  forced structured tool call, editable before saving, active plan as a
+  per-week checklist, ended plans stay browsable. First consumer of the
+  Plan AI model role.
 - User-configurable AI models: Settings page + `/api/ai-settings`, storing up to
   3 candidate OpenRouter models per role (Question AI, and a Plan AI placeholder
   for the upcoming training-plan generator) with one marked active.

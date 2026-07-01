@@ -5,22 +5,27 @@ import type { CompletionClient } from '../src/ai/chat.js';
 import { getTrainingPlanAutofill } from '../src/repositories/trainingPlanAutofill.js';
 import { createTestDb, createTrainingPlanAutofillDb } from './fixtures.js';
 
+const START = '2026-01-01';
+const END = '2026-02-26';
+
 function ctx() {
   return { db: openDb(createTestDb([])), eventsDb: openEventsDb(':memory:') };
 }
 
 const validArgs = {
-  goalDescription: 'half marathon in 1:50',
-  isRace: true,
-  goalRaceDistanceM: 21097,
-  goalTargetDurationS: 6600,
-  startDate: '2026-01-01',
-  endDate: '2026-02-26',
-  daysPerWeek: 4,
   rationale: 'feasible given current base',
   workouts: [
     { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' },
     { date: '2026-01-07', title: 'Long run 10k', workoutType: 'long' },
+  ],
+};
+
+const raceValidArgs = {
+  rationale: 'feasible given current base',
+  workouts: [
+    { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' },
+    { date: '2026-01-07', title: 'Long run 10k', workoutType: 'long' },
+    { date: END, title: 'Race day', workoutType: 'race' },
   ],
 };
 
@@ -41,26 +46,37 @@ function proposeCallResponse(args: unknown) {
 const freeTextResponse = { choices: [{ message: { role: 'assistant', content: 'thinking…' } }] };
 
 describe('generatePlan', () => {
-  it('instructs the model to taper races, cap hard sessions, and ground rationale in real numbers', async () => {
-    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
+  it('instructs the model on race-day placement and taper when isRace', async () => {
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(raceValidArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' });
+    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: true });
 
     const systemMessage = create.mock.calls[0]![0].messages[0].content as string;
-    expect(systemMessage).toMatch(/taper/i);
+    expect(systemMessage).toMatch(/end date is race day/i);
+    expect(systemMessage).toMatch(/final 2 days/i);
     expect(systemMessage).toMatch(/at most one tempo and one interval/i);
     expect(systemMessage).toMatch(/name the specific figures/i);
     expect(systemMessage).toContain('goal summary');
+  });
+
+  it('instructs the model that a general-fitness goal needs no taper', async () => {
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false });
+
+    const systemMessage = create.mock.calls[0]![0].messages[0].content as string;
+    expect(systemMessage).toMatch(/no taper needed/i);
   });
 
   it('accepts an early propose_plan call before the forced step', async () => {
     const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    const plan = await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' });
+    const plan = await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false });
 
-    expect(plan.goalDescription).toBe(validArgs.goalDescription);
+    expect(plan.rationale).toBe(validArgs.rationale);
     expect(plan.workouts).toHaveLength(2);
     expect(create).toHaveBeenCalledTimes(1);
     expect(create.mock.calls[0]![0].tool_choice).toBe('auto');
@@ -79,9 +95,9 @@ describe('generatePlan', () => {
       .mockResolvedValueOnce(proposeCallResponse(validArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    const plan = await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' });
+    const plan = await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false });
 
-    expect(plan.goalDescription).toBe(validArgs.goalDescription);
+    expect(plan.rationale).toBe(validArgs.rationale);
     expect(create).toHaveBeenCalledTimes(8);
     for (let i = 0; i < 7; i += 1) {
       expect(create.mock.calls[i]![0].tool_choice).toBe('auto');
@@ -96,9 +112,9 @@ describe('generatePlan', () => {
     const create = vi.fn().mockResolvedValueOnce(freeTextResponse).mockResolvedValueOnce(proposeCallResponse(validArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    const plan = await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' });
+    const plan = await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false });
 
-    expect(plan.goalDescription).toBe(validArgs.goalDescription);
+    expect(plan.rationale).toBe(validArgs.rationale);
     expect(create).toHaveBeenCalledTimes(2);
     const secondCallMessages = create.mock.calls[1]![0].messages as { role: string; content: string }[];
     expect(secondCallMessages.some((m) => m.role === 'user' && m.content.includes('propose_plan'))).toBe(true);
@@ -108,18 +124,18 @@ describe('generatePlan', () => {
     const create = vi.fn().mockResolvedValueOnce(proposeCallResponse({ ...validArgs, workouts: [{ date: '2026-01-05', title: 'x', workoutType: 'sprint' }] }));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    await expect(generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' })).rejects.toThrow(
-      PlanGenerationError,
-    );
+    await expect(
+      generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false }),
+    ).rejects.toThrow(PlanGenerationError);
   });
 
   it('throws when the model never produces a valid propose_plan call', async () => {
     const create = vi.fn().mockResolvedValue(freeTextResponse);
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    await expect(generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' })).rejects.toThrow(
-      PlanGenerationError,
-    );
+    await expect(
+      generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false }),
+    ).rejects.toThrow(PlanGenerationError);
     expect(create).toHaveBeenCalledTimes(8);
   });
 
@@ -127,26 +143,61 @@ describe('generatePlan', () => {
     const create = vi.fn().mockResolvedValueOnce({}); // no `choices` at all
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    await expect(generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' })).rejects.toThrow(
-      PlanGenerationError,
-    );
+    await expect(
+      generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false }),
+    ).rejects.toThrow(PlanGenerationError);
   });
 
   it('only offers a small, plan-relevant subset of tools, not the full chat toolset', async () => {
     const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
-    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' });
+    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false });
 
     const toolNames = (create.mock.calls[0]![0].tools as { function: { name: string } }[]).map((t) => t.function.name);
     expect(new Set(toolNames)).toEqual(
       new Set(['get_records', 'get_performance_series', 'get_activity_volume', 'list_events', 'propose_plan']),
     );
   });
+
+  it('rejects a workout dated outside the plan window', async () => {
+    const args = { rationale: 'x', workouts: [{ date: '2025-12-31', title: 'Too early', workoutType: 'easy' }] };
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(args));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await expect(
+      generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: false }),
+    ).rejects.toThrow(PlanGenerationError);
+  });
+
+  it('rejects a race plan whose race workout is missing or not on the race date', async () => {
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs)); // no race row at all
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await expect(
+      generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: true }),
+    ).rejects.toThrow(PlanGenerationError);
+  });
+
+  it('rejects a hard/long session in the final 2 days before race day', async () => {
+    const args = {
+      rationale: 'x',
+      workouts: [
+        { date: '2026-02-25', title: 'Tempo run', workoutType: 'tempo', description: 'threshold pace for 20 minutes' },
+        { date: END, title: 'Race day', workoutType: 'race' },
+      ],
+    };
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(args));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await expect(
+      generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary', startDate: START, endDate: END, isRace: true }),
+    ).rejects.toThrow(PlanGenerationError);
+  });
 });
 
 describe('getTrainingPlanAutofill', () => {
-  it('summarizes recent volume, records, performance, and non-running load', () => {
+  it('summarizes recent volume (zero-filled), representative runs, performance, and non-running load', () => {
     const path = createTrainingPlanAutofillDb({
       activity: [
         { activity_id: '1', type: 'running', start_time_local: '2026-01-05 08:00:00', distance_m: 10000, duration_s: 3000, fastest_5k_s: 1400 },
@@ -161,14 +212,24 @@ describe('getTrainingPlanAutofill', () => {
 
     const autofill = getTrainingPlanAutofill(db, '2026-01-15');
 
+    // 6 complete calendar weeks, zero-filled — never sparse.
+    expect(autofill.weeklyVolumeTrend).toHaveLength(6);
+    expect(autofill.weeklyVolumeTrend.some((w) => w.distanceKm > 0)).toBe(true);
+    expect(autofill.weeklyVolumeAvgKm).not.toBeNull();
+
     expect(autofill.longestRecentRunKm).toBe(15);
+    expect(autofill.representativeRuns.length).toBeGreaterThan(0);
+    expect(autofill.representativeRuns.some((r) => r.label === 'longest' && r.distanceKm === 15)).toBe(true);
+
     expect(autofill.vo2max).toBe(50);
-    expect(autofill.trainingLoad).toEqual({ acute: 200, chronic: 180, acwr: 1.1 });
+    expect(autofill.trainingLoad.acute).toBe(200);
+    expect(autofill.trainingLoad.chronic).toBe(180);
+    expect(autofill.trainingLoad.acwr).toBe(1.1);
+    expect(autofill.trainingLoad.acwrTrend).toContain(1.1);
     expect(autofill.readinessScore).toBe(75);
     expect(autofill.racePredictions.raceHalfS).toBe(6200);
     const cycling = autofill.nonRunningLoad.find((g) => g.group === 'cycling');
     expect(cycling?.count).toBe(1);
     expect(cycling?.distanceKm).toBe(30);
-    expect(autofill.records.some((r) => r.key === 'fastest_5k')).toBe(true);
   });
 });

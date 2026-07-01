@@ -22,6 +22,24 @@ export function formatPace(speedMps: number | null | undefined): string {
   return `${m}:${String(s).padStart(2, '0')} /km`;
 }
 
+function mmssPerKm(secPerKm: number): string {
+  const m = Math.floor(secPerKm / 60);
+  const s = Math.round(secPerKm % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Pace directly from seconds/km — a single value, or a min–max range. */
+export function formatPaceFromSecPerKm(
+  secPerKm: number | null | undefined,
+  maxSecPerKm?: number | null,
+): string {
+  if (secPerKm == null && maxSecPerKm == null) return '—';
+  if (secPerKm != null && maxSecPerKm != null && maxSecPerKm !== secPerKm) {
+    return `${mmssPerKm(secPerKm)}–${mmssPerKm(maxSecPerKm)} /km`;
+  }
+  return `${mmssPerKm((secPerKm ?? maxSecPerKm)!)} /km`;
+}
+
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   return iso.replace('T', ' ').slice(0, 16);

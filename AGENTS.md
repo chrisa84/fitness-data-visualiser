@@ -156,6 +156,23 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   (`WORKOUT_TYPES` in `shared/`) — deliberately no `rest`/`cross_training`;
   a date with no workout row *is* the rest day, and prescribing non-running
   sessions was scoped out (see `PLAN.md` Phase 14 for why).
+- **Race date, distance, and plan length are user-supplied facts, not AI
+  output (Phase 14.1 — this reverses Phase 14's original call).** Live
+  testing showed the model inferring these from free text produced workouts
+  landing outside the stated plan window (a "race" row one day past the
+  plan's own `endDate`). `GenerateTrainingPlanRequest` now carries `isRace`,
+  `raceDate`, `goalRaceDistanceM`, `goalTargetDurationS` and `durationWeeks`
+  as explicit form fields; `routes/trainingPlanGeneration.ts` computes
+  `endDate` deterministically (`raceDate` when racing, else
+  `startDate + durationWeeks*7`) *before* calling `generatePlan` — the model
+  is told these as hard facts, it never chooses them.
+- **The AI's actual output is just `{ rationale, workouts[] }`
+  (`AiProposedPlan` in `ai/planGeneration.ts`, not exported from `shared`).**
+  The route merges this with the user-supplied hard facts above to build the
+  full `GeneratedTrainingPlan` returned to the client — don't add
+  goalDescription/isRace/dates back into `PROPOSE_PLAN_TOOL`'s schema, that's
+  the exact per-call structured-output surface area that made generation
+  less reliable.
 - **Plan generation forces a terminal tool call — it does not reuse
   `runChat`.** `ai/planGeneration.ts`'s `generatePlan` runs its own loop,
   dispatching through the same `executeTool`, but only offers a small
@@ -173,22 +190,42 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   Don't add either the tool-trimming or the forcing logic to `ai/chat.ts`'s
   `runChat` — that one must stay generic for ordinary chat. The
   `propose_plan` arguments are zod-validated against
-  `schemas/trainingPlan.ts`'s `generatedPlanSchema`; a bad value throws
-  `PlanGenerationError`. `routes/trainingPlanGeneration.ts`'s catch block
-  logs and returns a clean `502` JSON body (`{error, message}`) for **any**
-  caught error, not just `PlanGenerationError` — matching `chat.ts`'s
-  catch-all — so a genuine OpenRouter/network failure surfaces as
-  `error: 'ai_error'` with the real message instead of an unlogged, re-thrown
-  exception. The system prompt also carries explicit coaching guidance
-  (taper only when `isRace`, cap hard sessions to one tempo + one interval
-  per week, flag infeasible goals in `rationale` instead of refusing, ground
-  `rationale` in the actual autofill numbers) — these aren't obvious from
-  the tool schema alone and exist specifically to help weaker/cheaper models
-  produce a sane plan; don't strip them out as "just prose."
-- **`GET /api/training-plans/autofill` costs zero AI tokens.** It's plain
-  repository queries (`repositories/trainingPlanAutofill.ts`, reusing
-  `getActivityVolume`/`getRecords`/`getPerformanceSeries`) — don't route it
-  through the AI client.
+  `schemas/trainingPlan.ts`'s `aiProposedPlanSchema`; a bad value throws
+  `PlanGenerationError`. After a valid parse, `generatePlan` also runs a
+  small set of **deterministic, non-negotiable checks** rather than trusting
+  the prompt alone: every workout date falls within `[startDate, endDate]`,
+  and — when `isRace` — exactly one `workoutType:'race'` row exists dated
+  exactly `endDate`, with no `long`/`tempo`/`interval` session in the final 2
+  days before it. A violation throws `PlanGenerationError` (same `502` path,
+  no repair/retry pass — the user just clicks Regenerate). Broader coaching
+  rules (weekly progression, hard-day spacing beyond the race-week check,
+  session frequency) remain prompt guidance only, deliberately not promoted
+  to hard checks. `routes/trainingPlanGeneration.ts`'s catch block logs and
+  returns a clean `502` JSON body (`{error, message}`) for **any** caught
+  error, not just `PlanGenerationError` — matching `chat.ts`'s catch-all —
+  so a genuine OpenRouter/network failure surfaces as `error: 'ai_error'`
+  with the real message instead of an unlogged, re-thrown exception. The
+  system prompt also carries explicit coaching guidance (cap hard sessions
+  to one tempo + one interval per week, flag infeasible goals in `rationale`
+  instead of refusing, ground `rationale` in the actual autofill numbers,
+  give every workout a pace — a min/max range for easy/long runs, a point
+  estimate otherwise) — these aren't obvious from the tool schema alone and
+  exist specifically to help weaker/cheaper models produce a sane plan;
+  don't strip them out as "just prose."
+- **`GET /api/training-plans/autofill` costs zero AI tokens, and the web
+  page calls it automatically on mount** (not gated behind a button —
+  autofill just refreshes it). It's plain repository queries
+  (`repositories/trainingPlanAutofill.ts`). Weekly volume
+  (`weeklyVolumeTrend`/`weeklyVolumeAvgKm`) is computed from a **zero-filled
+  calendar-week spine** (last 6 complete Monday-start weeks, via a SQL
+  `VALUES` spine LEFT JOINed against `activity`) — not a plain `GROUP BY`,
+  which would silently skip weeks with zero runs and inflate the average.
+  "Relevant pace" is `representativeRuns` — up to 4 real runs from the last
+  ~90 days (longest / fastest effort / typical / most recent, deduplicated
+  by activity) — not all-time personal records (`getRecords` is unrelated
+  and unused here; `longest_ride`/`biggest_climb`/`highest_vo2max` records
+  have nothing to do with running pace and were the source of the original
+  "wtf is this" garbage output before this rework).
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
   `Accept: application/json` and reloads the page on a `401` so an expired
   oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's
