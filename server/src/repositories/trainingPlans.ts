@@ -17,6 +17,36 @@ export class ActivePlanExistsError extends Error {
   }
 }
 
+/**
+ * Thrown by `updateWorkout` when the *merged* result (existing row + patch)
+ * would violate a coaching invariant. A partial PATCH body can't be checked
+ * for this in isolation — e.g. a patch touching only `title` still needs the
+ * pre-existing `workoutType`/`description` to be checked together — so this
+ * runs after the merge, not as a request-body zod schema.
+ */
+export class WorkoutValidationError extends Error {}
+
+function assertMergedWorkoutValid(plan: TrainingPlan, merged: TrainingPlanWorkout): void {
+  if (merged.date < plan.startDate || merged.date > plan.endDate) {
+    throw new WorkoutValidationError(
+      `workout date ${merged.date} falls outside the plan window ${plan.startDate}–${plan.endDate}`,
+    );
+  }
+  if (
+    merged.targetPaceMinSecPerKm != null &&
+    merged.targetPaceMaxSecPerKm != null &&
+    merged.targetPaceMinSecPerKm > merged.targetPaceMaxSecPerKm
+  ) {
+    throw new WorkoutValidationError('targetPaceMinSecPerKm must not be greater than targetPaceMaxSecPerKm');
+  }
+  if (
+    (merged.workoutType === 'tempo' || merged.workoutType === 'interval') &&
+    (merged.description ?? '').trim().length < 10
+  ) {
+    throw new WorkoutValidationError('tempo/interval workouts need a meaningful description (e.g. reps, pace, recovery)');
+  }
+}
+
 function mapPlan(r: Record<string, unknown>): TrainingPlan {
   return {
     id: r.id as number,
@@ -191,6 +221,8 @@ export function updateWorkout(
   const existing = getWorkout(db, id);
   if (!existing) return null;
   const merged = { ...existing, ...input };
+  const plan = getTrainingPlan(db, existing.planId);
+  if (plan) assertMergedWorkoutValid(plan, merged);
   db.prepare(
     `UPDATE training_plan_workout
      SET date = @date, title = @title, description = @description, workout_type = @workoutType,

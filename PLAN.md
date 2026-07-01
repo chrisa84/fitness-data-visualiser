@@ -601,6 +601,33 @@ despite being agreed scope; `trainingPlanBaseBody.goalDescription`'s
 on the generate side, so saving a plan with no goal text 400'd; and several
 `minWidth`-pixel textareas didn't respect narrow viewports.
 
+**Full workout editing on the active plan.** The checklist previously only
+offered tick/delete — never built as part of Phase 14, not a regression.
+`WorkoutRow` now has an Edit button that expands the row into an in-place
+card (all fields: date/type/title/description/distance/duration/pace
+point+range/notes, Save/Cancel) — not a modal, since this app has no modal
+infrastructure anywhere and building one would be disproportionate to the
+ask. Backend already supported every field via the existing `PATCH
+/api/training-plan-workouts/:id`; this was purely a UI gap. Two related but
+explicitly *separate* future features, not built now: revising an unsaved
+draft with AI (regenerate one workout/week or the whole proposal) and
+Phase 15's adaptive review of an already-saved, already-lived-in plan
+(below) — manual full-edit is foundational for both and isn't wasted
+effort either way.
+
+**Server-side invariants on workout updates.** `updateWorkout`
+(`repositories/trainingPlans.ts`) previously merged `{...existing,
+...patch}` and wrote it straight to the DB with no validation at all — not
+even a window-bound check. It now validates the *merged* result (not the
+raw patch, which can't be checked in isolation — a patch touching only
+`title` still needs the pre-existing `workoutType`/`description` checked
+together) via `assertMergedWorkoutValid`, throwing `WorkoutValidationError`
+(→ `400`) for: a date outside the plan window, an inverted pace range
+(`min > max`), or a tempo/interval workout without a meaningful
+description. The same tempo/interval-description and pace-order checks are
+also now enforced at the zod level for the create paths
+(`trainingPlanWorkoutBody`), where they can be expressed declaratively.
+
 ### Phase 15 — Adaptive plan check-in (design — future, depends on Phase 14)
 
 Training plans go stale as fitness changes over 12 weeks. Rather than

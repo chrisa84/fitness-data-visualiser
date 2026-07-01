@@ -13,6 +13,7 @@ import {
   listTrainingPlans,
   listWorkouts,
   updateWorkout,
+  WorkoutValidationError,
 } from '../repositories/trainingPlans.js';
 import { trainingPlanBody, trainingPlanWorkoutBody, trainingPlanWorkoutUpdateBody } from '../schemas/trainingPlan.js';
 import { badRequest } from './validation.js';
@@ -81,9 +82,16 @@ export function registerTrainingPlanRoutes(app: FastifyInstance, eventsDb: Datab
     const id = Number((request.params as { id: string }).id);
     const parsed = trainingPlanWorkoutUpdateBody.safeParse(request.body);
     if (!parsed.success) return badRequest(reply, parsed.error);
-    const workout = updateWorkout(eventsDb, id, parsed.data);
-    if (!workout) return reply.code(404).send({ error: 'not_found', message: `no workout ${id}` });
-    return workout;
+    try {
+      const workout = updateWorkout(eventsDb, id, parsed.data);
+      if (!workout) return reply.code(404).send({ error: 'not_found', message: `no workout ${id}` });
+      return workout;
+    } catch (e) {
+      if (e instanceof WorkoutValidationError) {
+        return reply.code(400).send({ error: 'invalid_workout', message: e.message });
+      }
+      throw e;
+    }
   });
 
   app.delete('/api/training-plan-workouts/:id', async (request, reply) => {

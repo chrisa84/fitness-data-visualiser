@@ -256,6 +256,26 @@ describe('training plans CRUD', () => {
     });
     expect(tooLong.statusCode).toBe(400);
   });
+
+  it('rejects a workout PATCH that would move it outside the plan window', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const created = await app.inject({ method: 'POST', url: '/api/training-plans', payload: planPayload });
+    const planId = created.json().plan.id;
+    const workout = await app.inject({
+      method: 'POST',
+      url: `/api/training-plans/${planId}/workouts`,
+      payload: { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' },
+    });
+    const workoutId = workout.json().id;
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/training-plan-workouts/${workoutId}`,
+      payload: { date: '2025-12-31' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('invalid_workout');
+  });
 });
 
 describe('account allowlist gate', () => {

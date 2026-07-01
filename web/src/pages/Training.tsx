@@ -7,6 +7,7 @@ import type {
   TrainingPlanDetail,
   TrainingPlanWorkout,
   TrainingPlanWorkoutInput,
+  WorkoutType,
 } from '@fitness/shared';
 import { WORKOUT_TYPES } from '@fitness/shared';
 import { useEffect, useRef, useState } from 'react';
@@ -103,6 +104,49 @@ function workoutDetailsLine(w: {
     w.notes ? `note: ${w.notes}` : null,
   ].filter((v): v is string => Boolean(v));
   return parts.join(' · ');
+}
+
+interface WorkoutEditDraft {
+  date: string;
+  workoutType: WorkoutType;
+  title: string;
+  description: string;
+  targetDistanceKm: string;
+  targetDurationStr: string;
+  targetPaceStr: string;
+  targetPaceMinStr: string;
+  targetPaceMaxStr: string;
+  notes: string;
+}
+
+function draftFromWorkout(w: TrainingPlanWorkout): WorkoutEditDraft {
+  return {
+    date: w.date,
+    workoutType: w.workoutType,
+    title: w.title,
+    description: w.description ?? '',
+    targetDistanceKm: w.targetDistanceM != null ? String(Math.round(w.targetDistanceM / 100) / 10) : '',
+    targetDurationStr: w.targetDurationS != null ? formatDuration(w.targetDurationS) : '',
+    targetPaceStr: w.targetPaceSecPerKm != null ? formatDuration(w.targetPaceSecPerKm) : '',
+    targetPaceMinStr: w.targetPaceMinSecPerKm != null ? formatDuration(w.targetPaceMinSecPerKm) : '',
+    targetPaceMaxStr: w.targetPaceMaxSecPerKm != null ? formatDuration(w.targetPaceMaxSecPerKm) : '',
+    notes: w.notes ?? '',
+  };
+}
+
+function draftToPatch(d: WorkoutEditDraft): Partial<TrainingPlanWorkoutInput> {
+  return {
+    date: d.date,
+    workoutType: d.workoutType,
+    title: d.title,
+    description: d.description || undefined,
+    targetDistanceM: d.targetDistanceKm ? Number(d.targetDistanceKm) * 1000 : undefined,
+    targetDurationS: parseDurationInput(d.targetDurationStr),
+    targetPaceSecPerKm: parseDurationInput(d.targetPaceStr),
+    targetPaceMinSecPerKm: parseDurationInput(d.targetPaceMinStr),
+    targetPaceMaxSecPerKm: parseDurationInput(d.targetPaceMaxStr),
+    notes: d.notes || undefined,
+  };
 }
 
 /** Fitness context card — always visible and editable, auto-populated from Garmin data. */
@@ -543,6 +587,8 @@ function IntakeForm() {
 function WorkoutRow({ workout }: { workout: TrainingPlanWorkout }) {
   const queryClient = useQueryClient();
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['training-plans'] });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<WorkoutEditDraft>(() => draftFromWorkout(workout));
 
   const tick = useMutation({
     mutationFn: (completedAt: string | null) => updateTrainingPlanWorkout(workout.id, { completedAt }),
@@ -552,6 +598,139 @@ function WorkoutRow({ workout }: { workout: TrainingPlanWorkout }) {
     mutationFn: () => deleteTrainingPlanWorkout(workout.id),
     onSuccess: invalidate,
   });
+  const save = useMutation({
+    mutationFn: () => updateTrainingPlanWorkout(workout.id, draftToPatch(draft)),
+    onSuccess: () => {
+      invalidate();
+      setEditing(false);
+    },
+  });
+
+  const startEdit = () => {
+    save.reset();
+    setDraft(draftFromWorkout(workout));
+    setEditing(true);
+  };
+
+  if (editing) {
+    return (
+      <tr>
+        <td colSpan={6}>
+          <div style={{ border: '1px solid #3a4250', borderRadius: 6, padding: '0.75rem', margin: '0.4rem 0' }}>
+            <div className="controls">
+              <label>
+                date{' '}
+                <input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+              </label>
+              <label>
+                type{' '}
+                <select
+                  value={draft.workoutType}
+                  onChange={(e) => setDraft({ ...draft, workoutType: e.target.value as WorkoutType })}
+                >
+                  {WORKOUT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                distance (km){' '}
+                <input
+                  value={draft.targetDistanceKm}
+                  onChange={(e) => setDraft({ ...draft, targetDistanceKm: e.target.value })}
+                  style={{ width: 70 }}
+                />
+              </label>
+              <label>
+                duration (h:mm:ss){' '}
+                <input
+                  value={draft.targetDurationStr}
+                  onChange={(e) => setDraft({ ...draft, targetDurationStr: e.target.value })}
+                  placeholder="0:30:00"
+                  style={{ width: 80 }}
+                />
+              </label>
+            </div>
+            <div className="controls" style={{ display: 'block' }}>
+              <label style={{ display: 'block', width: '100%' }}>
+                title
+                <br />
+                <input
+                  value={draft.title}
+                  onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                  style={{ width: '100%', maxWidth: 400, boxSizing: 'border-box' }}
+                />
+              </label>
+            </div>
+            <div className="controls">
+              <label>
+                pace (mm:ss/km){' '}
+                <input
+                  value={draft.targetPaceStr}
+                  onChange={(e) => setDraft({ ...draft, targetPaceStr: e.target.value })}
+                  placeholder="5:00"
+                  style={{ width: 70 }}
+                />
+              </label>
+              <label>
+                pace range min{' '}
+                <input
+                  value={draft.targetPaceMinStr}
+                  onChange={(e) => setDraft({ ...draft, targetPaceMinStr: e.target.value })}
+                  placeholder="4:45"
+                  style={{ width: 70 }}
+                />
+              </label>
+              <label>
+                max{' '}
+                <input
+                  value={draft.targetPaceMaxStr}
+                  onChange={(e) => setDraft({ ...draft, targetPaceMaxStr: e.target.value })}
+                  placeholder="5:15"
+                  style={{ width: 70 }}
+                />
+              </label>
+            </div>
+            <div className="controls" style={{ display: 'block' }}>
+              <label style={{ display: 'block', width: '100%' }}>
+                description
+                <br />
+                <textarea
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  rows={2}
+                  style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
+                />
+              </label>
+            </div>
+            <div className="controls" style={{ display: 'block' }}>
+              <label style={{ display: 'block', width: '100%' }}>
+                notes
+                <br />
+                <textarea
+                  value={draft.notes}
+                  onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+                  rows={2}
+                  style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
+                />
+              </label>
+            </div>
+            <div className="controls">
+              <button disabled={save.isPending} onClick={() => save.mutate()}>
+                Save
+              </button>
+              <button disabled={save.isPending} onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+              {save.error && <span className="status">{(save.error as Error).message}</span>}
+            </div>
+          </div>
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <tr>
@@ -570,6 +749,7 @@ function WorkoutRow({ workout }: { workout: TrainingPlanWorkout }) {
       </td>
       <td>{workout.targetDistanceM != null ? `${Math.round(workout.targetDistanceM / 100) / 10} km` : '—'}</td>
       <td>
+        <button onClick={startEdit}>edit</button>{' '}
         <button onClick={() => remove.mutate()} disabled={remove.isPending}>
           delete
         </button>

@@ -11,6 +11,7 @@ import {
   getTrainingPlanDetail,
   listTrainingPlans,
   updateWorkout,
+  WorkoutValidationError,
 } from '../src/repositories/trainingPlans.js';
 
 function db() {
@@ -92,6 +93,33 @@ describe('training plan repository', () => {
 
     expect(deleteWorkout(d, workout!.id)).toBe(true);
     expect(deleteWorkout(d, workout!.id)).toBe(false);
+  });
+
+  it('rejects an update that would move a workout outside the plan window', () => {
+    const d = db();
+    const { plan } = createTrainingPlan(d, basePlan);
+    const workout = createWorkout(d, plan.id, { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' });
+    expect(() => updateWorkout(d, workout!.id, { date: '2025-12-31' })).toThrow(WorkoutValidationError);
+  });
+
+  it('rejects an update with an inverted pace range', () => {
+    const d = db();
+    const { plan } = createTrainingPlan(d, basePlan);
+    const workout = createWorkout(d, plan.id, { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' });
+    expect(() =>
+      updateWorkout(d, workout!.id, { targetPaceMinSecPerKm: 330, targetPaceMaxSecPerKm: 300 }),
+    ).toThrow(WorkoutValidationError);
+  });
+
+  it('rejects switching a workout to tempo/interval without a meaningful description', () => {
+    const d = db();
+    const { plan } = createTrainingPlan(d, basePlan);
+    const workout = createWorkout(d, plan.id, { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' });
+    expect(() => updateWorkout(d, workout!.id, { workoutType: 'interval' })).toThrow(WorkoutValidationError);
+    expect(
+      updateWorkout(d, workout!.id, { workoutType: 'interval', description: '6x800m @ 5k pace, 3min jog recovery' })
+        ?.workoutType,
+    ).toBe('interval');
   });
 
   it('returns null creating a workout under a missing plan', () => {

@@ -26,6 +26,11 @@ function hasMeaningfulDescriptionForHardEfforts(w: { workoutType: string; descri
   return (w.description ?? '').trim().length >= 10;
 }
 
+function paceRangeOrdered(w: { targetPaceMinSecPerKm?: number | null; targetPaceMaxSecPerKm?: number | null }): boolean {
+  if (w.targetPaceMinSecPerKm == null || w.targetPaceMaxSecPerKm == null) return true;
+  return w.targetPaceMinSecPerKm <= w.targetPaceMaxSecPerKm;
+}
+
 const trainingPlanWorkoutObject = z.object({
   date: isoDate,
   title: z.string().min(1).max(200),
@@ -39,10 +44,15 @@ const trainingPlanWorkoutObject = z.object({
   notes: z.string().max(2000).nullish(),
 });
 
-export const trainingPlanWorkoutBody = trainingPlanWorkoutObject.refine(hasMeaningfulDescriptionForHardEfforts, {
-  message: 'tempo/interval workouts need a meaningful description (e.g. reps, pace, recovery)',
-  path: ['description'],
-});
+export const trainingPlanWorkoutBody = trainingPlanWorkoutObject
+  .refine(hasMeaningfulDescriptionForHardEfforts, {
+    message: 'tempo/interval workouts need a meaningful description (e.g. reps, pace, recovery)',
+    path: ['description'],
+  })
+  .refine(paceRangeOrdered, {
+    message: 'targetPaceMinSecPerKm must not be greater than targetPaceMaxSecPerKm',
+    path: ['targetPaceMinSecPerKm'],
+  });
 
 export const trainingPlanWorkoutUpdateBody = trainingPlanWorkoutObject.partial().extend({
   completedAt: z.string().nullish(),
