@@ -44,11 +44,14 @@ export function registerTrainingPlanGenerationRoutes(
       });
       return plan;
     } catch (e) {
+      request.log.error(e);
       if (e instanceof PlanGenerationError) {
-        request.log.error(e);
         return reply.code(502).send({ error: 'plan_generation_failed', message: e.message });
       }
-      throw e;
+      // Anything else (network error, OpenRouter/provider-side failure, etc.) —
+      // log it and return a clean JSON body instead of leaking Fastify's bare
+      // default error response, matching chat.ts's equivalent catch-all.
+      return reply.code(502).send({ error: 'ai_error', message: (e as Error).message });
     }
   });
 }
