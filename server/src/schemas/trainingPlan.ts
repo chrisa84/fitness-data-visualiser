@@ -56,7 +56,7 @@ export const generateTrainingPlanBody = trainingPlanBaseBody
       .object({
         weeklyVolumeKm: z.number().nonnegative().nullish(),
         longestRecentRunKm: z.number().nonnegative().nullish(),
-        relevantPace: z.string().max(100).nullish(),
+        relevantPace: z.string().max(500).nullish(),
         vo2max: z.number().nonnegative().nullish(),
         trainingLoadSummary: z.string().max(500).nullish(),
         readinessScore: z.number().nullish(),

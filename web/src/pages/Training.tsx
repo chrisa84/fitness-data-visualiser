@@ -18,6 +18,7 @@ import {
   generateTrainingPlan,
   updateTrainingPlanWorkout,
 } from '../api';
+import { formatDuration, formatKm } from '../format';
 import { useActiveTrainingPlan, useTrainingPlanDetail, useTrainingPlans } from '../trainingPlans';
 
 const BLANK_FORM = {
@@ -48,9 +49,17 @@ function summarizeNonRunningLoad(data: Awaited<ReturnType<typeof fetchTrainingPl
   return active.map((g) => `${g.group}: ${g.count} sessions, ${g.distanceKm} km`).join('; ');
 }
 
+function formatRecordValue(value: number, format: string | undefined, unit: string): string {
+  if (format === 'duration') return formatDuration(value);
+  if (format === 'distance_km') return formatKm(value, 1);
+  return `${Math.round(value)}${unit ? ` ${unit}` : ''}`;
+}
+
 function relevantPaceFromRecords(data: Awaited<ReturnType<typeof fetchTrainingPlanAutofill>>): string | null {
   if (data.records.length === 0) return null;
-  return data.records.map((r) => `${r.label}: ${r.value}${r.unit ? ` ${r.unit}` : ''}`).join('; ');
+  return data.records
+    .map((r) => `${r.label}: ${formatRecordValue(r.value, r.format, r.unit)}`)
+    .join('; ');
 }
 
 function IntakeForm() {
@@ -139,12 +148,17 @@ function IntakeForm() {
       </p>
 
       <div className="controls">
-        <input
-          placeholder='Goal (e.g. "half marathon in 1:50")'
-          value={form.goalDescription}
-          onChange={(e) => setForm({ ...form, goalDescription: e.target.value })}
-          style={{ minWidth: 280 }}
-        />
+        <label>
+          Goal
+          <br />
+          <textarea
+            placeholder='e.g. "half marathon in 1:50"'
+            value={form.goalDescription}
+            onChange={(e) => setForm({ ...form, goalDescription: e.target.value })}
+            rows={2}
+            style={{ minWidth: 280 }}
+          />
+        </label>
         <label>
           from <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
         </label>
@@ -170,18 +184,26 @@ function IntakeForm() {
         </label>
       </div>
       <div className="controls">
-        <input
-          placeholder="Anything else you're currently training that's not logged here? (optional)"
-          value={form.otherTraining}
-          onChange={(e) => setForm({ ...form, otherTraining: e.target.value })}
-          style={{ minWidth: 320 }}
-        />
-        <input
-          placeholder="Anything coming up in this window we should know about? (optional)"
-          value={form.upcomingNotes}
-          onChange={(e) => setForm({ ...form, upcomingNotes: e.target.value })}
-          style={{ minWidth: 320 }}
-        />
+        <label>
+          Anything else you're currently training that's not logged here? (optional)
+          <br />
+          <textarea
+            value={form.otherTraining}
+            onChange={(e) => setForm({ ...form, otherTraining: e.target.value })}
+            rows={2}
+            style={{ minWidth: 320 }}
+          />
+        </label>
+        <label>
+          Anything coming up in this window we should know about? (optional)
+          <br />
+          <textarea
+            value={form.upcomingNotes}
+            onChange={(e) => setForm({ ...form, upcomingNotes: e.target.value })}
+            rows={2}
+            style={{ minWidth: 320 }}
+          />
+        </label>
       </div>
 
       {events.data && events.data.length > 0 && (
@@ -235,28 +257,40 @@ function IntakeForm() {
             </label>
           </div>
           <div className="controls">
-            <input
-              placeholder="relevant pace/PR"
-              value={autofill.relevantPace ?? ''}
-              onChange={(e) => setAutofill({ ...autofill, relevantPace: e.target.value })}
-              style={{ minWidth: 300 }}
-            />
+            <label style={{ display: 'block', minWidth: 300 }}>
+              Relevant pace/PR
+              <br />
+              <textarea
+                value={autofill.relevantPace ?? ''}
+                onChange={(e) => setAutofill({ ...autofill, relevantPace: e.target.value })}
+                rows={2}
+                style={{ width: '100%', minWidth: 300 }}
+              />
+            </label>
           </div>
           <div className="controls">
-            <input
-              placeholder="training load summary"
-              value={autofill.trainingLoadSummary ?? ''}
-              onChange={(e) => setAutofill({ ...autofill, trainingLoadSummary: e.target.value })}
-              style={{ minWidth: 300 }}
-            />
+            <label style={{ display: 'block', minWidth: 300 }}>
+              Training load summary
+              <br />
+              <textarea
+                value={autofill.trainingLoadSummary ?? ''}
+                onChange={(e) => setAutofill({ ...autofill, trainingLoadSummary: e.target.value })}
+                rows={2}
+                style={{ width: '100%', minWidth: 300 }}
+              />
+            </label>
           </div>
           <div className="controls">
-            <input
-              placeholder="other current training (non-running)"
-              value={autofill.nonRunningLoadSummary ?? ''}
-              onChange={(e) => setAutofill({ ...autofill, nonRunningLoadSummary: e.target.value })}
-              style={{ minWidth: 300 }}
-            />
+            <label style={{ display: 'block', minWidth: 300 }}>
+              Other current training (non-running)
+              <br />
+              <textarea
+                value={autofill.nonRunningLoadSummary ?? ''}
+                onChange={(e) => setAutofill({ ...autofill, nonRunningLoadSummary: e.target.value })}
+                rows={2}
+                style={{ width: '100%', minWidth: 300 }}
+              />
+            </label>
           </div>
         </div>
       )}
@@ -270,7 +304,12 @@ function IntakeForm() {
 
       {draftPlan && (
         <>
-          <p className="status">{draftPlan.rationale}</p>
+          {draftPlan.rationale && (
+            <div className="settings-card">
+              <h3>Why this plan</h3>
+              <p className="status">{draftPlan.rationale}</p>
+            </div>
+          )}
           <table>
             <thead>
               <tr>

@@ -63,6 +63,7 @@ h3 {
 
 select,
 input,
+textarea,
 button {
   background: #1e232b;
   color: inherit;
@@ -70,6 +71,11 @@ button {
   border-radius: 4px;
   padding: 0.3rem 0.5rem;
   font-size: 0.85rem;
+}
+
+textarea {
+  font-family: inherit;
+  resize: vertical;
 }
 
 button:disabled {
@@ -625,6 +631,7 @@ button.active {
   /* Comfortable tap targets on form controls. */
   select,
   input,
+  textarea,
   button {
     font-size: 0.95rem;
     padding: 0.45rem 0.6rem;

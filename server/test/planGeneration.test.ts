@@ -41,6 +41,19 @@ function proposeCallResponse(args: unknown) {
 const freeTextResponse = { choices: [{ message: { role: 'assistant', content: 'thinking…' } }] };
 
 describe('generatePlan', () => {
+  it('instructs the model to taper races, cap hard sessions, and ground rationale in real numbers', async () => {
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await generatePlan({ client, model: 'test', ctx: ctx(), summary: 'goal summary' });
+
+    const systemMessage = create.mock.calls[0]![0].messages[0].content as string;
+    expect(systemMessage).toMatch(/taper/i);
+    expect(systemMessage).toMatch(/at most one tempo and one interval/i);
+    expect(systemMessage).toMatch(/name the specific figures/i);
+    expect(systemMessage).toContain('goal summary');
+  });
+
   it('accepts an early propose_plan call before the forced step', async () => {
     const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
