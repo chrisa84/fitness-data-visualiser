@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import { openDb, openEventsDb } from './db.js';
 import type { CompletionClient } from './ai/chat.js';
 import { registerActivityRoutes } from './routes/activities.js';
+import { registerAiSettingsRoutes } from './routes/aiSettings.js';
 import { registerAnalysisRoutes, registerEventRoutes } from './routes/analysis.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerDailyHealthRoutes } from './routes/dailyHealth.js';
@@ -22,7 +23,6 @@ export interface AppOptions {
   logger?: boolean;
   ai?: {
     apiKey: string | undefined;
-    model: string;
     baseUrl: string;
   };
 }
@@ -113,7 +113,8 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   registerAnalysisRoutes(app, db);
   registerEventRoutes(app, eventsDb);
   registerRouteRoutes(app, eventsDb);
-  registerChatRoutes(app, { client: aiClient, model: ai?.model ?? 'unset', db, eventsDb });
+  registerAiSettingsRoutes(app, eventsDb);
+  registerChatRoutes(app, { client: aiClient, db, eventsDb });
 
   // In production (single-container deploy) the API also serves the built web
   // bundle. Unknown non-API GET routes fall back to index.html so client-side

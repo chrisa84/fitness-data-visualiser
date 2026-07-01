@@ -20,6 +20,42 @@ describe('GET /api/health', () => {
   });
 });
 
+describe('GET/PUT /api/ai-settings', () => {
+  it('returns seeded defaults', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({ method: 'GET', url: '/api/ai-settings' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().question.selected).toBe('deepseek/deepseek-v4-flash');
+  });
+
+  it('rejects a selected value not in models', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/ai-settings',
+      payload: {
+        question: { models: ['a', 'b', 'c'], selected: 'nope' },
+        plan: { models: ['a', 'b', 'c'], selected: 'a' },
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('persists a valid update', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/ai-settings',
+      payload: {
+        question: { models: ['a', 'b', 'c'], selected: 'b' },
+        plan: { models: ['x', 'y', 'z'], selected: 'z' },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().question.selected).toBe('b');
+  });
+});
+
 describe('GET /api/activities', () => {
   it('rejects bad limit', async () => {
     app = buildApp({ dbPath: createTestDb(seed), logger: false });

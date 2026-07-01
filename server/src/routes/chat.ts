@@ -2,6 +2,7 @@ import type { Database } from 'better-sqlite3';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { runChat, type CompletionClient } from '../ai/chat.js';
+import { getAiSettings } from '../repositories/aiSettings.js';
 import {
   addMessage,
   createConversation,
@@ -29,7 +30,6 @@ const chatBody = z.object({
 
 export interface ChatRouteOptions {
   client: CompletionClient | null;
-  model: string;
   db: Database;
   eventsDb: Database;
 }
@@ -37,7 +37,7 @@ export interface ChatRouteOptions {
 export function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOptions): void {
   app.get('/api/chat/status', async () => ({
     enabled: opts.client !== null,
-    model: opts.model,
+    model: getAiSettings(opts.eventsDb).question.selected,
   }));
 
   // Past conversations live in the writable events DB, independent of the AI key.
@@ -72,7 +72,7 @@ export function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOptions)
     try {
       const result = await runChat({
         client: opts.client,
-        model: opts.model,
+        model: getAiSettings(opts.eventsDb).question.selected,
         ctx: { db: opts.db, eventsDb: opts.eventsDb },
         messages,
         context,

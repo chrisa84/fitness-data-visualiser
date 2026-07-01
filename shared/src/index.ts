@@ -493,6 +493,27 @@ export interface ChatConversationDetail {
 }
 
 // ---------------------------------------------------------------------------
+// AI model settings (visualiser-owned writable state)
+// ---------------------------------------------------------------------------
+
+/** The AI's role: answering chat questions, or (future) generating training plans. */
+export type AiRole = 'question' | 'plan';
+
+export interface AiRoleSettings {
+  /** Up to 3 candidate OpenRouter model strings the user can pick between. */
+  models: [string, string, string];
+  /** The currently active model — must be one of `models`. */
+  selected: string;
+}
+
+export interface AiSettings {
+  question: AiRoleSettings;
+  plan: AiRoleSettings;
+}
+
+export type AiSettingsInput = AiSettings;
+
+// ---------------------------------------------------------------------------
 // Saved routes (visualiser-owned writable state)
 // ---------------------------------------------------------------------------
 

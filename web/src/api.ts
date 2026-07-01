@@ -4,6 +4,8 @@ import type {
   ActivitySample,
   ActivitySortKey,
   ActivityTypeCount,
+  AiSettings,
+  AiSettingsInput,
   CalendarEvent,
   DailyHealthResponse,
   EventInput,
@@ -221,6 +223,14 @@ export interface ChatReply {
 
 export function fetchChatStatus() {
   return getJson<ChatStatus>('/api/chat/status');
+}
+
+export function fetchAiSettings() {
+  return getJson<AiSettings>('/api/ai-settings');
+}
+
+export function updateAiSettings(input: AiSettingsInput) {
+  return sendJson<AiSettings>('PUT', '/api/ai-settings', input);
 }
 
 export function sendChat(messages: ChatTurn[], conversationId?: number, context?: string) {

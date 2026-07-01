@@ -11,10 +11,13 @@ export interface Config {
   port: number;
   /** Listen host. Defaults to loopback; set to 0.0.0.0 in a container. */
   host: string;
-  /** OpenRouter (OpenAI-compatible) settings for the AI query layer. */
+  /**
+   * OpenRouter (OpenAI-compatible) client settings for the AI query layer.
+   * The model itself is user-configurable at runtime (see `ai_settings` /
+   * `/api/ai-settings`), not baked in here.
+   */
   ai: {
     apiKey: string | undefined;
-    model: string;
     baseUrl: string;
   };
 }
@@ -28,7 +31,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? '127.0.0.1',
     ai: {
       apiKey: env.OPENROUTER_API_KEY,
-      model: env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash',
       baseUrl: env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
     },
   };

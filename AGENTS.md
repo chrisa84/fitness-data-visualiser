@@ -140,6 +140,14 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   ```
 - **The AI layer is optional.** Without `OPENROUTER_API_KEY`, `/api/chat` returns
   503 and the Chat tab shows a setup hint; everything else must keep working.
+- **The AI model is user-configurable, not an env var.** `visualiser-events.db`
+  holds a single-row `ai_settings` table (Question AI / Plan AI roles, up to 3
+  candidate model strings each, one active) managed via
+  `repositories/aiSettings.ts` / `GET`+`PUT /api/ai-settings` / the Settings
+  page. `routes/chat.ts` reads the active Question AI model per-request via
+  `getAiSettings` — don't reintroduce a boot-time model constant. Plan AI is
+  stored but has no consumer yet (reserved for the training-plan generator,
+  see `PLAN.md` Phase 14).
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
   `Accept: application/json` and reloads the page on a `401` so an expired
   oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's

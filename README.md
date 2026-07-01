@@ -114,8 +114,16 @@ only if you need to change them or enable the AI layer.
 | `ALLOWED_EMAILS`      | _(unset)_                                | Comma-separated account allowlist for an authenticated deploy. When set, the server 403s any request (whole app, not just `/api`) whose oauth2-proxy `X-Forwarded-Email` header isn't in the list. Leave unset locally (loopback has no auth). `ALLOWED_EMAIL` (singular) is accepted as a legacy alias. See [deploy/PWA-DEPLOY.md](deploy/PWA-DEPLOY.md). |
 | `REQUIRE_AUTH`        | _(auto)_                                 | Whether the allowlist is mandatory. Defaults to on when serving the built bundle (`WEB_DIST_PATH` set) so a misconfigured deploy **fails closed** — the server refuses to start with no allowlist rather than opening to anyone. Set `0` to run open intentionally; unset locally it's off. |
 | `OPENROUTER_API_KEY`  | _(unset)_                                | Enables the Chat tab. Without it, chat returns 503; everything else works. |
-| `OPENROUTER_MODEL`    | `anthropic/claude-3.7-sonnet`            | Any OpenRouter model slug that supports tool calling. |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1`           | OpenAI-compatible endpoint base URL.             |
+
+The model itself is **not** an env var — it's user-configurable at runtime from
+the **Settings** page (`/settings`, backed by `GET`/`PUT /api/ai-settings`).
+Two independent roles are stored, each with up to 3 candidate OpenRouter model
+slugs and one marked active: **Question AI** (powers Chat/Ask AI, used today)
+and **Plan AI** (reserved for the training-plan generator, not consumed yet).
+All 3 slots on both roles default to `deepseek/deepseek-v4-flash`,
+`google/gemini-3.5-flash`, `deepseek/deepseek-v4-pro` — editable to any
+OpenRouter slug that supports tool calling.
 
 ## Deployment (Docker / Coolify)
 
@@ -176,6 +184,7 @@ server/src/
     metrics.ts                 metric-catalog series (only joins needed tables)
     records.ts                 personal records derived from the activity table
     events.ts                  CRUD against the writable events DB
+    aiSettings.ts               Question AI / Plan AI model selection (writable DB)
   routes/                    Fastify routes: zod-validate, call repository
     validation.ts              isoDate + badRequest helpers
   ai/
@@ -219,6 +228,8 @@ to an open range.
 | GET    | `/api/chat/conversations`     | List saved conversations, most-recently-updated first.              |
 | GET    | `/api/chat/conversations/:id` | One conversation with its messages.                                 |
 | DELETE | `/api/chat/conversations/:id` | Delete a saved conversation. (writable DB)                          |
+| GET    | `/api/ai-settings`            | Question AI / Plan AI model options and the active selection.       |
+| PUT    | `/api/ai-settings`            | Update model options/selection. (writable DB)                       |
 
 The activity-type filter accepts a raw Garmin type (`running`) or a group
 (`group:running`, `group:cycling`, `group:swimming`, `group:walking`).
@@ -248,6 +259,9 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
 - **Chat** — natural-language questions answered via the AI query layer.
+- **Settings** — pick the active OpenRouter model for Question AI (Chat) and
+  Plan AI (reserved for the training-plan generator), each with up to 3
+  editable candidate model strings.
 
 ## AI query layer
 
@@ -299,6 +313,9 @@ so they exercise the tool-use loop without any network calls. One test
 
 ## Version history
 
+- User-configurable AI models: Settings page + `/api/ai-settings`, storing up to
+  3 candidate OpenRouter models per role (Question AI, and a Plan AI placeholder
+  for the upcoming training-plan generator) with one marked active.
 - Derived efficiency & load analytics: Efficiency page (speed per heartbeat, pace within fixed HR band), Form/PMC chart on Performance page, Foster training load metrics, AI tools for efficiency and load analysis.
 - Markdown rendering for AI chat replies (tables, headings, lists).
 - Floating "Ask AI" assistant on every page with automatic page-context hints; persisted conversations.

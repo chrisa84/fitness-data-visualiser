@@ -291,6 +291,30 @@ calls: OSRM (routing), Nominatim (search), opentopodata.org (elevation) — all
 free, no keys, personal-use rate limits. Route persistence uses the existing
 writable DB — no new infrastructure.
 
+### Phase 13 — User-configurable AI models ✅
+
+The model used to be a single `OPENROUTER_MODEL` env var baked in at boot. It's
+now runtime-configurable from a new **Settings** page, and split into two
+independent roles so a future feature can use a different (e.g. more
+reasoning-heavy) model than day-to-day chat without redeploying:
+
+- **Question AI** — powers Chat and the "Ask AI" drawer (what `OPENROUTER_MODEL`
+  used to control).
+- **Plan AI** — reserved for the training-plan generator (Phase 14). Stored and
+  selectable today; not consumed by anything yet.
+
+Each role holds up to 3 candidate OpenRouter model strings (freely editable)
+plus one marked active. New single-row `ai_settings` table in
+`visualiser-events.db` (`server/src/db.ts`), seeded on first run with all 3
+slots on both roles defaulting to `deepseek/deepseek-v4-flash`,
+`google/gemini-3.5-flash`, `deepseek/deepseek-v4-pro`. New
+`repositories/aiSettings.ts` + `routes/aiSettings.ts`
+(`GET`/`PUT /api/ai-settings`, zod-validates `selected` is one of `models`).
+`routes/chat.ts` now reads the active Question AI model per-request instead of
+a boot-time constant, so a change in Settings takes effect immediately with no
+restart. `OPENROUTER_API_KEY`/`OPENROUTER_BASE_URL` stay env-only (secrets/
+endpoint, not user-facing); `OPENROUTER_MODEL` is retired.
+
 ### Parked (requires Garmin-Sync work first)
 
 Gear/shoe mileage, body composition.

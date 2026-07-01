@@ -53,6 +53,19 @@ export function openEventsDb(path: string): Database.Database {
       total_distance_m REAL,
       created_at       TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS ai_settings (
+      id                INTEGER PRIMARY KEY CHECK (id = 1),
+      question_model_1  TEXT NOT NULL,
+      question_model_2  TEXT NOT NULL,
+      question_model_3  TEXT NOT NULL,
+      question_selected TEXT NOT NULL,
+      plan_model_1      TEXT NOT NULL,
+      plan_model_2      TEXT NOT NULL,
+      plan_model_3      TEXT NOT NULL,
+      plan_selected     TEXT NOT NULL,
+      updated_at        TEXT NOT NULL
+    );
   `);
 
   // Migration: add chat_message.context to databases created before it existed.
@@ -60,6 +73,25 @@ export function openEventsDb(path: string): Database.Database {
   if (!messageColumns.some((c) => c.name === 'context')) {
     db.exec('ALTER TABLE chat_message ADD COLUMN context TEXT');
   }
+
+  // Seed the single ai_settings row with today's defaults on first run.
+  const DEFAULT_MODELS = ['deepseek/deepseek-v4-flash', 'google/gemini-3.5-flash', 'deepseek/deepseek-v4-pro'] as const;
+  db.prepare(
+    `INSERT OR IGNORE INTO ai_settings
+       (id, question_model_1, question_model_2, question_model_3, question_selected,
+            plan_model_1, plan_model_2, plan_model_3, plan_selected, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    DEFAULT_MODELS[0],
+    DEFAULT_MODELS[1],
+    DEFAULT_MODELS[2],
+    DEFAULT_MODELS[0],
+    DEFAULT_MODELS[0],
+    DEFAULT_MODELS[1],
+    DEFAULT_MODELS[2],
+    DEFAULT_MODELS[0],
+    new Date().toISOString(),
+  );
 
   return db;
 }
