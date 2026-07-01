@@ -651,6 +651,24 @@ export interface GenerateTrainingPlanRequest {
 }
 
 /**
+ * Revise an unsaved draft plan — the AI is shown the current draft plus what
+ * to change and asked to revise it, not design from scratch. `endDate` is
+ * passed directly (the draft already has one computed) rather than being
+ * re-derived from `raceDate`/`durationWeeks` as in `GenerateTrainingPlanRequest`.
+ */
+export interface ReviseTrainingPlanRequest {
+  isRace: boolean;
+  goalRaceDistanceM?: number | null;
+  goalTargetDurationS?: number | null;
+  startDate: string;
+  endDate: string;
+  daysPerWeek: number;
+  currentWorkouts: TrainingPlanWorkoutInput[];
+  currentRationale?: string;
+  instructions: string;
+}
+
+/**
  * The training plan draft returned to the client — dates/race facts are the
  * user-supplied ones (echoed back, not chosen by the model); `rationale` and
  * `workouts` are the AI's actual output. Nothing is persisted until saved.

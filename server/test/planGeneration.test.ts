@@ -212,6 +212,60 @@ describe('generatePlan', () => {
   });
 });
 
+describe('generatePlan revision mode', () => {
+  const currentWorkouts = [
+    { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' as const },
+    { date: '2026-01-07', title: 'Long run 10k', workoutType: 'long' as const },
+  ];
+
+  it('tells the model to revise the current draft, not design from scratch', async () => {
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await generatePlan({
+      client,
+      model: 'test',
+      ctx: ctx(),
+      summary: 'goal summary',
+      startDate: START,
+      endDate: END,
+      isRace: false,
+      revision: { currentWorkouts, currentRationale: 'started conservative', instructions: 'make the long run shorter' },
+    });
+
+    const systemMessage = create.mock.calls[0]![0].messages[0].content as string;
+    expect(systemMessage).toMatch(/editing it, not designing a fresh one/i);
+    expect(systemMessage).toContain('Easy 5k');
+    expect(systemMessage).toContain('Long run 10k');
+    expect(systemMessage).toContain('started conservative');
+    expect(systemMessage).toContain('make the long run shorter');
+    // The same hard-fact/coaching rules still apply during a revision.
+    expect(systemMessage).toMatch(/at most one tempo and one interval/i);
+  });
+
+  it('still enforces the deterministic race-day/window checks on a revision', async () => {
+    const revisedButRaceMoved = {
+      rationale: 'x',
+      workouts: [{ date: '2025-12-31', title: 'Too early', workoutType: 'easy' }],
+    };
+    const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(revisedButRaceMoved));
+    const client = { chat: { completions: { create } } } as unknown as CompletionClient;
+
+    await expect(
+      generatePlan({
+        client,
+        model: 'test',
+        ctx: ctx(),
+        summary: 'goal summary',
+        startDate: START,
+        endDate: END,
+        isRace: false,
+        revision: { currentWorkouts, instructions: 'tweak something' },
+      }),
+    ).rejects.toThrow(PlanGenerationError);
+  });
+});
+
 describe('getTrainingPlanAutofill', () => {
   it('summarizes recent volume (zero-filled), representative runs, performance, and non-running load', () => {
     const path = createTrainingPlanAutofillDb({

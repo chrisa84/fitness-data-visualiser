@@ -6,7 +6,7 @@ import type { CompletionClient } from '../ai/chat.js';
 import { getAiSettings } from '../repositories/aiSettings.js';
 import { listEvents } from '../repositories/events.js';
 import { getTrainingPlanAutofill } from '../repositories/trainingPlanAutofill.js';
-import { generateTrainingPlanBody } from '../schemas/trainingPlan.js';
+import { generateTrainingPlanBody, reviseTrainingPlanBody } from '../schemas/trainingPlan.js';
 import { badRequest } from './validation.js';
 
 export interface TrainingPlanGenerationRouteOptions {
@@ -88,6 +88,61 @@ export function registerTrainingPlanGenerationRoutes(
       // Anything else (network error, OpenRouter/provider-side failure, etc.) —
       // log it and return a clean JSON body instead of leaking Fastify's bare
       // default error response, matching chat.ts's equivalent catch-all.
+      return reply.code(502).send({ error: 'ai_error', message: (e as Error).message });
+    }
+  });
+
+  // Revise an unsaved draft — the model edits the existing workouts rather than designing
+  // from scratch. `goalDescription` isn't part of this request (the client already has it
+  // from the original generate call and should keep using its own copy, not overwrite it
+  // with this route's placeholder empty string).
+  app.post('/api/training-plans/revise', async (request, reply) => {
+    if (!opts.client) {
+      return reply
+        .code(503)
+        .send({ error: 'ai_not_configured', message: 'Set OPENROUTER_API_KEY to enable plan generation.' });
+    }
+    const parsed = reviseTrainingPlanBody.safeParse(request.body);
+    if (!parsed.success) return badRequest(reply, parsed.error);
+
+    const input = parsed.data;
+    const events = listEvents(opts.eventsDb, input.startDate, input.endDate);
+    const autofill = getTrainingPlanAutofill(opts.db);
+    const summary = buildPlanSummary(input, input.endDate, autofill, events);
+    const model = getAiSettings(opts.eventsDb).plan.selected;
+
+    try {
+      const ai = await generatePlan({
+        client: opts.client,
+        model,
+        ctx: { db: opts.db, eventsDb: opts.eventsDb },
+        summary,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        isRace: input.isRace,
+        revision: {
+          currentWorkouts: input.currentWorkouts,
+          currentRationale: input.currentRationale,
+          instructions: input.instructions,
+        },
+      });
+      const plan: GeneratedTrainingPlan = {
+        goalDescription: '',
+        isRace: input.isRace,
+        goalRaceDistanceM: input.goalRaceDistanceM ?? null,
+        goalTargetDurationS: input.goalTargetDurationS ?? null,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        daysPerWeek: input.daysPerWeek,
+        rationale: ai.rationale,
+        workouts: ai.workouts,
+      };
+      return plan;
+    } catch (e) {
+      request.log.error(e);
+      if (e instanceof PlanGenerationError) {
+        return reply.code(502).send({ error: 'plan_generation_failed', message: e.message });
+      }
       return reply.code(502).send({ error: 'ai_error', message: (e as Error).message });
     }
   });

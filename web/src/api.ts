@@ -32,6 +32,7 @@ import type {
   TrainingPlanWorkoutUpdate,
   GenerateTrainingPlanRequest,
   GeneratedTrainingPlan,
+  ReviseTrainingPlanRequest,
   VolumeResponse,
 } from '@fitness/shared';
 
@@ -311,4 +312,8 @@ export function fetchTrainingPlanAutofill() {
 
 export function generateTrainingPlan(input: GenerateTrainingPlanRequest) {
   return sendJson<GeneratedTrainingPlan>('POST', '/api/training-plans/generate', input);
+}
+
+export function reviseTrainingPlan(input: ReviseTrainingPlanRequest) {
+  return sendJson<GeneratedTrainingPlan>('POST', '/api/training-plans/revise', input);
 }

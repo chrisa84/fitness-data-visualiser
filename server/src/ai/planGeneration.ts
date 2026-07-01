@@ -23,6 +23,13 @@ export interface AiProposedPlan {
   workouts: TrainingPlanWorkoutInput[];
 }
 
+/** The current unsaved draft plus what the user wants changed about it — see `systemPrompt`'s revision branch. */
+export interface RevisionContext {
+  currentWorkouts: TrainingPlanWorkoutInput[];
+  currentRationale?: string;
+  instructions: string;
+}
+
 /**
  * Only the tools actually relevant to plan design — not the full chat toolset.
  * The autofill summary already covers records/performance/volume/events; this
@@ -103,6 +110,17 @@ function daysBeforeISO(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().slice(0, 10);
+}
+
+function formatWorkoutForPrompt(w: TrainingPlanWorkoutInput): string {
+  const distance = w.targetDistanceM != null ? `${round1(w.targetDistanceM / 1000)}km` : null;
+  const pace =
+    w.targetPaceMinSecPerKm != null || w.targetPaceMaxSecPerKm != null
+      ? `${w.targetPaceMinSecPerKm != null ? mmss(w.targetPaceMinSecPerKm) : '?'}-${w.targetPaceMaxSecPerKm != null ? mmss(w.targetPaceMaxSecPerKm) : '?'}/km`
+      : w.targetPaceSecPerKm != null
+        ? `${mmss(w.targetPaceSecPerKm)}/km`
+        : null;
+  return [w.date, w.workoutType, w.title, distance, pace].filter((v): v is string => Boolean(v)).join(' ');
 }
 
 /**
@@ -209,10 +227,22 @@ export function buildPlanSummary(
   return lines.join('\n');
 }
 
-function systemPrompt(today: string, summary: string, isRace: boolean): string {
+function systemPrompt(today: string, summary: string, isRace: boolean, revision?: RevisionContext): string {
   return [
     `You are an experienced running coach embedded in a personal Garmin data app. Today is ${today}.`,
-    'Design a training plan for the user described below, grounded in the fitness summary — not a generic template. You have a few extra data tools (records, performance trends, activity volume, logged events) if the summary genuinely is not enough, but it usually already covers what you need.',
+    revision
+      ? "You previously proposed the training plan below. The user wants a targeted revision — you are editing it, not designing a fresh one. Keep everything not implicated by the requested change as close to the original as possible; don't regenerate parts nobody asked you to touch."
+      : 'Design a training plan for the user described below, grounded in the fitness summary — not a generic template. You have a few extra data tools (records, performance trends, activity volume, logged events) if the summary genuinely is not enough, but it usually already covers what you need.',
+    ...(revision
+      ? [
+          '',
+          'Current draft plan (revise this):',
+          ...revision.currentWorkouts.map((w) => `- ${formatWorkoutForPrompt(w)}`),
+          revision.currentRationale ? `Current rationale: ${revision.currentRationale}` : '',
+          '',
+          `What the user wants changed: ${revision.instructions}`,
+        ]
+      : []),
     '',
     'Hard facts (already decided by the user, not yours to change):',
     '- The plan window (start/end date) and whether this is a race, plus the race distance/target time if so, are given exactly below — do not reinterpret or move them.',
@@ -270,11 +300,12 @@ export async function generatePlan(opts: {
   startDate: string;
   endDate: string;
   isRace: boolean;
+  revision?: RevisionContext;
 }): Promise<AiProposedPlan> {
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
   const tools = [...PLAN_DATA_TOOLS, PROPOSE_PLAN_TOOL];
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: 'system', content: systemPrompt(today, opts.summary, opts.isRace) },
+    { role: 'system', content: systemPrompt(today, opts.summary, opts.isRace, opts.revision) },
   ];
 
   for (let step = 0; step < MAX_STEPS; step += 1) {

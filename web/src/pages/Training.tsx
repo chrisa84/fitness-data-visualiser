@@ -18,6 +18,7 @@ import {
   fetchEvents,
   fetchTrainingPlanAutofill,
   generateTrainingPlan,
+  reviseTrainingPlan,
   updateTrainingPlanWorkout,
 } from '../api';
 import { formatDuration, formatKm, formatPaceFromSecPerKm, formatType } from '../format';
@@ -334,6 +335,29 @@ function IntakeForm() {
     },
   });
 
+  const [revisionInstructions, setRevisionInstructions] = useState('');
+  const revise = useMutation({
+    mutationFn: () => {
+      const plan = draftPlan!;
+      return reviseTrainingPlan({
+        isRace: plan.isRace,
+        goalRaceDistanceM: plan.goalRaceDistanceM,
+        goalTargetDurationS: plan.goalTargetDurationS,
+        startDate: plan.startDate,
+        endDate: plan.endDate,
+        daysPerWeek: plan.daysPerWeek,
+        currentWorkouts: plan.workouts,
+        currentRationale: plan.rationale,
+        instructions: revisionInstructions,
+      });
+    },
+    // The revise response has no goalDescription of its own — keep the client's existing one.
+    onSuccess: (revised) => {
+      setDraftPlan({ ...draftPlan!, ...revised, goalDescription: draftPlan!.goalDescription });
+      setRevisionInstructions('');
+    },
+  });
+
   const updateWorkoutDraft = (index: number, patch: Partial<TrainingPlanWorkoutInput>) => {
     if (!draftPlan) return;
     const workouts = draftPlan.workouts.map((w, i) => (i === index ? { ...w, ...patch } : w));
@@ -572,6 +596,26 @@ function IntakeForm() {
               ))}
             </tbody>
           </table>
+
+          <div className="controls" style={{ display: 'block' }}>
+            <label style={{ display: 'block', width: '100%' }}>
+              Revise this plan — describe a targeted change (e.g. "make the long run shorter in week 1", "swap Tuesday's tempo for an easy run")
+              <br />
+              <textarea
+                value={revisionInstructions}
+                onChange={(e) => setRevisionInstructions(e.target.value)}
+                rows={2}
+                style={{ width: '100%', maxWidth: 500, boxSizing: 'border-box' }}
+              />
+            </label>
+          </div>
+          <div className="controls">
+            <button disabled={!revisionInstructions.trim() || revise.isPending} onClick={() => revise.mutate()}>
+              Revise
+            </button>
+            {revise.error && <span className="status">Failed to revise: {(revise.error as Error).message}</span>}
+          </div>
+
           <div className="controls">
             <button disabled={save.isPending} onClick={() => save.mutate()}>
               Save plan

@@ -245,6 +245,24 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   successful fetch; "Refresh from Garmin" still updates the read-only
   trend/representative-run display (which reads `autofillQuery.data`
   directly), just not the editable override fields.
+- **Workout edits are validated on the *merged* result, not the raw PATCH
+  body.** `updateWorkout` (`repositories/trainingPlans.ts`) merges
+  `{...existing, ...patch}` before checking the window bound / pace-range
+  order / tempo-interval-description invariants — a partial patch touching
+  only `title` can't be checked for "does this tempo workout still have a
+  description" in isolation, since that depends on the pre-existing
+  `workoutType`/`description` too. Throws `WorkoutValidationError` → `400`.
+  Don't move these checks into `trainingPlanWorkoutUpdateBody` (the zod
+  schema) — it's `.partial()`, so it has no visibility into the existing row.
+- **`POST /api/training-plans/revise` reuses `generatePlan` via a
+  prompt-only branch, not a parallel code path.** Passing a `revision`
+  option swaps `systemPrompt`'s opening framing ("you are editing this, not
+  designing a fresh one" + the current draft + the user's instructions) but
+  keeps every hard fact, coaching rule, and deterministic post-generation
+  check identical to a fresh generation — same schema, same validation, same
+  reliability characteristics. Don't build a second tool-loop or a separate
+  validation path for revisions; the only thing that should ever differ is
+  the prompt content.
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
   `Accept: application/json` and reloads the page on a `401` so an expired
   oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's

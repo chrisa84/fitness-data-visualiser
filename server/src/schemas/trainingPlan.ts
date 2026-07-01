@@ -117,3 +117,16 @@ export const generateTrainingPlanBody = z
     message: `race date cannot be more than ${MAX_HORIZON_DAYS} days after startDate`,
     path: ['raceDate'],
   });
+
+/** Revise an unsaved draft — hard facts are passed through as-is (already decided by the earlier generate call). */
+export const reviseTrainingPlanBody = z.object({
+  isRace: z.boolean(),
+  goalRaceDistanceM: z.number().positive().nullish(),
+  goalTargetDurationS: z.number().positive().nullish(),
+  startDate: isoDate,
+  endDate: isoDate,
+  daysPerWeek: z.number().int().min(1).max(7),
+  currentWorkouts: z.array(trainingPlanWorkoutBody).min(1).max(200),
+  currentRationale: z.string().max(2000).optional(),
+  instructions: z.string().min(1).max(2000),
+});

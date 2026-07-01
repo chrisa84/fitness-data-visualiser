@@ -429,4 +429,43 @@ describe('training plan generation', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  it('returns 503 from /api/training-plans/revise when not configured', async () => {
+    app = buildApp({ dbPath: createTrainingPlanAutofillDb({}), logger: false });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/training-plans/revise',
+      payload: {
+        isRace: false,
+        startDate: '2026-01-01',
+        endDate: '2026-02-26',
+        daysPerWeek: 4,
+        currentWorkouts: [{ date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' }],
+        instructions: 'make it easier',
+      },
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe('ai_not_configured');
+  });
+
+  it('rejects a revise request with no instructions', async () => {
+    app = buildApp({
+      dbPath: createTrainingPlanAutofillDb({}),
+      logger: false,
+      ai: { apiKey: 'test-key', baseUrl: 'http://localhost' },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/training-plans/revise',
+      payload: {
+        isRace: false,
+        startDate: '2026-01-01',
+        endDate: '2026-02-26',
+        daysPerWeek: 4,
+        currentWorkouts: [{ date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' }],
+        instructions: '',
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });

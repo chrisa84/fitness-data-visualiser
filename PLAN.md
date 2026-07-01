@@ -628,6 +628,31 @@ description. The same tempo/interval-description and pace-order checks are
 also now enforced at the zod level for the create paths
 (`trainingPlanWorkoutBody`), where they can be expressed declaratively.
 
+**Revise draft.** The unsaved draft preview previously only offered a
+single-field-per-row hand edit or "Regenerate" (which discards the whole
+draft and starts over). `POST /api/training-plans/revise`
+(`routes/trainingPlanGeneration.ts`) adds a targeted middle ground: the
+user describes a change in free text ("make the long run shorter in week
+1"), and the model edits the existing draft rather than designing from
+scratch. This deliberately reuses the entire existing generation pipeline
+— `generatePlan()` (`ai/planGeneration.ts`) gained an optional `revision`
+field carrying the current draft's workouts/rationale plus the
+instructions; `systemPrompt()` swaps its opening framing to "you are
+editing this, not designing a fresh one" and lists the current draft
+compactly, but every hard fact and coaching rule below that (race day
+placement, window bounds, hard-session caps, pace-range guidance) applies
+unchanged, and the same deterministic post-generation checks run on the
+result — no parallel validation path, no new reliability surface. A
+revision has no `goalDescription`/`raceDate`/`durationWeeks` of its own
+(the draft being revised already has concrete `startDate`/`endDate` from
+the original generate call — nothing to re-derive); the web client
+explicitly keeps its own `goalDescription` after a revise response rather
+than trusting the route's placeholder empty string.
+
+Deliberately separate from Phase 15 below — this operates on an *unsaved*
+draft with no usage history, so it has no dependency on the plan having
+been lived in yet, unlike Phase 15's planned-vs-actual comparison.
+
 ### Phase 15 — Adaptive plan check-in (design — future, depends on Phase 14)
 
 Training plans go stale as fitness changes over 12 weeks. Rather than
