@@ -445,6 +445,43 @@ export function createRecordsDb(activities: Record<string, unknown>[]): string {
   return path;
 }
 
+// Combines the performance date-spine tables with an activity table wide
+// enough for both getRecords and getActivityVolume — needed together for
+// training-plan autofill, which reads all three.
+const TRAINING_PLAN_AUTOFILL_SCHEMA = `
+  CREATE TABLE training_status (
+    date TEXT PRIMARY KEY, vo2max REAL, vo2max_precise REAL, acute_load INTEGER,
+    chronic_load INTEGER, acwr REAL, training_status_phrase TEXT
+  );
+  CREATE TABLE training_readiness (
+    date TEXT PRIMARY KEY, score INTEGER, hrv_factor_pct INTEGER, sleep_factor_pct INTEGER,
+    stress_factor_pct INTEGER, recovery_time_min INTEGER
+  );
+  CREATE TABLE race_predictions (
+    date TEXT PRIMARY KEY, race_5k_s INTEGER, race_10k_s INTEGER, race_half_s INTEGER, race_full_s INTEGER
+  );
+  CREATE TABLE max_metrics (date TEXT PRIMARY KEY, vo2max REAL, vo2max_precise REAL, fitness_age REAL);
+  CREATE TABLE lactate_threshold (date TEXT PRIMARY KEY, threshold_hr INTEGER, threshold_power_w REAL);
+  CREATE TABLE endurance_score (date TEXT PRIMARY KEY, score INTEGER);
+  CREATE TABLE hill_score (date TEXT PRIMARY KEY, overall_score INTEGER, strength_score INTEGER, hill_endurance_score INTEGER);
+  CREATE TABLE fitness_age (date TEXT PRIMARY KEY, fitness_age REAL);
+  CREATE TABLE activity (
+    activity_id TEXT PRIMARY KEY, type TEXT, start_time_local TEXT,
+    distance_m REAL, duration_s REAL, elevation_gain_m REAL, vo2max REAL,
+    fastest_km_s REAL, fastest_mile_s REAL, fastest_5k_s REAL
+  );
+`;
+
+export function createTrainingPlanAutofillDb(seed: Record<string, Record<string, unknown>[]>): string {
+  const dir = mkdtempSync(join(tmpdir(), 'fitness-vis-plan-autofill-'));
+  const path = join(dir, 'plan-autofill.db');
+  const db = new Database(path);
+  db.exec(TRAINING_PLAN_AUTOFILL_SCHEMA);
+  seedTables(db, seed);
+  db.close();
+  return path;
+}
+
 const INTRADAY_SCHEMA = `
   CREATE TABLE intraday_heart_rate (date TEXT NOT NULL, timestamp_utc TEXT NOT NULL, heart_rate INTEGER NOT NULL, PRIMARY KEY (date, timestamp_utc));
   CREATE TABLE intraday_stress (date TEXT NOT NULL, timestamp_utc TEXT NOT NULL, stress_level INTEGER, PRIMARY KEY (date, timestamp_utc));

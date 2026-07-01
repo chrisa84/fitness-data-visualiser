@@ -145,9 +145,30 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   candidate model strings each, one active) managed via
   `repositories/aiSettings.ts` / `GET`+`PUT /api/ai-settings` / the Settings
   page. `routes/chat.ts` reads the active Question AI model per-request via
-  `getAiSettings` — don't reintroduce a boot-time model constant. Plan AI is
-  stored but has no consumer yet (reserved for the training-plan generator,
-  see `PLAN.md` Phase 14).
+  `getAiSettings` — don't reintroduce a boot-time model constant. Plan AI's
+  first (and so far only) consumer is the training-plan generator (Phase 14).
+- **Training plans: one active at a time, and `workout_type` is a closed
+  enum.** `createTrainingPlan` (`repositories/trainingPlans.ts`) throws
+  `ActivePlanExistsError` (→ `409`) if `getActiveTrainingPlan` already returns
+  a row — end the current plan before starting another, there's no DB
+  constraint enforcing this, just a check-then-insert in the repository.
+  `workout_type` is `easy | long | tempo | interval | race`
+  (`WORKOUT_TYPES` in `shared/`) — deliberately no `rest`/`cross_training`;
+  a date with no workout row *is* the rest day, and prescribing non-running
+  sessions was scoped out (see `PLAN.md` Phase 14 for why).
+- **Plan generation forces a terminal tool call — it does not reuse
+  `runChat`.** `ai/planGeneration.ts`'s `generatePlan` runs its own loop
+  against the same `TOOL_DEFINITIONS`/`executeTool`, but sets `tool_choice`
+  to force `propose_plan` on the last allowed step (never from step 0, which
+  would block the model from calling data tools first). Don't add this
+  forcing logic to `ai/chat.ts`'s `runChat` — that one must stay generic for
+  ordinary chat. The `propose_plan` arguments are zod-validated against
+  `schemas/trainingPlan.ts`'s `generatedPlanSchema`; a bad value throws
+  `PlanGenerationError` (→ `502`), it does not silently fall back to prose.
+- **`GET /api/training-plans/autofill` costs zero AI tokens.** It's plain
+  repository queries (`repositories/trainingPlanAutofill.ts`, reusing
+  `getActivityVolume`/`getRecords`/`getPerformanceSeries`) — don't route it
+  through the AI client.
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
   `Accept: application/json` and reloads the page on a `401` so an expired
   oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's

@@ -13,6 +13,8 @@ import { registerDailyHealthRoutes } from './routes/dailyHealth.js';
 import { registerIntradayRoutes } from './routes/intraday.js';
 import { registerPerformanceRoutes } from './routes/performance.js';
 import { registerRouteRoutes } from './routes/routes.js';
+import { registerTrainingPlanRoutes } from './routes/trainingPlans.js';
+import { registerTrainingPlanGenerationRoutes } from './routes/trainingPlanGeneration.js';
 
 export interface AppOptions {
   dbPath: string;
@@ -114,6 +116,8 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   registerEventRoutes(app, eventsDb);
   registerRouteRoutes(app, eventsDb);
   registerAiSettingsRoutes(app, eventsDb);
+  registerTrainingPlanRoutes(app, eventsDb);
+  registerTrainingPlanGenerationRoutes(app, { client: aiClient, db, eventsDb });
   registerChatRoutes(app, { client: aiClient, db, eventsDb });
 
   // In production (single-container deploy) the API also serves the built web

@@ -22,6 +22,16 @@ import type {
   SavedRoute,
   SavedRouteInput,
   TrainingLoadResponse,
+  TrainingPlan,
+  TrainingPlanAutofill,
+  TrainingPlanDetail,
+  TrainingPlanInput,
+  TrainingPlanStatus,
+  TrainingPlanWorkout,
+  TrainingPlanWorkoutInput,
+  TrainingPlanWorkoutUpdate,
+  GenerateTrainingPlanRequest,
+  GeneratedTrainingPlan,
   VolumeResponse,
 } from '@fitness/shared';
 
@@ -248,4 +258,57 @@ export function fetchConversation(id: number) {
 export async function deleteConversation(id: number): Promise<void> {
   const res = await apiFetch(`/api/chat/conversations/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Failed to delete conversation (${res.status})`);
+}
+
+export function fetchTrainingPlans(status?: TrainingPlanStatus) {
+  return getJson<TrainingPlan[]>('/api/training-plans', { status });
+}
+
+/** Null means no active plan (a 404) — not distinguished from a real error, so check status first. */
+export async function fetchActiveTrainingPlan(): Promise<TrainingPlanDetail | null> {
+  const res = await apiFetch('/api/training-plans/active');
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? `Request failed with status ${res.status}`);
+  }
+  return res.json();
+}
+
+export function fetchTrainingPlan(id: number) {
+  return getJson<TrainingPlanDetail>(`/api/training-plans/${id}`);
+}
+
+export function createTrainingPlan(input: TrainingPlanInput) {
+  return sendJson<TrainingPlanDetail>('POST', '/api/training-plans', input);
+}
+
+export function endTrainingPlan(id: number) {
+  return sendJson<TrainingPlan>('POST', `/api/training-plans/${id}/end`, {});
+}
+
+export async function deleteTrainingPlan(id: number): Promise<void> {
+  const res = await apiFetch(`/api/training-plans/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete training plan (${res.status})`);
+}
+
+export function createTrainingPlanWorkout(planId: number, input: TrainingPlanWorkoutInput) {
+  return sendJson<TrainingPlanWorkout>('POST', `/api/training-plans/${planId}/workouts`, input);
+}
+
+export function updateTrainingPlanWorkout(id: number, input: TrainingPlanWorkoutUpdate) {
+  return sendJson<TrainingPlanWorkout>('PATCH', `/api/training-plan-workouts/${id}`, input);
+}
+
+export async function deleteTrainingPlanWorkout(id: number): Promise<void> {
+  const res = await apiFetch(`/api/training-plan-workouts/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete workout (${res.status})`);
+}
+
+export function fetchTrainingPlanAutofill() {
+  return getJson<TrainingPlanAutofill>('/api/training-plans/autofill');
+}
+
+export function generateTrainingPlan(input: GenerateTrainingPlanRequest) {
+  return sendJson<GeneratedTrainingPlan>('POST', '/api/training-plans/generate', input);
 }

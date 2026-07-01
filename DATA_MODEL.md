@@ -214,6 +214,40 @@ Indexed by `conversation_id`. The `context` column is added by a migration in
 Each `POST /api/chat` appends the new user message and the assistant reply to the
 conversation (creating one if no `conversationId` is supplied).
 
+### `training_plan` and `training_plan_workout`
+
+| Column                    | Type                     | Notes                                             |
+| ------------------------- | ------------------------ | -------------------------------------------------- |
+| `id`                      | INTEGER PK AUTOINCREMENT |                                                    |
+| `goal_description`        | TEXT NOT NULL            | Free-text goal, e.g. "half marathon in 1:50".     |
+| `is_race`                 | INTEGER NOT NULL DEFAULT 0 | 0/1. Decided by the AI at generation time, not a form field. |
+| `goal_race_distance_m`    | REAL NULL                | Set only when `is_race`.                          |
+| `goal_target_duration_s`  | INTEGER NULL             | Set only when `is_race`.                          |
+| `start_date` / `end_date` | TEXT NOT NULL            | ISO dates. Range capped at 84 days (12 weeks) by `MAX_HORIZON_DAYS` in `schemas/trainingPlan.ts`. |
+| `days_per_week`           | INTEGER NOT NULL         | 1-7. No per-weekday field — the AI picks which specific dates. |
+| `status`                  | TEXT NOT NULL DEFAULT 'active' | `active` \| `ended`. Only one `active` row at a time (`ActivePlanExistsError`, not a DB constraint). |
+| `created_at` / `ended_at` | TEXT / TEXT NULL         | `ended_at` set once, idempotently, by `endTrainingPlan`. |
+
+Index: `idx_training_plan_status` on `(status)`.
+
+| Column                    | Type                     | Notes                                             |
+| ------------------------- | ------------------------ | -------------------------------------------------- |
+| `id`                      | INTEGER PK AUTOINCREMENT |                                                    |
+| `plan_id`                 | INTEGER NOT NULL         | FK → `training_plan.id`.                          |
+| `date`                    | TEXT NOT NULL            | A row exists only for a prescribed training day — any other date is implicitly rest. |
+| `title` / `description`   | TEXT NOT NULL / TEXT NULL |                                                   |
+| `workout_type`            | TEXT NOT NULL            | One of `WORKOUT_TYPES` (`shared/`): `easy`, `long`, `tempo`, `interval`, `race`. No `rest`/`cross_training` — see `PLAN.md` Phase 14. |
+| `target_distance_m` / `target_duration_s` / `target_pace_sec_per_km` | REAL/INTEGER/INTEGER, all NULL | Whatever the plan prescribes for that session; any can be absent. |
+| `completed_at`            | TEXT NULL                | Set/cleared by the user ticking the checklist — never touched by AI generation. |
+| `notes`                   | TEXT NULL                |                                                    |
+| `created_at`              | TEXT NOT NULL            |                                                    |
+
+Index: `idx_training_plan_workout_plan` on `(plan_id)`.
+
+`POST /api/training-plans/generate` never writes either table — the AI's
+proposal is only persisted when the user calls `POST /api/training-plans` to
+save it.
+
 ---
 
 ## Shared contract (`shared/src/index.ts`)

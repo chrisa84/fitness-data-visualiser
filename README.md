@@ -119,8 +119,8 @@ only if you need to change them or enable the AI layer.
 The model itself is **not** an env var — it's user-configurable at runtime from
 the **Settings** page (`/settings`, backed by `GET`/`PUT /api/ai-settings`).
 Two independent roles are stored, each with up to 3 candidate OpenRouter model
-slugs and one marked active: **Question AI** (powers Chat/Ask AI, used today)
-and **Plan AI** (reserved for the training-plan generator, not consumed yet).
+slugs and one marked active: **Question AI** (powers Chat/Ask AI) and
+**Plan AI** (powers the Training page's plan generator).
 All 3 slots on both roles default to `deepseek/deepseek-v4-flash`,
 `google/gemini-3.5-flash`, `deepseek/deepseek-v4-pro` — editable to any
 OpenRouter slug that supports tool calling.
@@ -185,11 +185,16 @@ server/src/
     records.ts                 personal records derived from the activity table
     events.ts                  CRUD against the writable events DB
     aiSettings.ts               Question AI / Plan AI model selection (writable DB)
+    trainingPlans.ts            Training plan + workout CRUD (writable DB)
+    trainingPlanAutofill.ts     Fitness summary for plan generation (no AI, plain queries)
+  schemas/
+    trainingPlan.ts             Zod shapes shared by the CRUD route and AI-generated output
   routes/                    Fastify routes: zod-validate, call repository
     validation.ts              isoDate + badRequest helpers
   ai/
     tools.ts                   Tool schemas, executeTool dispatch, run_sql guard
     chat.ts                    System prompt + tool-use loop (runChat)
+    planGeneration.ts           Forced-tool-call loop for training-plan generation
 web/src/
   Chart.tsx / BarChart.tsx   The single ECharts render seam
   chartHelpers.ts            baseOption / line / bar builders
@@ -230,6 +235,17 @@ to an open range.
 | DELETE | `/api/chat/conversations/:id` | Delete a saved conversation. (writable DB)                          |
 | GET    | `/api/ai-settings`            | Question AI / Plan AI model options and the active selection.       |
 | PUT    | `/api/ai-settings`            | Update model options/selection. (writable DB)                       |
+| GET    | `/api/training-plans`         | List training plans, optionally filtered by `status`. (writable DB) |
+| GET    | `/api/training-plans/active`  | The active plan + its workouts, 404 if none. (writable DB)          |
+| GET    | `/api/training-plans/autofill`| Fitness summary for the intake form. Plain queries, no AI/tokens.   |
+| GET    | `/api/training-plans/:id`     | One plan + its workouts. (writable DB)                              |
+| POST   | `/api/training-plans`         | Create a plan (+ optional workouts). 409 if one's already active. (writable DB) |
+| POST   | `/api/training-plans/generate`| AI-generate a plan proposal (not persisted). 503 if no API key.     |
+| POST   | `/api/training-plans/:id/end` | End a plan (idempotent). (writable DB)                              |
+| DELETE | `/api/training-plans/:id`     | Delete a plan and its workouts. (writable DB)                       |
+| POST   | `/api/training-plans/:id/workouts` | Add a workout to a plan. (writable DB)                         |
+| PATCH  | `/api/training-plan-workouts/:id`  | Update/tick a workout. (writable DB)                           |
+| DELETE | `/api/training-plan-workouts/:id`  | Delete a workout. (writable DB)                                |
 
 The activity-type filter accepts a raw Garmin type (`running`) or a group
 (`group:running`, `group:cycling`, `group:swimming`, `group:walking`).
@@ -259,9 +275,11 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
 - **Chat** — natural-language questions answered via the AI query layer.
+- **Training** — set a goal, dates, and days/week (optionally autofilled from
+  your own data); AI-generates a plan, previewed and editable before saving;
+  active plan shown as a per-week checklist; past (ended) plans stay browsable.
 - **Settings** — pick the active OpenRouter model for Question AI (Chat) and
-  Plan AI (reserved for the training-plan generator), each with up to 3
-  editable candidate model strings.
+  Plan AI (Training page), each with up to 3 editable candidate model strings.
 
 ## AI query layer
 
@@ -313,6 +331,11 @@ so they exercise the tool-use loop without any network calls. One test
 
 ## Version history
 
+- Training plan generator: Training page — goal/dates/days-per-week intake
+  (with an "autofill from your data" button and read-only overlapping-events
+  context), AI-generated preview via a forced structured tool call, editable
+  before saving, active plan as a per-week checklist, ended plans stay
+  browsable. First consumer of the Plan AI model role.
 - User-configurable AI models: Settings page + `/api/ai-settings`, storing up to
   3 candidate OpenRouter models per role (Question AI, and a Plan AI placeholder
   for the upcoming training-plan generator) with one marked active.

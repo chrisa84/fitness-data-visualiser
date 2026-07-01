@@ -16,7 +16,9 @@ const NAV_ITEMS = [
   { to: '/events', label: 'Events' },
   { to: '/intraday', label: 'Intraday' },
   { to: '/planner', label: 'Planner' },
+  { to: '/training', label: 'Training' },
   { to: '/chat', label: 'Chat' },
+  { to: '/settings', label: 'Settings' },
 ];
 
 export default function Layout() {

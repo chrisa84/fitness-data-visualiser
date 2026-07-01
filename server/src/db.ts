@@ -66,6 +66,37 @@ export function openEventsDb(path: string): Database.Database {
       plan_selected     TEXT NOT NULL,
       updated_at        TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS training_plan (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      goal_description       TEXT NOT NULL,
+      is_race                INTEGER NOT NULL DEFAULT 0,
+      goal_race_distance_m   REAL,
+      goal_target_duration_s INTEGER,
+      start_date             TEXT NOT NULL,
+      end_date               TEXT NOT NULL,
+      days_per_week          INTEGER NOT NULL,
+      status                 TEXT NOT NULL DEFAULT 'active',
+      created_at             TEXT NOT NULL,
+      ended_at               TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_training_plan_status ON training_plan(status);
+
+    CREATE TABLE IF NOT EXISTS training_plan_workout (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id                INTEGER NOT NULL,
+      date                   TEXT NOT NULL,
+      title                  TEXT NOT NULL,
+      description            TEXT,
+      workout_type           TEXT NOT NULL,
+      target_distance_m      REAL,
+      target_duration_s      INTEGER,
+      target_pace_sec_per_km INTEGER,
+      completed_at           TEXT,
+      notes                  TEXT,
+      created_at             TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_training_plan_workout_plan ON training_plan_workout(plan_id);
   `);
 
   // Migration: add chat_message.context to databases created before it existed.

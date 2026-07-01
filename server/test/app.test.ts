@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
-import { createTestDb } from './fixtures.js';
+import { createTestDb, createTrainingPlanAutofillDb } from './fixtures.js';
 
 const seed = [{ date: '2025-01-01', resting_hr: 50, total_steps: 10000, avg_stress_level: 20 }];
 
@@ -171,6 +171,93 @@ describe('events CRUD', () => {
   });
 });
 
+describe('training plans CRUD', () => {
+  const planPayload = {
+    goalDescription: 'half marathon in 1:50',
+    startDate: '2026-01-01',
+    endDate: '2026-03-01',
+    daysPerWeek: 4,
+  };
+
+  it('creates, lists, ticks, deletes, and ends a plan', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+
+    const created = await app.inject({ method: 'POST', url: '/api/training-plans', payload: planPayload });
+    expect(created.statusCode).toBe(201);
+    const planId = created.json().plan.id;
+
+    const list = await app.inject({ method: 'GET', url: '/api/training-plans' });
+    expect(list.json()).toHaveLength(1);
+
+    const workout = await app.inject({
+      method: 'POST',
+      url: `/api/training-plans/${planId}/workouts`,
+      payload: { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' },
+    });
+    expect(workout.statusCode).toBe(201);
+    const workoutId = workout.json().id;
+
+    const ticked = await app.inject({
+      method: 'PATCH',
+      url: `/api/training-plan-workouts/${workoutId}`,
+      payload: { completedAt: '2026-01-05T08:00:00Z' },
+    });
+    expect(ticked.statusCode).toBe(200);
+    expect(ticked.json().completedAt).toBe('2026-01-05T08:00:00Z');
+
+    const deletedWorkout = await app.inject({
+      method: 'DELETE',
+      url: `/api/training-plan-workouts/${workoutId}`,
+    });
+    expect(deletedWorkout.statusCode).toBe(200);
+
+    const ended = await app.inject({ method: 'POST', url: `/api/training-plans/${planId}/end` });
+    expect(ended.statusCode).toBe(200);
+    expect(ended.json().status).toBe('ended');
+  });
+
+  it('rejects creating a second active plan', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const first = await app.inject({ method: 'POST', url: '/api/training-plans', payload: planPayload });
+    expect(first.statusCode).toBe(201);
+    const second = await app.inject({ method: 'POST', url: '/api/training-plans', payload: planPayload });
+    expect(second.statusCode).toBe(409);
+  });
+
+  it('404s for unknown plan and workout ids', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const getPlan = await app.inject({ method: 'GET', url: '/api/training-plans/999' });
+    expect(getPlan.statusCode).toBe(404);
+    const endPlan = await app.inject({ method: 'POST', url: '/api/training-plans/999/end' });
+    expect(endPlan.statusCode).toBe(404);
+    const patchWorkout = await app.inject({
+      method: 'PATCH',
+      url: '/api/training-plan-workouts/999',
+      payload: { title: 'x' },
+    });
+    expect(patchWorkout.statusCode).toBe(404);
+    const deleteWorkout = await app.inject({ method: 'DELETE', url: '/api/training-plan-workouts/999' });
+    expect(deleteWorkout.statusCode).toBe(404);
+  });
+
+  it('rejects a bad workoutType and an over-horizon date range', async () => {
+    app = buildApp({ dbPath: createTestDb(seed), logger: false });
+    const badType = await app.inject({
+      method: 'POST',
+      url: '/api/training-plans',
+      payload: { ...planPayload, workouts: [{ date: '2026-01-05', title: 'x', workoutType: 'sprint' }] },
+    });
+    expect(badType.statusCode).toBe(400);
+
+    const tooLong = await app.inject({
+      method: 'POST',
+      url: '/api/training-plans',
+      payload: { ...planPayload, endDate: '2026-12-01' },
+    });
+    expect(tooLong.statusCode).toBe(400);
+  });
+});
+
 describe('account allowlist gate', () => {
   const original = {
     ALLOWED_EMAIL: process.env.ALLOWED_EMAIL,
@@ -280,5 +367,40 @@ describe('AI chat', () => {
     });
     expect(res.statusCode).toBe(503);
     expect(res.json().error).toBe('ai_not_configured');
+  });
+});
+
+describe('training plan generation', () => {
+  it('returns an autofill summary with no AI key required', async () => {
+    app = buildApp({ dbPath: createTrainingPlanAutofillDb({}), logger: false });
+    const res = await app.inject({ method: 'GET', url: '/api/training-plans/autofill' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toHaveProperty('weeklyVolume');
+  });
+
+  it('returns 503 from /api/training-plans/generate when not configured', async () => {
+    app = buildApp({ dbPath: createTrainingPlanAutofillDb({}), logger: false });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/training-plans/generate',
+      payload: { goalDescription: 'half marathon', startDate: '2026-01-01', endDate: '2026-03-01', daysPerWeek: 4 },
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe('ai_not_configured');
+  });
+
+  it('rejects a generate request whose range exceeds the 12-week horizon', async () => {
+    // A dummy key so the request reaches validation instead of the 503 not-configured path.
+    app = buildApp({
+      dbPath: createTrainingPlanAutofillDb({}),
+      logger: false,
+      ai: { apiKey: 'test-key', baseUrl: 'http://localhost' },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/training-plans/generate',
+      payload: { goalDescription: 'half marathon', startDate: '2026-01-01', endDate: '2026-12-01', daysPerWeek: 4 },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });

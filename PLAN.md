@@ -315,6 +315,180 @@ a boot-time constant, so a change in Settings takes effect immediately with no
 restart. `OPENROUTER_API_KEY`/`OPENROUTER_BASE_URL` stay env-only (secrets/
 endpoint, not user-facing); `OPENROUTER_MODEL` is retired.
 
+### Phase 14 — Training plan generator ✅
+
+Shipped as designed below, in three slices: plain CRUD first
+(`repositories/trainingPlans.ts`, `routes/trainingPlans.ts`,
+`server/test/trainingPlans.test.ts`), then AI generation
+(`ai/planGeneration.ts`, `repositories/trainingPlanAutofill.ts`,
+`routes/trainingPlanGeneration.ts`, `server/test/planGeneration.test.ts`),
+then the **Training** nav page (`web/src/pages/Training.tsx`, `/training`) —
+distinct from the existing route-drawing **Planner** page. `ai_settings`'s
+**Plan AI** role (Phase 13) got its first consumer here.
+
+A form-driven, AI-generated training plan (e.g. "half marathon in 1:50 by
+2026-10-01, running 4 days a week") that's previewed, editable, and saved as
+a checklist the user ticks off over time, with history of past (ended) plans
+kept visible.
+
+**Data model:**
+```
+training_plan (id, goal_description, is_race, goal_race_distance_m,
+               goal_target_duration_s, start_date, end_date, days_per_week,
+               status['active'|'ended'], created_at, ended_at)
+training_plan_workout (id, plan_id, date, title, description, workout_type,
+                        target_distance_m, target_duration_s,
+                        target_pace_sec_per_km, completed_at, notes, created_at)
+```
+Ending a plan just flips status — history stays queryable. Ticking/editing/
+deleting a workout is a plain row update/delete, no AI involved. Deliberately
+no per-weekday input (no reason to assume weekends are off) — just a "days
+per week" frequency; the AI decides which specific days make sense for the
+workout mix.
+
+**Horizon cap:** 12 weeks (84 days) max per plan, enforced at the intake form
+(date picker) and again at the API (zod refine on the date range) as defense
+in depth. Matches realistic usage and keeps every `propose_plan` call small —
+a few dozen workout rows, not hundreds. Longer-running adaptation is Phase 15
+below, not a one-shot year-long generation.
+
+**Only one active plan at a time:** creating a new plan is rejected (409)
+while one is already `active` — the user must explicitly End the current
+plan first. A plain existence check in the repository before insert; no DB
+constraint needed for a single-user app, but the guard lives in the
+repository layer so it holds regardless of caller.
+
+**Race vs. general-fitness goals:** no separate "is this a race?" form
+toggle — the free-text goal stays the only intake field, and the model
+itself decides via its `propose_plan` output whether `isRace` /
+`goalRaceDistanceM` / `goalTargetDurationS` apply (null/false for something
+like "build a base"). Taper only kicks in when `isRace` is true; a
+general-fitness plan still gets progressive volume/intensity structuring
+with cutback weeks, it just skips taper and precise goal-pace math — a plan
+without a race target isn't pointless, it just optimises for a different
+thing. The stored structured fields, when present, are what let a future
+page compare "goal pace vs. current PR pace" without re-parsing prose.
+
+**Only prescribed training days get a row** — row count per week equals
+`days_per_week` exactly (4 rows/week for a 4-day plan, not 7). A date with no
+row is implicitly a rest day: nothing stored, nothing to reconcile against
+other activities. The AI still picks which specific dates the sessions land
+on; it never needs to write "rest" — absence of a row already means that.
+This deliberately excludes cross-training prescriptions too (e.g. "Wednesday:
+30 min bike") — reconciling a prescribed non-running session against a real
+logged activity is materially harder than a running workout (pace/distance
+targets don't map cleanly onto a bike ride) and drags in accounting for
+activities outside the plan's own scope. Not a v1 problem; could become an
+explicit future feature if wanted.
+
+**`workout_type` is a shared enum, not a free string:** `easy | long | tempo
+| interval | race`, added to `shared/src/index.ts` alongside `EVENT_TYPES`.
+Two reasons it exists at all: consistent colour/icon rendering on the
+checklist page, and it's what makes intensity-split analysis (the whole point
+of feeding the model autofilled fitness data) actually computable later —
+free-text labels drift ("Easy Run" vs "recovery jog") and can't be
+aggregated. Locked down the same way `EVENT_TYPES` locks the events route: a
+`z.enum([...])` in the `propose_plan` tool schema, so a bad value fails the
+tool call structurally instead of free-texting past validation.
+
+**Intake form:** start date, end date (capped at 12 weeks out), "what are you
+training for" (free text with example chips: "complete a marathon", "half
+marathon in 1:50", "just build a base"), days/week, and two optional
+free-text fields, both informational only — fed straight into the prompt,
+never scheduled/tracked/reconciled against activities unlike the running
+workouts themselves:
+- "anything else you're currently training that's not logged here?" — for
+  load the app has no way to see (untracked gym/swim sessions etc.).
+- "anything coming up in this window we should know about?" — holidays,
+  travel, a busy work stretch. `event` rows (`race`/`injury`/`illness`/
+  `travel`/`life`/`note`, `date`/`endDate`, no restriction to the past —
+  `eventBody` in `routes/analysis.ts` only requires `endDate >= date`) that
+  already overlap the plan's date range are auto-pulled in for free
+  alongside this, read-only; the free-text field is for anything not already
+  logged there, or too fuzzy/recurring to be worth a formal Event row (e.g.
+  "always tight on weekday mornings"). Not either/or — the Events pull needs
+  zero user effort for whatever's already logged, the free text catches the
+  rest without forcing a full Event entry for a one-off plan note.
+
+Rather than manually asking about current weekly mileage, longest recent
+run, recent race pace, etc. — all of that is derivable from existing data —
+the form has an **"autofill from your data"** button that queries it via
+existing repository functions (recent volume, records, performance) and
+prefills those fields, editable before generating.
+
+**Feeding the model enough to judge feasibility and prescribe paces/zones —
+without overwhelming context or timing out:** the whole point of the
+autofilled block (recent weekly volume trend, longest recent run, most
+relevant recent race/PR pace for the goal distance, current VO2max/training
+status from the Performance repository, **plus recent non-running activity
+load** — e.g. cycling/strength sessions already logged, same repository
+functions filtered to other activity types) is that it's exactly what the
+model needs to (a) sanity-check whether the goal is realistic in the time
+available and flag it if not, and (b) derive concrete per-workout targets —
+pace bands, long-run length progression, easy/tempo/interval intensity split,
+and recovery placement relative to other training load — grounded in the
+user's actual current fitness rather than generic templates. This is a small,
+fixed-size summary (a handful of numbers), not raw daily rows, so it stays
+cheap and fast regardless of how much history exists. None of this autofill
+pre-pass costs AI tokens — it's plain repository queries, same as today's
+Volume/Records/Performance pages; the model only sees the small precomputed
+summary at actual generation time.
+
+**Reuse the existing Events feature for holidays / injury / time
+constraints — don't build a second one.** `EVENT_TYPES` already covers
+`injury | illness | medication | life | travel | note` with a `date`/
+`endDate` range (`shared/src/index.ts`, backed by the `event` table). The
+generator queries events overlapping the plan's date range: past `injury`/
+`illness` feed the feasibility check (don't assume full fitness right after
+one), and `travel`/`life` events falling inside the plan window tell the AI
+which dates to schedule around (no long run during a logged holiday week).
+Shown as **read-only** context in the intake form with a link to the Events
+page — Events is already the source of truth with its own edit UI, so the
+plan form doesn't duplicate it. If nothing's logged for the range, a small
+nudge to add one is shown instead.
+
+`ai/planGeneration.ts` reuses `ai/tools.ts`'s `TOOL_DEFINITIONS`/`executeTool`
+in a **sibling** loop to `ai/chat.ts`'s `runChat` (that function stays generic
+for ordinary chat, untouched) — same shape, but `tool_choice` is `'auto'` on
+every step except the final allowed one, where it's forced to
+`{ type: 'function', function: { name: 'propose_plan' } }`. Forcing from step
+0 would block the model calling data tools first, since a forced
+single-function choice disallows any other call that turn; accepting an
+early `propose_plan` call (before the forced step) short-circuits the loop
+immediately. The arguments are zod-validated against `generatedPlanSchema`
+(`schemas/trainingPlan.ts`, sharing the same `workout_type` enum and shape as
+the plain-CRUD body) — a bad value throws `PlanGenerationError` rather than
+free-texting past validation.
+
+**Flow:** fill form (optionally autofill) → Generate → preview as an editable
+table (nothing saved yet) → adjust inputs and regenerate, or edit rows
+directly, or Save → `POST /api/training-plans` persists plan + workouts. The
+Training page shows the active plan as a checklist (tick complete / edit /
+delete per row) plus a list of past ended plans for history.
+
+### Phase 15 — Adaptive plan check-in (design — future, depends on Phase 14)
+
+Training plans go stale as fitness changes over 12 weeks. Rather than
+regenerating anything automatically, give the user a manual review action:
+
+- **Manual trigger only** — a button on the Training page ("ask AI to review
+  my plan"). No scheduled/background AI calls; matches how the rest of the
+  app only calls the AI on request.
+- Feeds the model the plan's remaining (incomplete, future-dated) workouts
+  plus a fresh autofill-style summary of what's actually happened since the
+  plan started (ticked-off vs. skipped workouts, actual recent volume/pace
+  vs. what was prescribed) — a "planned vs. actual" delta, same
+  small-fixed-size philosophy as the initial generation.
+- A new `propose_plan_adjustment` tool call (zod-validated) returns a set of
+  `{ workoutId, action: 'modify' | 'remove', ...fields }` for **future**
+  workouts only — the schema should make it structurally impossible to touch
+  a completed or past-dated workout, protecting history.
+- Shown as a diff, same preview-before-save pattern as initial generation;
+  the user accepts individual lines or all/nothing — nothing is ever
+  auto-applied.
+- Deliberately its own phase, after Phase 14's core ships and is usable
+  standalone.
+
 ### Parked (requires Garmin-Sync work first)
 
 Gear/shoe mileage, body composition.

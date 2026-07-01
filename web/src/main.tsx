@@ -17,6 +17,8 @@ import Load from './pages/Load';
 import Performance from './pages/Performance';
 import Records from './pages/Records';
 import RunningDynamics from './pages/RunningDynamics';
+import Settings from './pages/Settings';
+import Training from './pages/Training';
 import Volume from './pages/Volume';
 import './styles.css';
 
@@ -40,7 +42,9 @@ const router = createBrowserRouter([
       { path: '/events', element: <Events /> },
       { path: '/intraday', element: <Intraday /> },
       { path: '/planner', element: <Planner /> },
+      { path: '/training', element: <Training /> },
       { path: '/chat', element: <Chat /> },
+      { path: '/settings', element: <Settings /> },
     ],
   },
 ]);

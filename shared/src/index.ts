@@ -514,6 +514,118 @@ export interface AiSettings {
 export type AiSettingsInput = AiSettings;
 
 // ---------------------------------------------------------------------------
+// Training plans (visualiser-owned writable state)
+// ---------------------------------------------------------------------------
+
+export const WORKOUT_TYPES = ['easy', 'long', 'tempo', 'interval', 'race'] as const;
+export type WorkoutType = (typeof WORKOUT_TYPES)[number];
+export type TrainingPlanStatus = 'active' | 'ended';
+
+export interface TrainingPlan {
+  id: number;
+  goalDescription: string;
+  isRace: boolean;
+  goalRaceDistanceM: number | null;
+  goalTargetDurationS: number | null;
+  startDate: string;
+  endDate: string;
+  daysPerWeek: number;
+  status: TrainingPlanStatus;
+  createdAt: string;
+  endedAt: string | null;
+}
+
+export interface TrainingPlanWorkout {
+  id: number;
+  planId: number;
+  date: string;
+  title: string;
+  description: string | null;
+  workoutType: WorkoutType;
+  targetDistanceM: number | null;
+  targetDurationS: number | null;
+  targetPaceSecPerKm: number | null;
+  completedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface TrainingPlanDetail {
+  plan: TrainingPlan;
+  workouts: TrainingPlanWorkout[];
+}
+
+export type TrainingPlanWorkoutInput = Pick<TrainingPlanWorkout, 'date' | 'title' | 'workoutType'> &
+  Partial<
+    Pick<
+      TrainingPlanWorkout,
+      'description' | 'targetDistanceM' | 'targetDurationS' | 'targetPaceSecPerKm' | 'notes'
+    >
+  >;
+
+export type TrainingPlanWorkoutUpdate = Partial<TrainingPlanWorkoutInput> & {
+  completedAt?: string | null;
+};
+
+export type TrainingPlanInput = Pick<TrainingPlan, 'goalDescription' | 'startDate' | 'endDate' | 'daysPerWeek'> &
+  Partial<Pick<TrainingPlan, 'isRace' | 'goalRaceDistanceM' | 'goalTargetDurationS'>> & {
+    workouts?: TrainingPlanWorkoutInput[];
+  };
+
+/** Precomputed, fixed-size fitness summary fed to the plan-generation prompt — never raw daily rows. */
+export interface TrainingPlanAutofill {
+  weeklyVolume: { weekStart: string; distanceKm: number; runCount: number }[];
+  longestRecentRunKm: number | null;
+  records: PersonalRecord[];
+  vo2max: number | null;
+  trainingLoad: { acute: number | null; chronic: number | null; acwr: number | null };
+  readinessScore: number | null;
+  racePredictions: {
+    race5kS: number | null;
+    race10kS: number | null;
+    raceHalfS: number | null;
+    raceFullS: number | null;
+  };
+  nonRunningLoad: { group: string; count: number; distanceKm: number; durationH: number }[];
+}
+
+/** User-editable overrides of the autofilled values, sent back with the generate request. */
+export interface TrainingPlanAutofillOverrides {
+  weeklyVolumeKm?: number | null;
+  longestRecentRunKm?: number | null;
+  relevantPace?: string | null;
+  vo2max?: number | null;
+  trainingLoadSummary?: string | null;
+  readinessScore?: number | null;
+  nonRunningLoadSummary?: string | null;
+}
+
+export interface GenerateTrainingPlanRequest {
+  goalDescription: string;
+  startDate: string;
+  endDate: string;
+  daysPerWeek: number;
+  autofill?: TrainingPlanAutofillOverrides;
+  /** Untracked training load the app has no visibility into (e.g. gym sessions). */
+  otherTraining?: string;
+  /** Holidays/travel/busy stretches not already covered by an Events entry. */
+  upcomingNotes?: string;
+}
+
+/** The AI's structured plan proposal — nothing is persisted until the user saves it. */
+export interface GeneratedTrainingPlan {
+  goalDescription: string;
+  isRace: boolean;
+  goalRaceDistanceM: number | null;
+  goalTargetDurationS: number | null;
+  startDate: string;
+  endDate: string;
+  daysPerWeek: number;
+  rationale?: string;
+  workouts: TrainingPlanWorkoutInput[];
+}
+
+// ---------------------------------------------------------------------------
 // Saved routes (visualiser-owned writable state)
 // ---------------------------------------------------------------------------
 
