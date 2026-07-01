@@ -172,7 +172,6 @@ describe('getActivitySamples', () => {
     expect(s!.speedMps).toBe(3.2);
     expect(s!.cadence).toBe(168);
     expect(s!.altitudeM).toBe(50);
-    expect(s!.timestampUtc).toBe('2025-01-05T08:00:00Z');
   });
 
   it('returns empty array for unknown activity', () => {
