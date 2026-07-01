@@ -120,12 +120,17 @@ export const generateTrainingPlanBody = z
 
 /** Revise an unsaved draft — hard facts are passed through as-is (already decided by the earlier generate call). */
 export const reviseTrainingPlanBody = z.object({
+  goalDescription: z.string().max(2000).optional(),
   isRace: z.boolean(),
   goalRaceDistanceM: z.number().positive().nullish(),
   goalTargetDurationS: z.number().positive().nullish(),
   startDate: isoDate,
   endDate: isoDate,
   daysPerWeek: z.number().int().min(1).max(7),
+  preferredDays: z.array(dayCodeSchema).optional(),
+  preferredLongRunDay: dayCodeSchema.optional(),
+  otherTraining: z.string().max(2000).optional(),
+  upcomingNotes: z.string().max(2000).optional(),
   currentWorkouts: z.array(trainingPlanWorkoutBody).min(1).max(200),
   currentRationale: z.string().max(2000).optional(),
   instructions: z.string().min(1).max(2000),

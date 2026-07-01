@@ -259,6 +259,7 @@ function IntakeForm() {
   const [form, setForm] = useState(BLANK_FORM);
   const [overrides, setOverrides] = useState<TrainingPlanAutofillOverrides>({});
   const [draftPlan, setDraftPlan] = useState<GeneratedTrainingPlan | null>(null);
+  const [previousDraftPlan, setPreviousDraftPlan] = useState<GeneratedTrainingPlan | null>(null);
 
   const autofillQuery = useQuery({ queryKey: ['training-plan-autofill'], queryFn: fetchTrainingPlanAutofill });
 
@@ -311,7 +312,10 @@ function IntakeForm() {
         otherTraining: form.otherTraining || undefined,
         upcomingNotes: form.upcomingNotes || undefined,
       }),
-    onSuccess: setDraftPlan,
+    onSuccess: (plan) => {
+      setDraftPlan(plan);
+      setPreviousDraftPlan(null);
+    },
   });
 
   const save = useMutation({
@@ -331,6 +335,7 @@ function IntakeForm() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-plans'] });
       setDraftPlan(null);
+      setPreviousDraftPlan(null);
       setForm(BLANK_FORM);
     },
   });
@@ -340,20 +345,25 @@ function IntakeForm() {
     mutationFn: () => {
       const plan = draftPlan!;
       return reviseTrainingPlan({
+        goalDescription: plan.goalDescription || undefined,
         isRace: plan.isRace,
         goalRaceDistanceM: plan.goalRaceDistanceM,
         goalTargetDurationS: plan.goalTargetDurationS,
         startDate: plan.startDate,
         endDate: plan.endDate,
         daysPerWeek: plan.daysPerWeek,
+        preferredDays: form.preferredDays.length > 0 ? form.preferredDays : undefined,
+        preferredLongRunDay: form.preferredLongRunDay || undefined,
+        otherTraining: form.otherTraining || undefined,
+        upcomingNotes: form.upcomingNotes || undefined,
         currentWorkouts: plan.workouts,
         currentRationale: plan.rationale,
         instructions: revisionInstructions,
       });
     },
-    // The revise response has no goalDescription of its own — keep the client's existing one.
     onSuccess: (revised) => {
-      setDraftPlan({ ...draftPlan!, ...revised, goalDescription: draftPlan!.goalDescription });
+      setPreviousDraftPlan(draftPlan);
+      setDraftPlan(revised);
       setRevisionInstructions('');
     },
   });
@@ -613,6 +623,16 @@ function IntakeForm() {
             <button disabled={!revisionInstructions.trim() || revise.isPending} onClick={() => revise.mutate()}>
               Revise
             </button>
+            {previousDraftPlan && (
+              <button
+                onClick={() => {
+                  setDraftPlan(previousDraftPlan);
+                  setPreviousDraftPlan(null);
+                }}
+              >
+                Undo revision
+              </button>
+            )}
             {revise.error && <span className="status">Failed to revise: {(revise.error as Error).message}</span>}
           </div>
 

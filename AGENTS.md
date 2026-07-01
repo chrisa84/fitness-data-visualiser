@@ -257,12 +257,24 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
 - **`POST /api/training-plans/revise` reuses `generatePlan` via a
   prompt-only branch, not a parallel code path.** Passing a `revision`
   option swaps `systemPrompt`'s opening framing ("you are editing this, not
-  designing a fresh one" + the current draft + the user's instructions) but
-  keeps every hard fact, coaching rule, and deterministic post-generation
-  check identical to a fresh generation — same schema, same validation, same
-  reliability characteristics. Don't build a second tool-loop or a separate
-  validation path for revisions; the only thing that should ever differ is
-  the prompt content.
+  designing a fresh one" + the current draft) but keeps every hard fact,
+  coaching rule, and deterministic post-generation check identical to a
+  fresh generation — same schema, same validation, same reliability
+  characteristics. Don't build a second tool-loop or a separate validation
+  path for revisions; the only thing that should ever differ is the prompt
+  content. `ReviseTrainingPlanRequest` carries `goalDescription`/
+  `preferredDays`/`preferredLongRunDay`/`otherTraining`/`upcomingNotes`
+  alongside the dates/race facts — every field `buildPlanSummary` reads,
+  minus `raceDate`/`durationWeeks`/`autofill` (the revised draft already has
+  a concrete `endDate`, nothing to re-derive). Don't drop any of these when
+  touching this route — a revision missing one silently loses context the
+  original generation had. `formatWorkoutForPrompt`'s per-workout listing
+  includes duration/description/notes, not just date/type/title/distance/
+  pace — "preserve everything else" requires the model to actually see
+  everything else (a tempo workout's required `description` is otherwise
+  invisible during revision). The free-text `instructions` are sent as a
+  separate `{role:'user'}` message, not folded into the system prompt —
+  keep that split if you touch `generatePlan`'s message construction.
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
   `Accept: application/json` and reloads the page on a `401` so an expired
   oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's

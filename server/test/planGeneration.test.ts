@@ -1,9 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { TrainingPlanAutofill } from '@fitness/shared';
 import { openDb, openEventsDb } from '../src/db.js';
-import { PlanGenerationError, generatePlan } from '../src/ai/planGeneration.js';
+import { PlanGenerationError, buildPlanSummary, generatePlan } from '../src/ai/planGeneration.js';
 import type { CompletionClient } from '../src/ai/chat.js';
 import { getTrainingPlanAutofill } from '../src/repositories/trainingPlanAutofill.js';
 import { createTestDb, createTrainingPlanAutofillDb } from './fixtures.js';
+
+const emptyAutofill: TrainingPlanAutofill = {
+  weeklyVolumeTrend: [],
+  weeklyVolumeAvgKm: null,
+  longestRecentRunKm: null,
+  representativeRuns: [],
+  vo2max: null,
+  trainingLoad: { acute: null, chronic: null, acwr: null, acwrTrend: [] },
+  readinessScore: null,
+  racePredictions: { race5kS: null, race10kS: null, raceHalfS: null, raceFullS: null },
+  nonRunningLoad: [],
+};
 
 const START = '2026-01-01';
 const END = '2026-02-26';
@@ -215,10 +228,17 @@ describe('generatePlan', () => {
 describe('generatePlan revision mode', () => {
   const currentWorkouts = [
     { date: '2026-01-05', title: 'Easy 5k', workoutType: 'easy' as const },
-    { date: '2026-01-07', title: 'Long run 10k', workoutType: 'long' as const },
+    {
+      date: '2026-01-07',
+      title: 'Tempo run',
+      workoutType: 'tempo' as const,
+      targetDurationS: 1200,
+      description: '20min @ threshold pace',
+      notes: 'felt strong last time',
+    },
   ];
 
-  it('tells the model to revise the current draft, not design from scratch', async () => {
+  it('tells the model to revise the current draft, not design from scratch, with the full workout detail', async () => {
     const create = vi.fn().mockResolvedValueOnce(proposeCallResponse(validArgs));
     const client = { chat: { completions: { create } } } as unknown as CompletionClient;
 
@@ -236,11 +256,19 @@ describe('generatePlan revision mode', () => {
     const systemMessage = create.mock.calls[0]![0].messages[0].content as string;
     expect(systemMessage).toMatch(/editing it, not designing a fresh one/i);
     expect(systemMessage).toContain('Easy 5k');
-    expect(systemMessage).toContain('Long run 10k');
+    // Duration/description/notes must be visible, or "preserve everything else" is meaningless.
+    expect(systemMessage).toContain('Tempo run');
+    expect(systemMessage).toContain('20:00');
+    expect(systemMessage).toContain('20min @ threshold pace');
+    expect(systemMessage).toContain('felt strong last time');
     expect(systemMessage).toContain('started conservative');
-    expect(systemMessage).toContain('make the long run shorter');
     // The same hard-fact/coaching rules still apply during a revision.
     expect(systemMessage).toMatch(/at most one tempo and one interval/i);
+    // Instructions are a separate user turn, not buried in the system message.
+    expect(systemMessage).not.toContain('make the long run shorter');
+    const userMessage = create.mock.calls[0]![0].messages[1];
+    expect(userMessage.role).toBe('user');
+    expect(userMessage.content).toBe('make the long run shorter');
   });
 
   it('still enforces the deterministic race-day/window checks on a revision', async () => {
@@ -263,6 +291,32 @@ describe('generatePlan revision mode', () => {
         revision: { currentWorkouts, instructions: 'tweak something' },
       }),
     ).rejects.toThrow(PlanGenerationError);
+  });
+});
+
+describe('buildPlanSummary', () => {
+  it('includes goalDescription and preferred days for a revise-shaped request, not just a generate-shaped one', () => {
+    // ReviseTrainingPlanRequest lacks a few GenerateTrainingPlanRequest fields (raceDate,
+    // durationWeeks, autofill) but must still carry goalDescription/preferredDays through
+    // to the prompt, or a revision silently loses context the original generation had.
+    const revisionShapedInput = {
+      goalDescription: 'want to finally break 25 minutes for 5k',
+      isRace: false,
+      startDate: '2026-01-01',
+      daysPerWeek: 4,
+      preferredDays: ['mon', 'wed', 'fri'],
+      preferredLongRunDay: 'sun',
+      otherTraining: 'lifting twice a week',
+      upcomingNotes: 'travel week of the 20th',
+    };
+
+    const summary = buildPlanSummary(revisionShapedInput, '2026-02-26', emptyAutofill, []);
+
+    expect(summary).toContain('want to finally break 25 minutes for 5k');
+    expect(summary).toContain('mon, wed, fri');
+    expect(summary).toContain('sun');
+    expect(summary).toContain('lifting twice a week');
+    expect(summary).toContain('travel week of the 20th');
   });
 });
 

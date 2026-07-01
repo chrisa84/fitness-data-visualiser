@@ -657,12 +657,17 @@ export interface GenerateTrainingPlanRequest {
  * re-derived from `raceDate`/`durationWeeks` as in `GenerateTrainingPlanRequest`.
  */
 export interface ReviseTrainingPlanRequest {
+  goalDescription?: string;
   isRace: boolean;
   goalRaceDistanceM?: number | null;
   goalTargetDurationS?: number | null;
   startDate: string;
   endDate: string;
   daysPerWeek: number;
+  preferredDays?: string[];
+  preferredLongRunDay?: string;
+  otherTraining?: string;
+  upcomingNotes?: string;
   currentWorkouts: TrainingPlanWorkoutInput[];
   currentRationale?: string;
   instructions: string;

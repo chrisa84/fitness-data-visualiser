@@ -112,15 +112,33 @@ function daysBeforeISO(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Full detail, not just date/type/title — a revision needs to see the
+ * existing duration/description/notes to have any chance of preserving
+ * them, since "keep everything else the same" is meaningless if the model
+ * never saw what "everything else" actually contains.
+ */
 function formatWorkoutForPrompt(w: TrainingPlanWorkoutInput): string {
   const distance = w.targetDistanceM != null ? `${round1(w.targetDistanceM / 1000)}km` : null;
+  const duration = w.targetDurationS != null ? mmss(w.targetDurationS) : null;
   const pace =
     w.targetPaceMinSecPerKm != null || w.targetPaceMaxSecPerKm != null
       ? `${w.targetPaceMinSecPerKm != null ? mmss(w.targetPaceMinSecPerKm) : '?'}-${w.targetPaceMaxSecPerKm != null ? mmss(w.targetPaceMaxSecPerKm) : '?'}/km`
       : w.targetPaceSecPerKm != null
         ? `${mmss(w.targetPaceSecPerKm)}/km`
         : null;
-  return [w.date, w.workoutType, w.title, distance, pace].filter((v): v is string => Boolean(v)).join(' ');
+  return [
+    w.date,
+    w.workoutType,
+    `"${w.title}"`,
+    distance,
+    duration,
+    pace,
+    w.description ? `desc:"${w.description}"` : null,
+    w.notes ? `notes:"${w.notes}"` : null,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .join(' ');
 }
 
 /**
@@ -231,7 +249,7 @@ function systemPrompt(today: string, summary: string, isRace: boolean, revision?
   return [
     `You are an experienced running coach embedded in a personal Garmin data app. Today is ${today}.`,
     revision
-      ? "You previously proposed the training plan below. The user wants a targeted revision — you are editing it, not designing a fresh one. Keep everything not implicated by the requested change as close to the original as possible; don't regenerate parts nobody asked you to touch."
+      ? "You previously proposed the training plan below. The user wants a targeted revision — you are editing it, not designing a fresh one. Keep everything not implicated by the requested change as close to the original as possible; don't regenerate parts nobody asked you to touch. The user's requested change follows as the next message."
       : 'Design a training plan for the user described below, grounded in the fitness summary — not a generic template. You have a few extra data tools (records, performance trends, activity volume, logged events) if the summary genuinely is not enough, but it usually already covers what you need.',
     ...(revision
       ? [
@@ -239,8 +257,6 @@ function systemPrompt(today: string, summary: string, isRace: boolean, revision?
           'Current draft plan (revise this):',
           ...revision.currentWorkouts.map((w) => `- ${formatWorkoutForPrompt(w)}`),
           revision.currentRationale ? `Current rationale: ${revision.currentRationale}` : '',
-          '',
-          `What the user wants changed: ${revision.instructions}`,
         ]
       : []),
     '',
@@ -307,6 +323,11 @@ export async function generatePlan(opts: {
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt(today, opts.summary, opts.isRace, opts.revision) },
   ];
+  // The stable preservation rules live in the system prompt above; the user's actual
+  // per-request ask is a genuine user-role turn, not buried inside the system message.
+  if (opts.revision) {
+    messages.push({ role: 'user', content: opts.revision.instructions });
+  }
 
   for (let step = 0; step < MAX_STEPS; step += 1) {
     const forced = step === MAX_STEPS - 1;

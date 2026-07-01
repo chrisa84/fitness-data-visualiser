@@ -638,16 +638,34 @@ scratch. This deliberately reuses the entire existing generation pipeline
 — `generatePlan()` (`ai/planGeneration.ts`) gained an optional `revision`
 field carrying the current draft's workouts/rationale plus the
 instructions; `systemPrompt()` swaps its opening framing to "you are
-editing this, not designing a fresh one" and lists the current draft
-compactly, but every hard fact and coaching rule below that (race day
-placement, window bounds, hard-session caps, pace-range guidance) applies
-unchanged, and the same deterministic post-generation checks run on the
-result — no parallel validation path, no new reliability surface. A
-revision has no `goalDescription`/`raceDate`/`durationWeeks` of its own
-(the draft being revised already has concrete `startDate`/`endDate` from
-the original generate call — nothing to re-derive); the web client
-explicitly keeps its own `goalDescription` after a revise response rather
-than trusting the route's placeholder empty string.
+editing this, not designing a fresh one" and lists the current draft, but
+every hard fact and coaching rule below that (race day placement, window
+bounds, hard-session caps, pace-range guidance) applies unchanged, and the
+same deterministic post-generation checks run on the result — no parallel
+validation path, no new reliability surface. `raceDate`/`durationWeeks`
+aren't part of the request (the draft being revised already has concrete
+`startDate`/`endDate` from the original generate call — nothing to
+re-derive), but everything else `buildPlanSummary` reads —
+`goalDescription`, `preferredDays`/`preferredLongRunDay`, `otherTraining`,
+`upcomingNotes` — *is*, caught in review before this shipped: without them
+a revision silently loses context the original generation had (a stated
+preference for Mon/Wed/Fri, a logged holiday constraint), since those lines
+just don't appear in the prompt when the fields are absent.
+
+Two more review catches, both fixed before shipping: (1) the compact
+per-workout listing fed to the model only carried date/type/title/distance/
+pace — `formatWorkoutForPrompt` now includes duration/description/notes
+too, since "preserve everything else" is meaningless if the model can't
+see what "everything else" actually contains (a tempo workout's required
+`description` was previously invisible during revision). (2) the revised
+draft replaced the current one immediately with no way back — the web
+client now snapshots the pre-revision draft and shows an "Undo revision"
+button (single-level, not a full history stack), cleared whenever
+Generate/Regenerate/Save runs. Also: the free-text `instructions` are now
+sent as a genuine `{role:'user'}` message rather than folded into the
+system prompt — the system message carries only the stable preservation
+rules and current-draft context (the same role the fitness `summary`
+already plays there), matching normal chat-completions role conventions.
 
 Deliberately separate from Phase 15 below — this operates on an *unsaved*
 draft with no usage history, so it has no dependency on the plan having

@@ -93,9 +93,7 @@ export function registerTrainingPlanGenerationRoutes(
   });
 
   // Revise an unsaved draft — the model edits the existing workouts rather than designing
-  // from scratch. `goalDescription` isn't part of this request (the client already has it
-  // from the original generate call and should keep using its own copy, not overwrite it
-  // with this route's placeholder empty string).
+  // from scratch.
   app.post('/api/training-plans/revise', async (request, reply) => {
     if (!opts.client) {
       return reply
@@ -127,7 +125,7 @@ export function registerTrainingPlanGenerationRoutes(
         },
       });
       const plan: GeneratedTrainingPlan = {
-        goalDescription: '',
+        goalDescription: input.goalDescription ?? '',
         isRace: input.isRace,
         goalRaceDistanceM: input.goalRaceDistanceM ?? null,
         goalTargetDurationS: input.goalTargetDurationS ?? null,
