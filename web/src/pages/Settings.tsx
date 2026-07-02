@@ -76,6 +76,12 @@ export default function Settings() {
         value={draft.plan}
         onChange={(plan) => setDraft({ ...draft, plan })}
       />
+      <RoleCard
+        title="Analysis AI"
+        description="Powers the per-activity AI analysis on the activity detail page."
+        value={draft.analysis}
+        onChange={(analysis) => setDraft({ ...draft, analysis })}
+      />
       <div className="controls">
         <button disabled={save.isPending} onClick={() => save.mutate(draft)}>
           Save

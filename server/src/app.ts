@@ -5,6 +5,7 @@ import Fastify from 'fastify';
 import OpenAI from 'openai';
 import { openDb, openEventsDb } from './db.js';
 import type { CompletionClient } from './ai/chat.js';
+import { registerActivityAnalysisRoutes } from './routes/activityAnalysis.js';
 import { registerActivityRoutes } from './routes/activities.js';
 import { registerAiSettingsRoutes } from './routes/aiSettings.js';
 import { registerAnalysisRoutes, registerEventRoutes } from './routes/analysis.js';
@@ -119,6 +120,7 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   registerTrainingPlanRoutes(app, eventsDb);
   registerTrainingPlanGenerationRoutes(app, { client: aiClient, db, eventsDb });
   registerChatRoutes(app, { client: aiClient, db, eventsDb });
+  registerActivityAnalysisRoutes(app, { client: aiClient, db, eventsDb });
 
   // In production (single-container deploy) the API also serves the built web
   // bundle. Unknown non-API GET routes fall back to index.html so client-side

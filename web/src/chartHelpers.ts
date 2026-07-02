@@ -32,6 +32,19 @@ export function baseOption(title: string, dates: string[]): echarts.EChartsOptio
   };
 }
 
+/**
+ * `baseOption` for single-series charts: no legend row, and `containLabel`
+ * auto-sizes the left gutter so pages stop hand-tuning `grid.left` per chart.
+ * Prefer this over spreading `baseOption` and overriding `legend`/`grid` inline.
+ */
+export function compactOption(title: string, dates: string[]): echarts.EChartsOption {
+  return {
+    ...baseOption(title, dates),
+    legend: { show: false },
+    grid: { containLabel: true, left: 8, right: 16, top: 36, bottom: 48 },
+  };
+}
+
 export function line(
   name: string,
   data: (number | null)[],
@@ -57,6 +70,54 @@ export function bar(
   stack?: string,
 ): echarts.BarSeriesOption {
   return { type: 'bar', name, data, stack, itemStyle: { color }, barCategoryGap: '20%' };
+}
+
+/**
+ * Companion to `robustExtent`: a scatter series that pins clipped points to the
+ * nearest axis edge so an outlier is visible instead of silently off-chart. The
+ * axis tooltip still shows the true value from the main series at that x.
+ * Returns null when nothing is clipped.
+ */
+export function offScaleMarkers(
+  values: (number | null)[],
+  extent: { min?: number; max?: number },
+  color: string,
+): echarts.ScatterSeriesOption | null {
+  if (extent.min == null || extent.max == null) return null;
+  const data = values
+    .map((v, i) => {
+      if (v == null || (v >= extent.min! && v <= extent.max!)) return null;
+      return [i, v > extent.max! ? extent.max! : extent.min!] as [number, number];
+    })
+    .filter((d): d is [number, number] => d !== null);
+  if (data.length === 0) return null;
+  return {
+    type: 'scatter',
+    name: 'off-scale',
+    data,
+    symbol: 'diamond',
+    symbolSize: 8,
+    itemStyle: { color, opacity: 0.9 },
+    z: 3,
+  };
+}
+
+/**
+ * Bucket-average an [x, y] series down to at most `maxPoints` points. Per-second
+ * activity streams are noisy enough that plotting every raw sample renders as a
+ * solid band; averaging keeps the trend readable and cheap.
+ */
+export function bucketAverage(data: (number | null)[][], maxPoints: number): (number | null)[][] {
+  if (data.length <= maxPoints) return data;
+  const bucketSize = Math.ceil(data.length / maxPoints);
+  const out: (number | null)[][] = [];
+  for (let start = 0; start < data.length; start += bucketSize) {
+    const bucket = data.slice(start, start + bucketSize);
+    const ys = bucket.map((p) => p[1]).filter((v): v is number => v != null);
+    const mid = bucket[bucket.length >> 1]!;
+    out.push([mid[0] ?? null, ys.length ? +(ys.reduce((a, b) => a + b, 0) / ys.length).toFixed(2) : null]);
+  }
+  return out;
 }
 
 export const secondsToHours = (s: number | null) =>

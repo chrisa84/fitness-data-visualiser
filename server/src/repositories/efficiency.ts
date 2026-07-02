@@ -14,6 +14,11 @@ const BUCKET: Record<Granularity, string> = {
 // EF or the band pace. Rows we cannot compute a pace for are kept.
 const MAX_PACE_S_PER_KM = 600;
 
+// Runs shorter than this are warm-ups, strides, or aborted starts; their EF is
+// dominated by HR lag rather than aerobic fitness, so they are excluded. Rows
+// with no distance at all (e.g. treadmill without foot pod) are kept.
+const MIN_DISTANCE_M = 3000;
+
 export interface EfficiencyOptions {
   from: string;
   to: string;
@@ -35,6 +40,7 @@ export function getEfficiencySeries(db: Database, opts: EfficiencyOptions): Effi
     hrMin: opts.hrMin,
     hrMax: opts.hrMax,
     maxPace: MAX_PACE_S_PER_KM,
+    minDist: MIN_DISTANCE_M,
   };
   const typeClause = typeFilterClause(opts.types, params);
   return db
@@ -51,6 +57,7 @@ export function getEfficiencySeries(db: Database, opts: EfficiencyOptions): Effi
          AND avg_hr IS NOT NULL
          AND (distance_m IS NULL OR distance_m <= 0 OR duration_s IS NULL
               OR duration_s / (distance_m / 1000.0) <= @maxPace)
+         AND (distance_m IS NULL OR distance_m <= 0 OR distance_m >= @minDist)
          ${typeClause ? `AND ${typeClause}` : ''}
        GROUP BY ${BUCKET[opts.granularity]}
        ORDER BY date`,

@@ -5,6 +5,7 @@ import ChatDrawer from './ChatDrawer';
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/activities', label: 'Activities' },
+  { to: '/compare', label: 'Compare' },
   { to: '/volume', label: 'Volume' },
   { to: '/performance', label: 'Performance' },
   { to: '/intensity', label: 'Intensity' },

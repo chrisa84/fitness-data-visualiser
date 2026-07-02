@@ -8,6 +8,7 @@ import { useChartRange } from '../useChartRange';
 import { fetchActivityTypes, fetchIntensity } from '../api';
 import Chart from '../Chart';
 import RangeControls from '../RangeControls';
+import { baseOption } from '../chartHelpers';
 import { formatDuration } from '../format';
 import { buildTypeOptions } from '../typeOptions';
 
@@ -74,17 +75,9 @@ export default function Intensity() {
         }),
       }));
       return {
-        backgroundColor: 'transparent',
-        title: { text: titles.trends, textStyle: { color: '#e6e8eb', fontSize: 13 } },
+        ...baseOption(titles.trends ?? "", dates),
         tooltip: { trigger: 'axis', valueFormatter: (v: unknown) => (v == null ? '—' : `${v}%`) },
-        legend: { top: 2, right: 4, textStyle: { color: '#8a93a0', fontSize: 11 } },
-        grid: { left: 48, right: 16, top: 36, bottom: 56 },
-        xAxis: { type: 'category', data: dates },
         yAxis: { type: 'value', min: 0, max: 100, splitLine: { lineStyle: { color: '#2a3038' } } },
-        dataZoom: [
-          { type: 'inside', throttle: 50 },
-          { type: 'slider', height: 18, bottom: 8 },
-        ],
         series,
       };
     }
@@ -104,27 +97,16 @@ export default function Intensity() {
     }));
 
     return {
-      backgroundColor: 'transparent',
-      title: {
-        text: titles[mode],
-        textStyle: { color: '#e6e8eb', fontSize: 13 },
-      },
+      ...baseOption(titles[mode] ?? "", dates),
       tooltip: {
         trigger: 'axis',
         valueFormatter: (v: unknown) => (mode === 'hours' ? `${v} h` : `${v}%`),
       },
-      legend: { top: 2, right: 4, textStyle: { color: '#8a93a0', fontSize: 11 } },
-      grid: { left: 48, right: 16, top: 36, bottom: 56 },
-      xAxis: { type: 'category', data: dates },
       yAxis: {
         type: 'value',
         max: mode === 'pct' ? 100 : undefined,
         splitLine: { lineStyle: { color: '#2a3038' } },
       },
-      dataZoom: [
-        { type: 'inside', throttle: 50 },
-        { type: 'slider', height: 18, bottom: 8 },
-      ],
       series,
     };
   }, [data, mode]);

@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import type { Granularity, RunningDynamicsPoint } from '@fitness/shared';
+import type { FormVsPacePoint, Granularity, RunningDynamicsPoint } from '@fitness/shared';
 import { typeFilterClause } from './activities.js';
 
 const BUCKET: Record<Granularity, string> = {
@@ -42,4 +42,36 @@ export function getRunningDynamics(
        ORDER BY date`,
     )
     .all(params) as RunningDynamicsPoint[];
+}
+
+/**
+ * Per-activity form metrics vs average speed, for the form-vs-pace scatter.
+ * Only activities with a usable speed and at least one form metric qualify.
+ */
+export function getFormVsPace(
+  db: Database,
+  from: string,
+  to: string,
+  types?: string[],
+): FormVsPacePoint[] {
+  const params: Record<string, unknown> = { from, to };
+  const typeClause = typeFilterClause(types, params);
+  return db
+    .prepare(
+      `SELECT date(start_time_local)       AS date,
+              avg_speed_mps                AS avgSpeedMps,
+              vertical_oscillation_cm      AS verticalOscillationCm,
+              vertical_ratio_pct           AS verticalRatioPct,
+              avg_cadence                  AS avgCadence,
+              ground_contact_ms            AS groundContactMs,
+              distance_m                   AS distanceM
+       FROM activity
+       WHERE date(start_time_local) BETWEEN @from AND @to
+         ${typeClause ? `AND ${typeClause}` : ''}
+         AND avg_speed_mps IS NOT NULL AND avg_speed_mps > 0
+         AND (vertical_oscillation_cm IS NOT NULL OR vertical_ratio_pct IS NOT NULL
+              OR avg_cadence IS NOT NULL OR ground_contact_ms IS NOT NULL)
+       ORDER BY date`,
+    )
+    .all(params) as FormVsPacePoint[];
 }

@@ -311,6 +311,28 @@ export interface RunningDynamicsResponse {
   points: RunningDynamicsPoint[];
 }
 
+/**
+ * One activity's form metrics against its average speed, for the form-vs-pace
+ * scatter. Answers "is my form at a given speed changing over time?", which the
+ * bucket-averaged trend cannot (raw VO rises naturally with speed).
+ */
+export interface FormVsPacePoint {
+  date: string;
+  avgSpeedMps: number;
+  verticalOscillationCm: number | null;
+  verticalRatioPct: number | null;
+  avgCadence: number | null;
+  groundContactMs: number | null;
+  distanceM: number | null;
+}
+
+export interface FormVsPaceResponse {
+  from: string;
+  to: string;
+  type: string | null;
+  points: FormVsPacePoint[];
+}
+
 // ---------------------------------------------------------------------------
 // Efficiency (effort-adjusted fitness)
 // ---------------------------------------------------------------------------
@@ -509,6 +531,17 @@ export interface AiRoleSettings {
 export interface AiSettings {
   question: AiRoleSettings;
   plan: AiRoleSettings;
+  analysis: AiRoleSettings;
+}
+
+export interface AnalyzeActivityRequest {
+  question?: string;
+  model?: string;
+}
+
+export interface AnalyzeActivityResponse {
+  analysis: string;
+  model: string;
 }
 
 export type AiSettingsInput = AiSettings;

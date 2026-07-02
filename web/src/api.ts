@@ -6,6 +6,8 @@ import type {
   ActivityTypeCount,
   AiSettings,
   AiSettingsInput,
+  AnalyzeActivityRequest,
+  AnalyzeActivityResponse,
   CalendarEvent,
   DailyHealthResponse,
   EventInput,
@@ -13,6 +15,7 @@ import type {
   ChatConversation,
   ChatConversationDetail,
   EfficiencyResponse,
+  FormVsPaceResponse,
   IntensityResponse,
   IntradayResponse,
   MetricSeriesResponse,
@@ -99,6 +102,10 @@ export function fetchActivities(params: {
   return getJson<ActivityListResponse>('/api/activities', params);
 }
 
+export function analyzeActivity(id: string, input: AnalyzeActivityRequest) {
+  return sendJson<AnalyzeActivityResponse>('POST', `/api/activities/${id}/analyze`, input);
+}
+
 export function fetchActivityTypes() {
   return getJson<ActivityTypeCount[]>('/api/activity-types');
 }
@@ -158,6 +165,10 @@ export function fetchRunningDynamics(params: {
   type?: string;
 }) {
   return getJson<RunningDynamicsResponse>('/api/running-dynamics', params);
+}
+
+export function fetchFormVsPace(params: { from?: string; to?: string; type?: string }) {
+  return getJson<FormVsPaceResponse>('/api/form-vs-pace', params);
 }
 
 export function fetchEfficiency(params: {

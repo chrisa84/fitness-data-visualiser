@@ -36,6 +36,7 @@ describe('GET/PUT /api/ai-settings', () => {
       payload: {
         question: { models: ['a', 'b', 'c'], selected: 'nope' },
         plan: { models: ['a', 'b', 'c'], selected: 'a' },
+        analysis: { models: ['a', 'b', 'c'], selected: 'a' },
       },
     });
     expect(res.statusCode).toBe(400);
@@ -49,6 +50,7 @@ describe('GET/PUT /api/ai-settings', () => {
       payload: {
         question: { models: ['a', 'b', 'c'], selected: 'b' },
         plan: { models: ['x', 'y', 'z'], selected: 'z' },
+        analysis: { models: ['m', 'n', 'o'], selected: 'm' },
       },
     });
     expect(res.statusCode).toBe(200);

@@ -64,6 +64,10 @@ export function openEventsDb(path: string): Database.Database {
       plan_model_2      TEXT NOT NULL,
       plan_model_3      TEXT NOT NULL,
       plan_selected     TEXT NOT NULL,
+      analysis_model_1  TEXT NOT NULL DEFAULT '',
+      analysis_model_2  TEXT NOT NULL DEFAULT '',
+      analysis_model_3  TEXT NOT NULL DEFAULT '',
+      analysis_selected TEXT NOT NULL DEFAULT '',
       updated_at        TEXT NOT NULL
     );
 
@@ -125,14 +129,30 @@ export function openEventsDb(path: string): Database.Database {
     db.exec('ALTER TABLE training_plan_workout ADD COLUMN target_pace_max_sec_per_km INTEGER');
   }
 
+  // Migration: add the activity-analysis model columns to databases created before they existed.
+  const aiColumns = db.prepare('PRAGMA table_info(ai_settings)').all() as { name: string }[];
+  if (!aiColumns.some((c) => c.name === 'analysis_model_1')) {
+    db.exec(`
+      ALTER TABLE ai_settings ADD COLUMN analysis_model_1  TEXT NOT NULL DEFAULT '';
+      ALTER TABLE ai_settings ADD COLUMN analysis_model_2  TEXT NOT NULL DEFAULT '';
+      ALTER TABLE ai_settings ADD COLUMN analysis_model_3  TEXT NOT NULL DEFAULT '';
+      ALTER TABLE ai_settings ADD COLUMN analysis_selected TEXT NOT NULL DEFAULT '';
+    `);
+  }
+
   // Seed the single ai_settings row with today's defaults on first run.
   const DEFAULT_MODELS = ['deepseek/deepseek-v4-flash', 'google/gemini-3.5-flash', 'deepseek/deepseek-v4-pro'] as const;
   db.prepare(
     `INSERT OR IGNORE INTO ai_settings
        (id, question_model_1, question_model_2, question_model_3, question_selected,
-            plan_model_1, plan_model_2, plan_model_3, plan_selected, updated_at)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            plan_model_1, plan_model_2, plan_model_3, plan_selected,
+            analysis_model_1, analysis_model_2, analysis_model_3, analysis_selected, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
+    DEFAULT_MODELS[0],
+    DEFAULT_MODELS[1],
+    DEFAULT_MODELS[2],
+    DEFAULT_MODELS[0],
     DEFAULT_MODELS[0],
     DEFAULT_MODELS[1],
     DEFAULT_MODELS[2],
@@ -143,6 +163,16 @@ export function openEventsDb(path: string): Database.Database {
     DEFAULT_MODELS[0],
     new Date().toISOString(),
   );
+
+  // Backfill the analysis role from question defaults for rows migrated above.
+  db.exec(`
+    UPDATE ai_settings SET
+      analysis_model_1  = question_model_1,
+      analysis_model_2  = question_model_2,
+      analysis_model_3  = question_model_3,
+      analysis_selected = question_selected
+    WHERE analysis_model_1 = ''
+  `);
 
   return db;
 }

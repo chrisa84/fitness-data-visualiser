@@ -14,6 +14,7 @@ const roleSettings = z
 const aiSettingsBody = z.object({
   question: roleSettings,
   plan: roleSettings,
+  analysis: roleSettings,
 });
 
 export function registerAiSettingsRoutes(app: FastifyInstance, eventsDb: Database): void {

@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { fetchTrainingLoad } from '../api';
 import Chart from '../Chart';
 import RangeControls from '../RangeControls';
-import { bar, baseOption, line } from '../chartHelpers';
+import { bar, compactOption, line } from '../chartHelpers';
 import { useChartRange } from '../useChartRange';
 
 export default function Load() {
@@ -21,16 +21,12 @@ export default function Load() {
     const dates = points.map((p) => p.date);
     return [
       {
-        ...baseOption('Weekly training load', dates),
-        legend: { show: false },
-        grid: { left: 52, right: 16, top: 36, bottom: 48 },
+        ...compactOption('Weekly training load', dates),
         series: [bar('load', points.map((p) => p.weeklyLoad), '#5fa8e6')],
       },
       {
         // Monotony >2 is commonly flagged as a higher-risk "grind"; shade it.
-        ...baseOption('Monotony (higher = same intensity every day)', dates),
-        legend: { show: false },
-        grid: { left: 48, right: 16, top: 36, bottom: 48 },
+        ...compactOption('Monotony (higher = same intensity every day)', dates),
         series: [
           line('monotony', points.map((p) => p.monotony), '#e6b95f', {
             showSymbol: true,
@@ -44,9 +40,7 @@ export default function Load() {
         ],
       },
       {
-        ...baseOption('Strain (weekly load × monotony)', dates),
-        legend: { show: false },
-        grid: { left: 56, right: 16, top: 36, bottom: 48 },
+        ...compactOption('Strain (weekly load × monotony)', dates),
         series: [line('strain', points.map((p) => p.strain), '#e66a5f', { showSymbol: true, symbolSize: 4 })],
       },
     ];

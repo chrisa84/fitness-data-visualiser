@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Link, useParams } from 'react-router-dom';
-import { fetchActivity, fetchActivitySamples } from '../api';
+import { analyzeActivity, fetchActivity, fetchActivitySamples, fetchAiSettings } from '../api';
 import Chart from '../Chart';
+import { bucketAverage } from '../chartHelpers';
 import RouteMap from '../RouteMap';
 import { formatDateTime, formatDuration, formatKm, formatNumber, formatPace, formatType } from '../format';
 
@@ -92,6 +95,8 @@ function xVal(s: ActivitySample, i: number, hasDist: boolean): number {
   return hasDist && s.distanceM != null ? +(s.distanceM / 1000).toFixed(3) : i;
 }
 
+const DYNAMICS_MAX_POINTS = 600;
+
 function findNearestSampleIdx(samples: ActivitySample[], xTarget: number, hasDist: boolean): number {
   if (samples.length === 0) return 0;
   let lo = 0, hi = samples.length - 1;
@@ -127,7 +132,14 @@ function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
       return;
     }
     mainChartRef.current?.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: mapHoveredIdx });
-    dynamicsChartRef.current?.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: mapHoveredIdx });
+    // Dynamics series are bucket-averaged, so rescale the raw sample index.
+    const n = samplesRef.current.length;
+    const bucketSize = n > DYNAMICS_MAX_POINTS ? Math.ceil(n / DYNAMICS_MAX_POINTS) : 1;
+    dynamicsChartRef.current?.dispatchAction({
+      type: 'showTip',
+      seriesIndex: 0,
+      dataIndex: Math.floor(mapHoveredIdx / bucketSize),
+    });
   }, [mapHoveredIdx]);
 
   if (samples.length === 0) return null;
@@ -258,9 +270,9 @@ function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
   };
 
   const hasBalance = isRun && samples.some((s) => s.groundContactBalanceLeft != null);
-  const gctData     = hasGct     ? samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactMs])          : [];
-  const cadData     = hasCadence ? samples.map((s, i) => [xVal(s, i, hasDist), s.cadence])                   : [];
-  const balData     = hasBalance ? samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactBalanceLeft])  : [];
+  const gctData     = hasGct     ? bucketAverage(samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactMs]), DYNAMICS_MAX_POINTS)         : [];
+  const cadData     = hasCadence ? bucketAverage(samples.map((s, i) => [xVal(s, i, hasDist), s.cadence]), DYNAMICS_MAX_POINTS)                  : [];
+  const balData     = hasBalance ? bucketAverage(samples.map((s, i) => [xVal(s, i, hasDist), s.groundContactBalanceLeft]), DYNAMICS_MAX_POINTS) : [];
 
   const dynamicsOption: echarts.EChartsOption | null =
     hasGct || hasCadence || hasBalance
@@ -375,6 +387,54 @@ function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
   );
 }
 
+function AiAnalysis({ activityId }: { activityId: string }) {
+  const settings = useQuery({ queryKey: ['ai-settings'], queryFn: fetchAiSettings });
+  const [question, setQuestion] = useState('');
+  const [model, setModel] = useState('');
+
+  const run = useMutation({
+    mutationFn: () =>
+      analyzeActivity(activityId, {
+        question: question.trim() || undefined,
+        model: model || undefined,
+      }),
+  });
+
+  const models = settings.data?.analysis.models.filter((m) => m.trim() !== '') ?? [];
+  const active = model || settings.data?.analysis.selected || '';
+
+  return (
+    <section>
+      <h3>AI analysis</h3>
+      <div className="controls">
+        <input
+          value={question}
+          placeholder="optional question, e.g. why did my HR drift?"
+          style={{ minWidth: 320 }}
+          onChange={(e) => setQuestion(e.target.value)}
+        />
+        <select value={active} onChange={(e) => setModel(e.target.value)}>
+          {models.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+        <button disabled={run.isPending} onClick={() => run.mutate()}>
+          {run.isPending ? 'Analysing…' : 'Analyse'}
+        </button>
+      </div>
+      {run.error && <p className="status">Failed: {(run.error as Error).message}</p>}
+      {run.data && (
+        <div className="chat-md">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{run.data.analysis}</ReactMarkdown>
+          <p className="status">model: {run.data.model}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: a, isPending, error } = useQuery({
@@ -401,6 +461,10 @@ export default function ActivityDetail() {
     <>
       <p>
         <Link to="/activities">← activities</Link>
+        {' · '}
+        <Link to={`/compare?a=${a.activityId}${a.type ? `&type=${encodeURIComponent(a.type)}` : ''}`}>
+          compare…
+        </Link>
       </p>
       <h2>{a.name ?? '(unnamed)'}</h2>
       <p className="status">
@@ -472,6 +536,7 @@ export default function ActivityDetail() {
       <RouteMap samples={samples} highlightedSampleIdx={highlightedIdx} onMapHover={setMapHoveredIdx} />
       <HrZones a={a} />
       <Splits a={a} />
+      <AiAnalysis activityId={a.activityId} />
     </>
   );
 }

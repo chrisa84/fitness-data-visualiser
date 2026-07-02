@@ -7,6 +7,7 @@ import Activities from './pages/Activities';
 import ActivityDetail from './pages/ActivityDetail';
 import Analysis from './pages/Analysis';
 import Chat from './pages/Chat';
+import Compare from './pages/Compare';
 import Dashboard from './pages/Dashboard';
 import Efficiency from './pages/Efficiency';
 import Events from './pages/Events';
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
       { path: '/', element: <Dashboard /> },
       { path: '/activities', element: <Activities /> },
       { path: '/activities/:id', element: <ActivityDetail /> },
+      { path: '/compare', element: <Compare /> },
       { path: '/volume', element: <Volume /> },
       { path: '/performance', element: <Performance /> },
       { path: '/intensity', element: <Intensity /> },

@@ -10,6 +10,10 @@ interface Row {
   plan_model_2: string;
   plan_model_3: string;
   plan_selected: string;
+  analysis_model_1: string;
+  analysis_model_2: string;
+  analysis_model_3: string;
+  analysis_selected: string;
 }
 
 function mapRow(r: Row): AiSettings {
@@ -21,6 +25,10 @@ function mapRow(r: Row): AiSettings {
     plan: {
       models: [r.plan_model_1, r.plan_model_2, r.plan_model_3],
       selected: r.plan_selected,
+    },
+    analysis: {
+      models: [r.analysis_model_1, r.analysis_model_2, r.analysis_model_3],
+      selected: r.analysis_selected,
     },
   };
 }
@@ -35,6 +43,7 @@ export function updateAiSettings(db: Database, input: AiSettingsInput): AiSettin
     `UPDATE ai_settings SET
        question_model_1 = @qm1, question_model_2 = @qm2, question_model_3 = @qm3, question_selected = @qs,
        plan_model_1 = @pm1, plan_model_2 = @pm2, plan_model_3 = @pm3, plan_selected = @ps,
+       analysis_model_1 = @am1, analysis_model_2 = @am2, analysis_model_3 = @am3, analysis_selected = @asel,
        updated_at = @updatedAt
      WHERE id = 1`,
   ).run({
@@ -46,6 +55,10 @@ export function updateAiSettings(db: Database, input: AiSettingsInput): AiSettin
     pm2: input.plan.models[1],
     pm3: input.plan.models[2],
     ps: input.plan.selected,
+    am1: input.analysis.models[0],
+    am2: input.analysis.models[1],
+    am3: input.analysis.models[2],
+    asel: input.analysis.selected,
     updatedAt: new Date().toISOString(),
   });
   return getAiSettings(db);
