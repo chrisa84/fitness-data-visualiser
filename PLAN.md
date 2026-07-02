@@ -671,7 +671,7 @@ Deliberately separate from Phase 15 below — this operates on an *unsaved*
 draft with no usage history, so it has no dependency on the plan having
 been lived in yet, unlike Phase 15's planned-vs-actual comparison.
 
-### Phase 15A — Review my active plan (design — next up, depends on Phase 14)
+### Phase 15A — Review my active plan ✅
 
 Training plans go stale as fitness changes over 12 weeks. Rather than
 regenerating anything automatically, give the user a manual review action:
@@ -765,6 +765,29 @@ weekly-aggregate approximation 15A uses.
   straightforward per-workout diff — this phase is really about the matching
   UX/rules, not the arithmetic once a match exists.
 
+### Phase 16 — Chart polish, compare runs, form-vs-pace, AI activity analysis ✅
+
+A batch pass over visualisation quality plus three features:
+
+- **Chart polish:** Intensity legend/title overlap fixed; per-sample dynamics
+  streams (GCT/cadence/balance) bucket-averaged to ≤600 points on the activity
+  detail chart; `compactOption` helper added and Efficiency / Dynamics / Load /
+  Intensity converged onto the shared chart helpers; Efficiency outlier
+  clipping became a toggle with clipped points pinned to the axis edge
+  (`offScaleMarkers`); EF excludes runs under 3 km.
+- **Form vs pace scatter:** new view on the Dynamics page — one point per
+  activity (VO / vertical ratio / cadence / GCT vs pace), coloured by year.
+  New endpoint `GET /api/form-vs-pace`.
+- **Compare page:** pick any two activities; stat-diff table plus pace and HR
+  overlays by distance. Reuses the existing detail/samples endpoints; linked
+  from every activity detail page.
+- **AI activity analysis:** "AI analysis" section on the activity detail page
+  (optional question, model dropdown, markdown result). New Analysis AI role in
+  `ai_settings` (migration backfills from the Question role), new endpoint
+  `POST /api/activities/:id/analyze` — a one-shot completion over a compact
+  summary (stats, zones, splits, first/second-half decoupling), no tool loop.
+
 ### Parked (requires Garmin-Sync work first)
 
-Gear/shoe mileage, body composition.
+Gear/shoe mileage, body composition (weight, W/kg, weight-adjusted EF need a
+`body_composition` table synced on the Garmin-Sync side first).
