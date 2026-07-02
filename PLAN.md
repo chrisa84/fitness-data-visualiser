@@ -35,9 +35,8 @@ lactate threshold, and endurance/hill scores — history depends on how long the
 account/device has recorded each metric. See [DATA_MODEL.md](DATA_MODEL.md) for
 the per-table detail and coverage caveats.
 
-Known gaps (fitness-data-sync features, parked): no per-second samples or GPS
-tracks (so no in-activity charts or route maps yet), `activity_lap` empty, gear,
-body composition.
+Known gaps (fitness-data-sync features, parked): `activity_lap` empty, gear,
+body composition. (Per-sample streams and GPS arrived with Phases 8–9.)
 
 ## Phases
 
@@ -799,6 +798,61 @@ A batch pass over visualisation quality plus three features:
   filterable table (name search, date range, min/max km) with A/B pick buttons,
   plus a "similar distance to A (±10%)" toggle for finding comparable runs.
   The picker collapses once both slots are filled.
+
+### Phase 18 — Personal heatmap ✅
+
+All GPS tracks overlaid on one MapLibre GL map (the same stack as the
+activity route map — Stadia/OpenFreeMap vector styles). Designed around two
+constraints:
+the VPS is small and shared (backfill must not spike CPU), and the payload
+must stay bounded with thousands of activities.
+
+- **Derived geometry table** (shared with Phase 19): `route_geometry` in the
+  *writable* events DB — `activity_id`, Douglas-Peucker-simplified track
+  (~15 m tolerance, hard cap 100 points, 5-decimal precision) stored as a
+  Google encoded polyline string, plus start/end lat/lon and distance for
+  Phase 19 prefiltering. The Garmin DB stays read-only; the Python sync app
+  is untouched.
+- **Throttled incremental backfill:** a single in-process background job,
+  kicked on first request to the heatmap endpoint. Finds activities with GPS
+  samples but no `route_geometry` row, processes them in batches of ~25 with
+  a short pause between batches so the event loop (and the rest of the box)
+  stays responsive. Idempotent by `activity_id` — safe to interrupt/restart;
+  steady state after the first run is "0 or a handful of new activities".
+  No-GPS activities get a `point_count = 0` row so they aren't rescanned —
+  but are re-examined if samples later appear for them (the sync app
+  backfills per-sample data over time; as of Phase 18 only recent activities
+  carry samples).
+- **Endpoints:** `GET /api/heatmap` → encoded polylines with type + date per
+  activity (client-side filtering), `ETag` from row count + max activity id
+  so repeat loads are 304s. `GET /api/heatmap/status` → `{processed, total}`
+  for a progress state while the initial backfill runs.
+- **Payload budget:** encoded polylines at ≤100 points ≈ well under 1 MB
+  gzipped for thousands of activities — one cacheable blob, no tile server.
+- **Client:** new Heatmap page — MapLibre GL, one GeoJSON source + one
+  low-opacity line layer; type-group and year filters applied client-side.
+
+### Phase 19 — Repeated route detection (after 18)
+
+Group activities that follow the same route and show effort trends on
+constant terrain. Builds directly on `route_geometry`.
+
+- **Matching:** candidate prefilter first — start points within ~150 m
+  (bucketed by rounded coords) and total distance within ±10% — then a
+  geometric check: symmetric mean nearest-point distance between the two
+  simplified polylines under ~40 m. Prefilter kills almost all pairs, so the
+  full-history backfill is seconds of CPU, run through the same throttled
+  batch job as Phase 18 (after geometry completes).
+- **Storage:** `route_cluster` + `route_cluster_member` in the events DB.
+  New activities are matched against one representative (medoid) per nearby
+  cluster, not every member — incremental cost stays O(clusters nearby).
+- **UI:** Routes page — cluster list (auto-named from the most common
+  activity name, effort count, distance, latest/best), cluster detail with
+  the route map, an efforts table, and pace/EF-over-time charts; link a pair
+  of efforts straight into the existing Compare page.
+- **Trigger:** same lazy pattern as Phase 18 — scan for unprocessed
+  activities on page request, continue in the background, status endpoint
+  for progress. No coordination with the sync app.
 
 ### Parked (requires Garmin-Sync work first)
 

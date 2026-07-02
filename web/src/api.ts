@@ -20,6 +20,8 @@ import type {
   IntradayResponse,
   MetricSeriesResponse,
   PerformanceResponse,
+  HeatmapResponse,
+  HeatmapStatus,
   PersonalRecord,
   RunningDynamicsResponse,
   SavedRoute,
@@ -190,6 +192,14 @@ export function fetchTrainingLoad(params: { from?: string; to?: string }) {
 
 export function fetchRecords() {
   return getJson<PersonalRecord[]>('/api/records');
+}
+
+export function fetchHeatmap() {
+  return getJson<HeatmapResponse>('/api/heatmap');
+}
+
+export function fetchHeatmapStatus() {
+  return getJson<HeatmapStatus>('/api/heatmap/status');
 }
 
 export function fetchEvents(params?: { from?: string; to?: string }) {

@@ -11,6 +11,7 @@ import Compare from './pages/Compare';
 import Dashboard from './pages/Dashboard';
 import Efficiency from './pages/Efficiency';
 import Events from './pages/Events';
+import Heatmap from './pages/Heatmap';
 import Intraday from './pages/Intraday';
 import Planner from './pages/Planner';
 import Intensity from './pages/Intensity';
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
       { path: '/load', element: <Load /> },
       { path: '/analysis', element: <Analysis /> },
       { path: '/records', element: <Records /> },
+      { path: '/heatmap', element: <Heatmap /> },
       { path: '/events', element: <Events /> },
       { path: '/intraday', element: <Intraday /> },
       { path: '/planner', element: <Planner /> },

@@ -177,6 +177,7 @@ server/src/
   app.ts                     Wire DB connections + routes; create AI client
   config.ts                  Environment → Config
   db.ts                      openDb (read-only) / openEventsDb (writable + schema)
+  geo.ts                     Track simplification (Douglas-Peucker) + encoded-polyline codec
   repositories/              Plain typed SQL, one module per domain
     dailyHealth.ts             daily health/sleep/HRV/body-battery series
     activities.ts              list, detail+splits, volume, type filter helper
@@ -184,6 +185,7 @@ server/src/
     metrics.ts                 metric-catalog series (only joins needed tables)
     records.ts                 personal records derived from the activity table
     events.ts                  CRUD against the writable events DB
+    routeGeometry.ts            Cached simplified GPS tracks + throttled backfill job (writable DB)
     aiSettings.ts               Question AI / Plan AI / Analysis AI model selection (writable DB)
     trainingPlans.ts            Training plan + workout CRUD (writable DB)
     trainingPlanAutofill.ts     Fitness summary for plan generation (no AI, plain queries)
@@ -226,6 +228,8 @@ to an open range.
 | GET    | `/api/training-load`          | Weekly training monotony & strain (Foster), rest days as zero.          |
 | GET    | `/api/metrics`                | Multi-metric series from the catalog (`keys=a,b,c`, max 8).         |
 | GET    | `/api/records`                | Derived personal records.                                           |
+| GET    | `/api/heatmap`                | All simplified GPS tracks as encoded polylines (ETag/304). Kicks the geometry backfill. |
+| GET    | `/api/heatmap/status`         | Geometry backfill progress (`total`, `processed`, `running`).       |
 | GET    | `/api/events`                 | Life events overlapping an optional window.                        |
 | POST   | `/api/events`                 | Create an event. (writable DB)                                      |
 | PATCH  | `/api/events/:id`             | Update an event. (writable DB)                                      |
@@ -280,6 +284,9 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Analysis** — overlay (up to 5 normalised metrics), compare (one metric across
   two ranges), correlate (X vs Y scatter with optional lag, Pearson r).
 - **Records** — derived personal records.
+- **Heatmap** — every GPS track overlaid on one map (MapLibre), with
+  type-group and year filters; tracks are simplified server-side and cached
+  in the events DB by a lazy, throttled backfill.
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
 - **Chat** — natural-language questions answered via the AI query layer.

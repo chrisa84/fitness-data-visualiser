@@ -11,10 +11,12 @@ import { registerAiSettingsRoutes } from './routes/aiSettings.js';
 import { registerAnalysisRoutes, registerEventRoutes } from './routes/analysis.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerDailyHealthRoutes } from './routes/dailyHealth.js';
+import { registerHeatmapRoutes } from './routes/heatmap.js';
 import { registerIntradayRoutes } from './routes/intraday.js';
 import { registerPerformanceRoutes } from './routes/performance.js';
 import { registerRouteRoutes } from './routes/routes.js';
 import { registerTrainingPlanRoutes } from './routes/trainingPlans.js';
+import { GeometryBackfill } from './repositories/routeGeometry.js';
 import { registerTrainingPlanGenerationRoutes } from './routes/trainingPlanGeneration.js';
 
 export interface AppOptions {
@@ -50,7 +52,12 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
     ? new OpenAI({ apiKey: ai.apiKey, baseURL: ai.baseUrl })
     : null;
 
+  const geometryBackfill = new GeometryBackfill(db, eventsDb, {
+    log: (msg) => app.log.warn(msg),
+  });
+
   app.addHook('onClose', async () => {
+    geometryBackfill.stop();
     db.close();
     eventsDb.close();
   });
@@ -116,6 +123,7 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   registerAnalysisRoutes(app, db);
   registerEventRoutes(app, eventsDb);
   registerRouteRoutes(app, eventsDb);
+  registerHeatmapRoutes(app, { db, eventsDb, backfill: geometryBackfill });
   registerAiSettingsRoutes(app, eventsDb);
   registerTrainingPlanRoutes(app, eventsDb);
   registerTrainingPlanGenerationRoutes(app, { client: aiClient, db, eventsDb });

@@ -148,6 +148,14 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   `getAiSettings` — don't reintroduce a boot-time model constant. Plan AI powers
   the training-plan generator (Phase 14); Analysis AI powers the per-activity
   analysis (`routes/activityAnalysis.ts`).
+- **`route_geometry` is a derived cache, not source data.** The heatmap's
+  simplified tracks live in the writable events DB, filled by a lazy,
+  throttled backfill (`GeometryBackfill` in `repositories/routeGeometry.ts`)
+  kicked on `/api/heatmap*` requests — never by a sync-side hook; the Garmin
+  DB stays read-only. Rows are idempotent per `activity_id`; wiping the table
+  just triggers a re-backfill. No-GPS activities get `point_count = 0` rows
+  and are re-examined if samples appear later. Phase 19 (route detection)
+  builds on this table.
 - **Training plans: one active at a time, and `workout_type` is a closed
   enum.** `createTrainingPlan` (`repositories/trainingPlans.ts`) throws
   `ActivePlanExistsError` (→ `409`) if `getActiveTrainingPlan` already returns

@@ -104,6 +104,17 @@ export function openEventsDb(path: string): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_training_plan_workout_plan ON training_plan_workout(plan_id);
 
+    CREATE TABLE IF NOT EXISTS route_geometry (
+      activity_id TEXT PRIMARY KEY,
+      polyline    TEXT NOT NULL,
+      point_count INTEGER NOT NULL,
+      start_lat   REAL,
+      start_lon   REAL,
+      end_lat     REAL,
+      end_lon     REAL,
+      computed_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS training_plan_revision (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       plan_id      INTEGER NOT NULL,

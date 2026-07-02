@@ -363,6 +363,8 @@ scores) only exist from whenever the account/device began recording them, so
 their history is shorter than the activity history. Query the relevant table for
 its own earliest `date` rather than assuming the full range.
 
-Not mirrored by Garmin-Sync yet, so unavailable (parked): per-second sample
-streams, GPS tracks/routes, `activity_lap` (empty), gear/shoe data, body
-composition.
+Not mirrored by Garmin-Sync yet, so unavailable (parked): `activity_lap`
+(empty), gear/shoe data, body composition. Per-sample streams (incl. GPS
+lat/lon) live in `activity_sample`, but only for activities synced since
+sample support was added — older activities have no rows there until
+Garmin-Sync backfills them.

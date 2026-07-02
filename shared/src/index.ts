@@ -851,3 +851,30 @@ export interface PersonalRecord {
   activityId: string | null;
   date: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Heatmap (derived route geometry)
+// ---------------------------------------------------------------------------
+
+export interface HeatmapEntry {
+  activityId: string;
+  name: string | null;
+  type: string | null;
+  /** Local start date, YYYY-MM-DD. */
+  date: string;
+  distanceM: number | null;
+  /** Google encoded polyline (precision 5) of the simplified track. */
+  polyline: string;
+}
+
+export interface HeatmapResponse {
+  /** False while the initial geometry backfill is still running. */
+  ready: boolean;
+  entries: HeatmapEntry[];
+}
+
+export interface HeatmapStatus {
+  total: number;
+  processed: number;
+  running: boolean;
+}
