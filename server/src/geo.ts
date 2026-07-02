@@ -64,6 +64,31 @@ export function simplifyTrack(points: LatLon[], toleranceM: number, maxPoints: n
   return out;
 }
 
+/** Minimum distance in metres from `p` to any segment of `track`. */
+function minDistanceToTrackM(p: LatLon, track: LatLon[]): number {
+  if (track.length === 1) return perpendicularDistanceM(p, track[0]!, track[0]!);
+  let min = Infinity;
+  for (let i = 0; i < track.length - 1; i += 1) {
+    const d = perpendicularDistanceM(p, track[i]!, track[i + 1]!);
+    if (d < min) min = d;
+  }
+  return min;
+}
+
+/**
+ * Symmetric mean nearest-point distance in metres between two simplified
+ * tracks — the route-matching metric for Phase 19. Point-to-segment (not
+ * point-to-vertex) so long straight segments with few vertices still compare
+ * as close. Roughly 0 for the same route, and at least the lateral offset
+ * for parallel-but-different paths.
+ */
+export function symmetricTrackDistanceM(a: LatLon[], b: LatLon[]): number {
+  if (a.length === 0 || b.length === 0) return Infinity;
+  const meanOneWay = (from: LatLon[], to: LatLon[]): number =>
+    from.reduce((sum, p) => sum + minDistanceToTrackM(p, to), 0) / from.length;
+  return (meanOneWay(a, b) + meanOneWay(b, a)) / 2;
+}
+
 function encodeValue(value: number, out: string[]): void {
   let n = value < 0 ? ~(value << 1) : value << 1;
   while (n >= 0x20) {

@@ -878,3 +878,50 @@ export interface HeatmapStatus {
   processed: number;
   running: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Route clusters (repeated route detection)
+// ---------------------------------------------------------------------------
+
+export interface RouteClusterSummary {
+  id: number;
+  /** Most common activity name among the efforts. */
+  name: string | null;
+  /** Most common activity type among the efforts. */
+  type: string | null;
+  count: number;
+  distanceM: number | null;
+  /** Local date of the latest effort, YYYY-MM-DD. */
+  latestDate: string | null;
+  bestPaceSecPerKm: number | null;
+  /** Encoded polyline of the cluster's representative track. */
+  polyline: string;
+}
+
+export interface RouteClustersResponse {
+  /** False while the initial matching backfill is still running. */
+  ready: boolean;
+  clusters: RouteClusterSummary[];
+}
+
+export type RouteClusterStatus = HeatmapStatus;
+
+export interface RouteClusterEffort {
+  activityId: string;
+  name: string | null;
+  /** Local start date, YYYY-MM-DD. */
+  date: string;
+  distanceM: number | null;
+  durationS: number | null;
+  avgHr: number | null;
+  avgSpeedMps: number | null;
+}
+
+export interface RouteClusterDetail {
+  id: number;
+  name: string | null;
+  type: string | null;
+  distanceM: number | null;
+  polyline: string;
+  efforts: RouteClusterEffort[];
+}

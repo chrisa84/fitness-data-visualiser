@@ -115,6 +115,21 @@ export function openEventsDb(path: string): Database.Database {
       computed_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS route_cluster (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      medoid_activity_id TEXT NOT NULL,
+      start_lat          REAL NOT NULL,
+      start_lon          REAL NOT NULL,
+      distance_m         REAL,
+      created_at         TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS route_cluster_member (
+      activity_id TEXT PRIMARY KEY,
+      cluster_id  INTEGER NOT NULL,
+      created_at  TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_route_cluster_member_cluster ON route_cluster_member(cluster_id);
+
     CREATE TABLE IF NOT EXISTS training_plan_revision (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       plan_id      INTEGER NOT NULL,

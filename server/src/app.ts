@@ -17,6 +17,8 @@ import { registerPerformanceRoutes } from './routes/performance.js';
 import { registerRouteRoutes } from './routes/routes.js';
 import { registerTrainingPlanRoutes } from './routes/trainingPlans.js';
 import { GeometryBackfill } from './repositories/routeGeometry.js';
+import { ClusterBackfill } from './repositories/routeClusters.js';
+import { registerRouteClusterRoutes } from './routes/routeClusters.js';
 import { registerTrainingPlanGenerationRoutes } from './routes/trainingPlanGeneration.js';
 
 export interface AppOptions {
@@ -55,8 +57,12 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   const geometryBackfill = new GeometryBackfill(db, eventsDb, {
     log: (msg) => app.log.warn(msg),
   });
+  const clusterBackfill = new ClusterBackfill(db, eventsDb, geometryBackfill, {
+    log: (msg) => app.log.warn(msg),
+  });
 
   app.addHook('onClose', async () => {
+    clusterBackfill.stop();
     geometryBackfill.stop();
     db.close();
     eventsDb.close();
@@ -124,6 +130,7 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   registerEventRoutes(app, eventsDb);
   registerRouteRoutes(app, eventsDb);
   registerHeatmapRoutes(app, { db, eventsDb, backfill: geometryBackfill });
+  registerRouteClusterRoutes(app, { db, eventsDb, backfill: clusterBackfill });
   registerAiSettingsRoutes(app, eventsDb);
   registerTrainingPlanRoutes(app, eventsDb);
   registerTrainingPlanGenerationRoutes(app, { client: aiClient, db, eventsDb });

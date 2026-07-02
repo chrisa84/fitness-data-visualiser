@@ -230,6 +230,9 @@ to an open range.
 | GET    | `/api/records`                | Derived personal records.                                           |
 | GET    | `/api/heatmap`                | All simplified GPS tracks as encoded polylines (ETag/304). Kicks the geometry backfill. |
 | GET    | `/api/heatmap/status`         | Geometry backfill progress (`total`, `processed`, `running`).       |
+| GET    | `/api/route-clusters`         | Repeated routes (2+ efforts on the same track). Kicks the matching backfill. |
+| GET    | `/api/route-clusters/status`  | Route-matching backfill progress.                                   |
+| GET    | `/api/route-clusters/:id`     | One route cluster with its efforts (distance, duration, HR, speed). |
 | GET    | `/api/events`                 | Life events overlapping an optional window.                        |
 | POST   | `/api/events`                 | Create an event. (writable DB)                                      |
 | PATCH  | `/api/events/:id`             | Update an event. (writable DB)                                      |
@@ -287,6 +290,9 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Heatmap** — every GPS track overlaid on one map (MapLibre), with
   type-group and year filters; tracks are simplified server-side and cached
   in the events DB by a lazy, throttled backfill.
+- **Routes** — repeated routes detected by geometric matching of the cached
+  tracks; per-route effort history with pace/EF trends and one-click Compare
+  between two efforts.
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
 - **Chat** — natural-language questions answered via the AI query layer.

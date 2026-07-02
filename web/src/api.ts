@@ -23,6 +23,9 @@ import type {
   HeatmapResponse,
   HeatmapStatus,
   PersonalRecord,
+  RouteClusterDetail,
+  RouteClustersResponse,
+  RouteClusterStatus,
   RunningDynamicsResponse,
   SavedRoute,
   SavedRouteInput,
@@ -200,6 +203,18 @@ export function fetchHeatmap() {
 
 export function fetchHeatmapStatus() {
   return getJson<HeatmapStatus>('/api/heatmap/status');
+}
+
+export function fetchRouteClusters() {
+  return getJson<RouteClustersResponse>('/api/route-clusters');
+}
+
+export function fetchRouteClusterStatus() {
+  return getJson<RouteClusterStatus>('/api/route-clusters/status');
+}
+
+export function fetchRouteClusterDetail(id: number) {
+  return getJson<RouteClusterDetail>(`/api/route-clusters/${id}`);
 }
 
 export function fetchEvents(params?: { from?: string; to?: string }) {

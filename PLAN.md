@@ -832,27 +832,36 @@ must stay bounded with thousands of activities.
 - **Client:** new Heatmap page — MapLibre GL, one GeoJSON source + one
   low-opacity line layer; type-group and year filters applied client-side.
 
-### Phase 19 — Repeated route detection (after 18)
+### Phase 19 — Repeated route detection ✅
 
 Group activities that follow the same route and show effort trends on
-constant terrain. Builds directly on `route_geometry`.
+constant terrain. Builds directly on `route_geometry`. Shipped as designed:
 
-- **Matching:** candidate prefilter first — start points within ~150 m
-  (bucketed by rounded coords) and total distance within ±10% — then a
-  geometric check: symmetric mean nearest-point distance between the two
-  simplified polylines under ~40 m. Prefilter kills almost all pairs, so the
-  full-history backfill is seconds of CPU, run through the same throttled
-  batch job as Phase 18 (after geometry completes).
+- **Matching:** candidate prefilter first — cluster start points within
+  ~150 m (SQL bounding box on `route_cluster.start_lat/lon`) and total
+  distance within ±10% — then a geometric check: symmetric mean
+  nearest-point distance between the two simplified polylines under ~40 m
+  (`symmetricTrackDistanceM` in `geo.ts`, point-to-*segment* so sparse
+  straight lines still compare as close). Prefilter kills almost all pairs,
+  so the full-history backfill is seconds of CPU.
 - **Storage:** `route_cluster` + `route_cluster_member` in the events DB.
-  New activities are matched against one representative (medoid) per nearby
-  cluster, not every member — incremental cost stays O(clusters nearby).
+  Every tracked activity lands in exactly one cluster (singletons included,
+  so "processed" is a cheap set difference); only clusters with ≥2 efforts
+  surface in the API. New activities are matched against one representative
+  per cluster (the earliest member — a true medoid recompute isn't worth
+  O(n²) per insert), not every member.
+- **Backfill:** `ClusterBackfill` (`repositories/routeClusters.ts`), same
+  throttled-batch shape as Phase 18's `GeometryBackfill`; it awaits the
+  geometry backfill first, then matches pending activities. Kicked lazily by
+  the route-cluster endpoints, idempotent, safe to interrupt.
+- **Endpoints:** `GET /api/route-clusters` (summaries with representative
+  polyline; kicks the backfill), `GET /api/route-clusters/status`,
+  `GET /api/route-clusters/:id` (efforts with distance/duration/HR/speed).
 - **UI:** Routes page — cluster list (auto-named from the most common
-  activity name, effort count, distance, latest/best), cluster detail with
-  the route map, an efforts table, and pace/EF-over-time charts; link a pair
-  of efforts straight into the existing Compare page.
-- **Trigger:** same lazy pattern as Phase 18 — scan for unprocessed
-  activities on page request, continue in the background, status endpoint
-  for progress. No coordination with the sync app.
+  activity name; effort count, distance, best pace, latest date), cluster
+  detail at `/routes/:id` with the route on a MapLibre map, pace-over-time
+  and EF-over-time charts, and an efforts table where ticking two efforts
+  links straight into the existing Compare page (`/compare?a=&b=`).
 
 ### Parked (requires Garmin-Sync work first)
 

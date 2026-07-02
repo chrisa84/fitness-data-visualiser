@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/analysis', label: 'Analysis' },
   { to: '/records', label: 'Records' },
   { to: '/heatmap', label: 'Heatmap' },
+  { to: '/routes', label: 'Routes' },
   { to: '/events', label: 'Events' },
   { to: '/intraday', label: 'Intraday' },
   { to: '/planner', label: 'Planner' },

@@ -156,6 +156,17 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   just triggers a re-backfill. No-GPS activities get `point_count = 0` rows
   and are re-examined if samples appear later. Phase 19 (route detection)
   builds on this table.
+- **Route clusters are derived too, and every tracked activity is a member of
+  exactly one.** `route_cluster`/`route_cluster_member` (events DB) are filled
+  by `ClusterBackfill` (`repositories/routeClusters.ts`), kicked lazily by
+  `/api/route-clusters*` — it awaits the geometry backfill first. Singleton
+  clusters are deliberate (membership doubles as the "processed" marker);
+  only clusters with ≥2 members are served. Matching is
+  start-within-150 m + distance-within-±10% prefilter, then
+  `symmetricTrackDistanceM` ≤ 40 m against the cluster's representative
+  (earliest member) only — don't "improve" it to compare against every
+  member, that's the O(clusters) incremental-cost guarantee. Wiping the
+  cluster tables just triggers a re-match on next request.
 - **Training plans: one active at a time, and `workout_type` is a closed
   enum.** `createTrainingPlan` (`repositories/trainingPlans.ts`) throws
   `ActivePlanExistsError` (→ `409`) if `getActiveTrainingPlan` already returns

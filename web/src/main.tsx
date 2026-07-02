@@ -18,6 +18,8 @@ import Intensity from './pages/Intensity';
 import Load from './pages/Load';
 import Performance from './pages/Performance';
 import Records from './pages/Records';
+import RouteDetail from './pages/RouteDetail';
+import Routes from './pages/Routes';
 import RunningDynamics from './pages/RunningDynamics';
 import Settings from './pages/Settings';
 import Training from './pages/Training';
@@ -43,6 +45,8 @@ const router = createBrowserRouter([
       { path: '/analysis', element: <Analysis /> },
       { path: '/records', element: <Records /> },
       { path: '/heatmap', element: <Heatmap /> },
+      { path: '/routes', element: <Routes /> },
+      { path: '/routes/:id', element: <RouteDetail /> },
       { path: '/events', element: <Events /> },
       { path: '/intraday', element: <Intraday /> },
       { path: '/planner', element: <Planner /> },
