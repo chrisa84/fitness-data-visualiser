@@ -103,6 +103,11 @@ describe('listActivities', () => {
     expect(res.total).toBe(2);
   });
 
+  it('filters by distance range', () => {
+    const res = listActivities(db(), { ...defaults, minKm: 15, maxKm: 25 });
+    expect(res.items.map((i) => i.activityId)).toEqual(['3']);
+  });
+
   it('sorts by distance ascending and paginates', () => {
     const page = listActivities(db(), { ...defaults, sort: 'distance', order: 'asc', limit: 2, offset: 1 });
     expect(page.total).toBe(3);

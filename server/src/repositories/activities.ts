@@ -29,6 +29,8 @@ export interface ListActivitiesOptions {
   to: string;
   types?: string[];
   q?: string;
+  minKm?: number;
+  maxKm?: number;
   sort: ActivitySortKey;
   order: 'asc' | 'desc';
   limit: number;
@@ -76,6 +78,14 @@ export function listActivities(db: Database, opts: ListActivitiesOptions): Activ
   if (opts.q) {
     where.push("name LIKE @q ESCAPE '\\' COLLATE NOCASE");
     params.q = `%${opts.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  }
+  if (opts.minKm != null) {
+    where.push('distance_m >= @minM');
+    params.minM = opts.minKm * 1000;
+  }
+  if (opts.maxKm != null) {
+    where.push('distance_m <= @maxM');
+    params.maxM = opts.maxKm * 1000;
   }
   const whereSql = where.join(' AND ');
 

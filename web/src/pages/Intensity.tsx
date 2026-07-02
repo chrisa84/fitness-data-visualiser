@@ -22,20 +22,10 @@ function zoneSeconds(p: IntensityPoint): number[] {
 
 export default function Intensity() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { from, to, granularity, setParam: setChartParam } = useChartRange('week');
-  const type = searchParams.get('type') ?? activityGroupOptionValue('running');
+  const { from, to, granularity, type, setParam, setType } =
+    useChartRange('week', activityGroupOptionValue('running'));
   const rawMode = searchParams.get('mode');
   const mode = rawMode === 'pct' ? 'pct' : rawMode === 'trends' ? 'trends' : 'hours';
-
-  const setParam = setChartParam;
-  // Type has a non-empty default, so "all types" must be stored explicitly.
-  const setType = (value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('type', value);
-      return next;
-    });
-  };
 
   const types = useQuery({ queryKey: ['activity-types'], queryFn: fetchActivityTypes });
   const { data, isPending, error } = useQuery({

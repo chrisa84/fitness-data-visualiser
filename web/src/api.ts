@@ -94,6 +94,8 @@ export function fetchActivities(params: {
   to?: string;
   type?: string;
   q?: string;
+  minKm?: number;
+  maxKm?: number;
   sort?: ActivitySortKey;
   order?: 'asc' | 'desc';
   limit?: number;

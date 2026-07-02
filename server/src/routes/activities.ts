@@ -16,6 +16,8 @@ const listQuery = z.object({
   to: isoDate.default('9999-12-31'),
   type: z.string().min(1).optional(),
   q: z.string().min(1).optional(),
+  minKm: z.coerce.number().min(0).optional(),
+  maxKm: z.coerce.number().min(0).optional(),
   sort: z.enum(ACTIVITY_SORT_KEYS).default('start_time'),
   order: z.enum(['asc', 'desc']).default('desc'),
   limit: z.coerce.number().int().min(1).max(200).default(50),

@@ -787,6 +787,19 @@ A batch pass over visualisation quality plus three features:
   `POST /api/activities/:id/analyze` — a one-shot completion over a compact
   summary (stats, zones, splits, first/second-half decoupling), no tool loop.
 
+### Phase 17 — Global type filter, Compare picker rework ✅
+
+- **Global activity-type filter:** the type/group choice now persists across
+  the analytics pages (Volume, Intensity, Dynamics, Efficiency) via
+  `useChartRange`, the same way the date range does. "All types" is a real,
+  persisted choice.
+- **Distance filters on the list API:** `GET /api/activities` accepts
+  `minKm`/`maxKm`.
+- **Compare picker rework:** the two flat 200-item dropdowns became a
+  filterable table (name search, date range, min/max km) with A/B pick buttons,
+  plus a "similar distance to A (±10%)" toggle for finding comparable runs.
+  The picker collapses once both slots are filled.
+
 ### Parked (requires Garmin-Sync work first)
 
 Gear/shoe mileage, body composition (weight, W/kg, weight-adjusted EF need a

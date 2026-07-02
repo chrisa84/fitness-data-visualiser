@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Froggy's Fitness App — A Guide for Mrs Froggy</title>
+  <style>
+    :root {
+      --green:   #2d6a4f;
+      --lime:    #52b788;
+      --pale:    #d8f3dc;
+      --dark:    #1b1b2f;
+      --text:    #1a2e1a;
+      --muted:   #4a6741;
+      --accent:  #f4a261;
+      --warn:    #e76f51;
+      --radius:  10px;
+      --shadow:  0 2px 12px rgba(0,0,0,.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0faf2;
+      color: var(--text);
+      line-height: 1.65;
+    }
+    header {
+      background: var(--green);
+      color: #fff;
+      padding: 2.5rem 2rem 2rem;
+      text-align: center;
+    }
+    header .frog { font-size: 4rem; display: block; margin-bottom: .5rem; }
+    header h1 { font-size: 2rem; font-weight: 700; }
+    header p  { opacity: .85; margin-top: .4rem; font-size: 1.05rem; }
+
+    main { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    h2 {
+      color: var(--green);
+      font-size: 1.35rem;
+      margin: 2.5rem 0 .75rem;
+      padding-bottom: .35rem;
+      border-bottom: 2px solid var(--lime);
+    }
+    h3 { color: var(--muted); font-size: 1.05rem; margin: 1.5rem 0 .5rem; }
+
+    p  { margin-bottom: .9rem; }
+    ul, ol { padding-left: 1.4rem; margin-bottom: .9rem; }
+    li { margin-bottom: .4rem; }
+
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.4rem 1.6rem;
+      margin-bottom: 1.4rem;
+    }
+    .card.tip  { border-left: 4px solid var(--lime);   background: var(--pale); }
+    .card.warn { border-left: 4px solid var(--warn);   background: #fff4f1; }
+    .card.info { border-left: 4px solid var(--accent); background: #fff8f1; }
+
+    code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #e8f5e9;
+      color: #1a4a1a;
+      padding: .1rem .45rem;
+      border-radius: 4px;
+      font-size: .88em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1rem;
+      font-size: .93rem;
+    }
+    th {
+      background: var(--green);
+      color: #fff;
+      text-align: left;
+      padding: .55rem .9rem;
+    }
+    td { padding: .5rem .9rem; border-bottom: 1px solid #dcedc8; }
+    tr:hover td { background: var(--pale); }
+
+    .page-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .page-card {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1rem 1.1rem;
+      border-top: 3px solid var(--lime);
+    }
+    .page-card .icon { font-size: 1.6rem; margin-bottom: .3rem; }
+    .page-card h4 { color: var(--green); font-size: .95rem; margin-bottom: .3rem; }
+    .page-card p { font-size: .85rem; color: var(--muted); margin: 0; }
+
+    .step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1.1rem;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: .9rem;
+    }
+    .step-body { flex: 1; }
+    .step-body p { margin: 0; }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: .85rem;
+      border-top: 1px solid #c8e6c9;
+    }
+    footer span { font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="frog">🐸</span>
+  <h1>Froggy's Fitness Visualiser</h1>
+  <p>A guide for Mrs Froggy — everything you need to know, ribbit.</p>
+</header>
+
+<main>
+
+  <!-- ── WHAT IS THIS THING ─────────────────────────────────── -->
+  <h2>What even is this?</h2>
+
+  <div class="card">
+    <p>This is your <strong>personal fitness dashboard</strong> — it takes all
+    the data your watch quietly collects (runs, rides, sleep, heart rate,
+    stress, recovery) and turns it into proper charts you can actually learn
+    from.</p>
+
+    <p>Garmin Connect shows you some of this, but it hides old data, caps
+    chart ranges, and generally makes it annoying to see the big picture.
+    This app has <strong>no caps and no limits</strong>. You can look at
+    every run from the last five years side by side if you like.</p>
+  </div>
+
+  <div class="card tip">
+    <strong>🐸 Froggy note:</strong> There's nothing to install or set up —
+    that part's already done. Just double-click the <strong>My Fitness</strong>
+    icon and your dashboard opens in your normal web browser.
+  </div>
+
+
+  <!-- ── OPENING THE APP ────────────────────────────────────── -->
+  <h2>Opening the app</h2>
+
+  <div class="card">
+    <p>Double-click the <strong>My Fitness</strong> icon on your desktop or
+    Start Menu. A browser tab opens automatically with your dashboard — that's
+    it, no login screen, no loading wait.</p>
+    <p>The app itself keeps running quietly in the background after that,
+    with a small frog icon in your system tray (bottom-right of the screen,
+    near the clock — click the <strong>^</strong> arrow if you don't see it).
+    You can close the browser tab any time without closing the app; just
+    double-click the tray icon again whenever you want the dashboard back.</p>
+  </div>
+
+  <div class="card warn">
+    <strong>⚠️ To fully quit:</strong> closing the browser tab does not shut
+    the app down — it just keeps syncing quietly in the tray. Right-click the
+    tray icon and choose <strong>Quit</strong> if you ever need to close it
+    completely.
+  </div>
+
+
+  <!-- ── KEEPING DATA FRESH ─────────────────────────────────── -->
+  <h2>Keeping your data fresh</h2>
+
+  <div class="card">
+    <p>Your watch data syncs <strong>automatically every night</strong> — no
+    button to press. If you want the latest numbers right now (say, just
+    after a run), right-click the tray icon and choose
+    <strong>Sync Now</strong>. You'll get a little Windows notification when
+    it's finished (or if something went wrong).</p>
+  </div>
+
+
+  <!-- ── GETTING AROUND ─────────────────────────────────────── -->
+  <h2>Getting around</h2>
+
+  <div class="card">
+    <p>A menu bar across the top lists every page in the app. On a smaller
+    window it tucks itself behind a <strong>☰</strong> button — tap that to
+    see the same list. Wherever you are, an <strong>"Ask AI"</strong> button
+    is always nearby if you'd rather just ask a question than hunt for a
+    chart.</p>
+  </div>
+
+
+  <!-- ── THE PAGES ─────────────────────────────────────────── -->
+  <h2>What's on each page</h2>
+
+  <div class="page-grid">
+    <div class="page-card">
+      <div class="icon">🏠</div>
+      <h4>Dashboard</h4>
+      <p>Your daily overview: resting heart rate, HRV, sleep, stress, body battery, steps and intensity minutes. Hide or show each chart, pick a date range, and it remembers your last view next time.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">🏃</div>
+      <h4>Activities</h4>
+      <p>A searchable, sortable list of every workout. Filter by type, date or name, then click one to open its full detail.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">🗺️</div>
+      <h4>Activity Detail</h4>
+      <p>Everything about one workout: pace, heart rate, elevation, splits, running form, and a colour-coded map of the route. Hover the chart and the map highlights the same spot, and back again.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">📦</div>
+      <h4>Volume</h4>
+      <p>How much distance, time and elevation you've covered over any date range, broken down by activity type.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">📈</div>
+      <h4>Performance</h4>
+      <p>Race-readiness and pace trends over time.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">❤️</div>
+      <h4>Intensity</h4>
+      <p>Time spent in each heart rate zone — as hours, percentages, or a trend. Handy for checking your training balance.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">🦵</div>
+      <h4>Dynamics</h4>
+      <p>Running form: ground contact time, cadence, stride length, left/right balance and power.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">⚡</div>
+      <h4>Efficiency</h4>
+      <p>How your pace at a given heart rate is trending — a rising line means getting fitter for the same effort.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">🏋️</div>
+      <h4>Load</h4>
+      <p>Weekly training load, monotony and strain — flags weeks that are too samey or too hard.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">🔬</div>
+      <h4>Analysis</h4>
+      <p>Overlay up to five metrics on one chart, compare two date ranges side by side, or scatter-plot two metrics against each other.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">🏆</div>
+      <h4>Records</h4>
+      <p>Your personal bests — fastest times, longest distances — each linking back to the activity that set it.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">📌</div>
+      <h4>Events</h4>
+      <p>Add notes for races, injuries, illness or anything else worth remembering. These show up as markers on the other charts for context.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">⏱️</div>
+      <h4>Intraday</h4>
+      <p>Pick a single day and see minute-by-minute heart rate, stress, steps and breathing rate.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">🧭</div>
+      <h4>Planner</h4>
+      <p>Plan a route on the map, see live distance, estimated time, ascent and an elevation profile, then save it or export it to your watch.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">💬</div>
+      <h4>Chat</h4>
+      <p>Ask the AI assistant questions about your data in plain English.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">📋</div>
+      <h4>Training</h4>
+      <p>Describe a goal and the AI builds you a week-by-week training plan, using your own recent fitness data to shape it. Tick off workouts as you complete them, edit or delete any that don't fit, and browse past plans.</p>
+    </div>
+    <div class="page-card">
+      <div class="icon">⚙️</div>
+      <h4>Settings</h4>
+      <p>Picks which AI model powers Chat and Training. Just leave this one alone unless Froggy tells you otherwise.</p>
+    </div>
+  </div>
+
+
+  <!-- ── ACTIVITY DETAIL ────────────────────────────────────── -->
+  <h2>Looking at one workout</h2>
+
+  <div class="card">
+    <p>Click any row on the <strong>Activities</strong> page to open its full
+    detail: pace, heart rate, elevation, calories, splits, heart-rate zones,
+    and (for runs) a running-form chart.</p>
+    <p>Below that sits a route map. Hover anywhere on the chart and the map
+    jumps to that exact point on your route — and hovering the map does the
+    same back to the chart. You can also choose what colours the route (pace,
+    heart rate, elevation) and switch the map style.</p>
+  </div>
+
+
+  <!-- ── EVENTS ─────────────────────────────────────────────── -->
+  <h2>Life events — what they are and why they matter</h2>
+
+  <div class="card">
+    <p>The <strong>Events</strong> page lets you add your own notes to the
+    timeline — a label, a date or date range, and a note. These appear as
+    vertical lines or shaded bands across the Dashboard, Performance and
+    Analysis charts, so you can see at a glance why a chart dipped or spiked.
+    Worth logging:</p>
+    <ul>
+      <li>Races</li>
+      <li>Injuries — so you can see the dip in training load and recovery</li>
+      <li>Illness</li>
+      <li>Medication changes</li>
+      <li>Travel or anything else that might explain a blip in the data</li>
+    </ul>
+  </div>
+
+
+  <!-- ── PLANNER ────────────────────────────────────────────── -->
+  <h2>Planning a route</h2>
+
+  <div class="card">
+    <p>The <strong>Planner</strong> page is an interactive map for plotting a
+    route before you go:</p>
+    <ul>
+      <li>Search for a location to centre the map</li>
+      <li>Click to drop waypoints — they snap to paths and roads automatically</li>
+      <li>Drag a point to adjust it, undo/redo, reverse the route, or clear it and start again</li>
+      <li>Live distance, an estimated time (you can set your target pace), ascent/descent and an elevation profile update as you go</li>
+      <li>Save a route with a name, reload it later, or delete it</li>
+      <li>Export the finished route as a file you can load onto your watch</li>
+    </ul>
+  </div>
+
+
+  <!-- ── TRAINING ───────────────────────────────────────────── -->
+  <h2>Getting an AI training plan</h2>
+
+  <div class="card">
+    <p>The <strong>Training</strong> page builds you a personalised training
+    plan:</p>
+    <ul>
+      <li>Describe your goal (e.g. "10k in under 50 minutes"), pick a start
+      and end date and how many days a week you can train</li>
+      <li>Click <strong>Autofill from my data</strong> and it pulls in your
+      recent volume, longest run, VO2 max and personal bests automatically —
+      tweak any of these by hand if they don't look right</li>
+      <li>Click <strong>Generate</strong> and the AI writes a week-by-week
+      plan with a short explanation of its reasoning</li>
+      <li>Tick off each workout as you complete it, edit or delete any that
+      don't suit you, then save the plan to make it active</li>
+      <li>Only one plan is active at a time — end it whenever you like, and
+      past plans stay browsable further down the page</li>
+    </ul>
+  </div>
+
+
+  <!-- ── THE AI CHAT ────────────────────────────────────────── -->
+  <h2>The AI Chat assistant</h2>
+
+  <div class="card">
+    <p>The <strong>"Ask AI"</strong> button opens a chat panel from anywhere
+    in the app. Ask it things like "how has my resting heart rate trended
+    this month?" or "what was my longest run last year?" — it knows which
+    page you're on and what date range you've selected, and answers from
+    your real data.</p>
+    <p>There's also a full <strong>Chat</strong> page for longer
+    conversations, with a sidebar of past chats you can revisit or delete.</p>
+  </div>
+
+  <div class="card tip">
+    <strong>🐸 What it can and can't do:</strong> The AI can look up and
+    explain your fitness data, but it can't change anything, log into Garmin,
+    or see anything outside your own data. It always checks the real numbers
+    before answering, so it won't make things up.
+  </div>
+
+
+  <!-- ── COMMON QUESTIONS ───────────────────────────────────── -->
+  <h2>Common questions</h2>
+
+  <table>
+    <thead>
+      <tr><th>Question</th><th>Answer</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Charts look empty or out of date</td>
+        <td>Right-click the tray icon and choose <strong>Sync Now</strong>,
+        then refresh the page once the notification appears. Still stuck?
+        Give Froggy a shout.</td>
+      </tr>
+      <tr>
+        <td>Can't find the app / it's not open</td>
+        <td>Check the system tray (bottom-right, near the clock) for the frog
+        icon — the app may already be running quietly in the background.
+        Double-click it to reopen the dashboard.</td>
+      </tr>
+      <tr>
+        <td>The Chat tab isn't responding</td>
+        <td>The AI assistant needs to be switched on for your account —
+        ask Froggy to check it's enabled.</td>
+      </tr>
+      <tr>
+        <td>Everything feels slow</td>
+        <td>Big date ranges take a moment to load the first time — try
+        narrowing the range or just wait a few seconds.</td>
+      </tr>
+    </tbody>
+  </table>
+
+</main>
+
+<footer>
+  <span>🐸</span><br/>
+  Written by Froggy, CEO of Rib IT Ltd, with love for Mrs Froggy.<br/>
+  Ribbit.
+</footer>
+
+</body>
+</html>

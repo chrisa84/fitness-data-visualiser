@@ -18,19 +18,9 @@ const METRICS: { key: Metric; label: string; unit: string }[] = [
 ];
 
 export default function Volume() {
-  const { from, to, granularity, setParam, setSearchParams, searchParams } = useChartRange('week');
-  const type = searchParams.get('type') ?? activityGroupOptionValue('running');
+  const { from, to, granularity, type, setParam, setType, searchParams } =
+    useChartRange('week', activityGroupOptionValue('running'));
   const metric = (searchParams.get('metric') as Metric) ?? 'distance';
-
-  // The type filter has a non-empty default, so "all types" must be stored as an
-  // explicit empty param — deleting it would fall back to the default instead.
-  const setType = (value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('type', value);
-      return next;
-    });
-  };
 
   const types = useQuery({ queryKey: ['activity-types'], queryFn: fetchActivityTypes });
   const { data, isPending, error } = useQuery({

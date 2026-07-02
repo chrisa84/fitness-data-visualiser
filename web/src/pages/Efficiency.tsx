@@ -16,20 +16,13 @@ const GRANULARITIES: Granularity[] = ['week', 'month', 'year'];
 
 export default function Efficiency() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { from, to, granularity, setParam } = useChartRange('week');
-  const type = searchParams.get('type') ?? activityGroupOptionValue('running');
+  const { from, to, granularity, type, setParam, setType } =
+    useChartRange('week', activityGroupOptionValue('running'));
   const hrMin = Number(searchParams.get('hrMin') ?? 145);
   const hrMax = Number(searchParams.get('hrMax') ?? 155);
   // Outlier clipping keeps one stray run from squashing the axis, but hides the
   // stray point entirely — so it is a toggle, on by default.
   const clip = searchParams.get('clip') !== '0';
-  const setType = (value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('type', value);
-      return next;
-    });
-  };
 
   const types = useQuery({ queryKey: ['activity-types'], queryFn: fetchActivityTypes });
   const { data, isPending, error } = useQuery({

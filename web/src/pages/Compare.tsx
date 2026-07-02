@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { ActivityDetail, ActivityListItem, ActivitySample } from '@fitness/shared';
 import { activityGroupOptionValue } from '@fitness/shared';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchActivities, fetchActivity, fetchActivitySamples, fetchActivityTypes } from '../api';
 import Chart from '../Chart';
@@ -110,7 +110,11 @@ function diffRows(a: ActivityDetail, b: ActivityDetail): { label: string; a: str
   return rows.filter((r) => r.a !== '—' || r.b !== '—');
 }
 
-function optionLabel(item: ActivityListItem): string {
+function pickLabel(
+  item: { startTimeLocal: string | null; name: string | null; distanceM: number | null } | undefined,
+  fallback: string,
+): string {
+  if (!item) return fallback;
   const date = item.startTimeLocal?.slice(0, 10) ?? '?';
   const dist = item.distanceM ? ` · ${formatKm(item.distanceM)}` : '';
   return `${date} — ${item.name ?? '(unnamed)'}${dist}`;
@@ -121,6 +125,15 @@ export default function Compare() {
   const type = searchParams.get('type') ?? activityGroupOptionValue('running');
   const aId = searchParams.get('a') ?? '';
   const bId = searchParams.get('b') ?? '';
+  const q = searchParams.get('q') ?? '';
+  const from = searchParams.get('from') ?? '';
+  const to = searchParams.get('to') ?? '';
+  const minKm = searchParams.get('minKm') ?? '';
+  const maxKm = searchParams.get('maxKm') ?? '';
+  const similar = searchParams.get('similar') === '1';
+  const [pickerOpen, setPickerOpen] = useState(!aId || !bId);
+  // Search box is applied on enter/blur so typing doesn't fire a query per key.
+  const [qDraft, setQDraft] = useState(q);
 
   const setParam = (key: string, value: string) => {
     setSearchParams((prev) => {
@@ -132,11 +145,6 @@ export default function Compare() {
   };
 
   const types = useQuery({ queryKey: ['activity-types'], queryFn: fetchActivityTypes });
-  const list = useQuery({
-    queryKey: ['compare-activities', type],
-    queryFn: () =>
-      fetchActivities({ type: type || undefined, sort: 'start_time', order: 'desc', limit: 200 }),
-  });
 
   const a = useQuery({ queryKey: ['activity', aId], queryFn: () => fetchActivity(aId), enabled: !!aId });
   const b = useQuery({ queryKey: ['activity', bId], queryFn: () => fetchActivity(bId), enabled: !!bId });
@@ -150,6 +158,39 @@ export default function Compare() {
     queryFn: () => fetchActivitySamples(bId),
     enabled: !!bId,
   });
+
+  // "Similar to A" narrows the picker list to ±10% of A's distance.
+  const simBand =
+    similar && a.data?.distanceM
+      ? {
+          minKm: +((a.data.distanceM / 1000) * 0.9).toFixed(2),
+          maxKm: +((a.data.distanceM / 1000) * 1.1).toFixed(2),
+        }
+      : null;
+
+  const list = useQuery({
+    queryKey: ['compare-activities', { type, q, from, to, minKm, maxKm, simBand }],
+    queryFn: () =>
+      fetchActivities({
+        type: type || undefined,
+        q: q || undefined,
+        from: from || undefined,
+        to: to || undefined,
+        minKm: simBand ? simBand.minKm : minKm ? Number(minKm) : undefined,
+        maxKm: simBand ? simBand.maxKm : maxKm ? Number(maxKm) : undefined,
+        sort: 'start_time',
+        order: 'desc',
+        limit: 200,
+      }),
+    placeholderData: (prev) => prev,
+    enabled: pickerOpen,
+  });
+
+  const pick = (slot: 'a' | 'b', id: string) => {
+    setParam(slot, id);
+    const other = slot === 'a' ? bId : aId;
+    if (other) setPickerOpen(false);
+  };
 
   const charts = useMemo(() => {
     if (!a.data || !b.data) return null;
@@ -188,33 +229,124 @@ export default function Compare() {
     <>
       <h2>Compare activities</h2>
       <div className="controls">
-        <select value={type} onChange={(e) => setParam('type', e.target.value)}>
-          <option value="">all types</option>
-          {buildTypeOptions(types.data).map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select value={aId} onChange={(e) => setParam('a', e.target.value)}>
-          <option value="">select run A…</option>
-          {(list.data?.items ?? []).map((item) => (
-            <option key={item.activityId} value={item.activityId}>
-              {optionLabel(item)}
-            </option>
-          ))}
-        </select>
-        <select value={bId} onChange={(e) => setParam('b', e.target.value)}>
-          <option value="">select run B…</option>
-          {(list.data?.items ?? []).map((item) => (
-            <option key={item.activityId} value={item.activityId}>
-              {optionLabel(item)}
-            </option>
-          ))}
-        </select>
+        <span style={{ color: A_COLOR }}>A: {pickLabel(a.data, 'not picked')}</span>
+        <span style={{ color: B_COLOR }}>B: {pickLabel(b.data, 'not picked')}</span>
+        <button onClick={() => setPickerOpen((v) => !v)}>
+          {pickerOpen ? 'hide picker' : 'change…'}
+        </button>
       </div>
 
-      {(!aId || !bId) && <p className="status">Pick two activities to compare (latest 200 shown).</p>}
+      {pickerOpen && (
+        <>
+          <div className="controls">
+            <select value={type} onChange={(e) => setParam('type', e.target.value)}>
+              <option value="">all types</option>
+              {buildTypeOptions(types.data).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <input
+              placeholder="search name…"
+              value={qDraft}
+              onChange={(e) => setQDraft(e.target.value)}
+              onBlur={() => setParam('q', qDraft)}
+              onKeyDown={(e) => e.key === 'Enter' && setParam('q', qDraft)}
+            />
+            <label>
+              from <input type="date" value={from} onChange={(e) => setParam('from', e.target.value)} />
+            </label>
+            <label>
+              to <input type="date" value={to} onChange={(e) => setParam('to', e.target.value)} />
+            </label>
+            <label>
+              min km{' '}
+              <input
+                type="number"
+                min={0}
+                style={{ width: 60 }}
+                value={minKm}
+                disabled={similar}
+                onChange={(e) => setParam('minKm', e.target.value)}
+              />
+            </label>
+            <label>
+              max km{' '}
+              <input
+                type="number"
+                min={0}
+                style={{ width: 60 }}
+                value={maxKm}
+                disabled={similar}
+                onChange={(e) => setParam('maxKm', e.target.value)}
+              />
+            </label>
+            {aId && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={similar}
+                  onChange={(e) => setParam('similar', e.target.checked ? '1' : '')}
+                />{' '}
+                similar distance to A (±10%)
+              </label>
+            )}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>pick</th>
+                <th>date</th>
+                <th>name</th>
+                <th>distance</th>
+                <th>pace</th>
+                <th>avg HR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(list.data?.items ?? []).map((item) => (
+                <tr key={item.activityId}>
+                  <td>
+                    <button
+                      onClick={() => pick('a', item.activityId)}
+                      style={item.activityId === aId ? { color: A_COLOR, fontWeight: 700 } : undefined}
+                    >
+                      A
+                    </button>{' '}
+                    <button
+                      onClick={() => pick('b', item.activityId)}
+                      style={item.activityId === bId ? { color: B_COLOR, fontWeight: 700 } : undefined}
+                    >
+                      B
+                    </button>
+                  </td>
+                  <td>{formatDateTime(item.startTimeLocal)}</td>
+                  <td>
+                    <Link to={`/activities/${item.activityId}`}>{item.name ?? '(unnamed)'}</Link>
+                  </td>
+                  <td className="num">{item.distanceM ? formatKm(item.distanceM) : '—'}</td>
+                  <td className="num">{formatPace(item.avgSpeedMps)}</td>
+                  <td className="num">{formatNumber(item.avgHr, ' bpm')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.data && list.data.total > list.data.items.length && (
+            <p className="status">
+              Showing latest {list.data.items.length} of {list.data.total} — narrow the filters to
+              find older activities.
+            </p>
+          )}
+          {list.data && list.data.items.length === 0 && (
+            <p className="status">No activities match these filters.</p>
+          )}
+        </>
+      )}
+
+      {(!aId || !bId) && !pickerOpen && (
+        <p className="status">Pick two activities to compare.</p>
+      )}
       {(a.error || b.error) && (
         <p className="status">Failed to load: {((a.error ?? b.error) as Error).message}</p>
       )}

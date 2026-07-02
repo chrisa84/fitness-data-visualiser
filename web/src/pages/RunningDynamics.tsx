@@ -94,20 +94,11 @@ function buildScatterOption(
 
 export default function RunningDynamics() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { from, to, granularity, setParam } = useChartRange('week');
-  const type = searchParams.get('type') ?? activityGroupOptionValue('running');
+  const { from, to, granularity, type, setParam, setType } =
+    useChartRange('week', activityGroupOptionValue('running'));
   const view = searchParams.get('view') === 'scatter' ? 'scatter' : 'trends';
   const metric =
     SCATTER_METRICS.find((m) => m.field === searchParams.get('metric')) ?? SCATTER_METRICS[0]!;
-
-  // Type has a non-empty default, so an explicit choice (incl. all) is stored.
-  const setType = (value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('type', value);
-      return next;
-    });
-  };
 
   const types = useQuery({ queryKey: ['activity-types'], queryFn: fetchActivityTypes });
   const { data, isPending, error } = useQuery({

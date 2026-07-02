@@ -213,7 +213,7 @@ to an open range.
 | ------ | ----------------------------- | ------------------------------------------------------------------- |
 | GET    | `/api/health`                 | Liveness + `daily_summary` row count.                               |
 | GET    | `/api/daily-health`           | Resting HR, steps, stress, sleep, HRV, body battery, intensity.     |
-| GET    | `/api/activities`             | Filtered/sorted/paginated activity list (`type`, `q`, `sort`, …).   |
+| GET    | `/api/activities`             | Filtered/sorted/paginated activity list (`type`, `q`, `minKm`, `maxKm`, `sort`, …). |
 | GET    | `/api/activity-types`         | Distinct activity types with counts.                                |
 | GET    | `/api/activities/:id`         | Full activity detail + splits.                                      |
 | GET    | `/api/activity-volume`        | Count/distance/duration/elevation aggregated per bucket.            |
@@ -259,8 +259,9 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Activities** — filterable, sortable, paginated list → activity detail with
   splits, HR zones, running dynamics, and an on-demand AI analysis (optional
   free-text question, model from the Analysis AI role).
-- **Compare** — pick any two activities: stat-diff table plus pace and HR
-  overlays by distance.
+- **Compare** — pick any two activities from a filterable table (name search,
+  date range, distance range, or "similar distance to A"): stat-diff table plus
+  pace and HR overlays by distance.
 - **Volume** — distance/duration/elevation/count over time by type/group.
 - **Performance** — VO2max, training load + ACWR (risk zones shaded), the
   Form/PMC chart (fitness − fatigue), readiness and its factor breakdown,
