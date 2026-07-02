@@ -1,3 +1,12 @@
+/**
+ * App version — the single source of truth, imported by both server and web
+ * (no runtime package.json reads, so it survives the Docker bundle). Scheme:
+ * 0.<phase>.<patch> — the minor tracks the PLAN.md phase that shipped, the
+ * patch is for fixes between phases. Bump this and add a CHANGELOG.md entry
+ * with every user-visible change.
+ */
+export const APP_VERSION = '0.19.0';
+
 export type Granularity = 'day' | 'week' | 'month' | 'year';
 
 export const GRANULARITIES: readonly Granularity[] = ['day', 'week', 'month', 'year'];

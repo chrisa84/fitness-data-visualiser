@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AiRoleSettings, AiSettings } from '@fitness/shared';
+import { APP_VERSION, type AiRoleSettings, type AiSettings } from '@fitness/shared';
 import { useEffect, useState } from 'react';
 import { fetchAiSettings, updateAiSettings } from '../api';
 
@@ -89,6 +89,9 @@ export default function Settings() {
         {save.isSuccess && <span className="status">Saved.</span>}
         {save.error && <span className="status">Failed to save: {(save.error as Error).message}</span>}
       </div>
+      <p className="status" style={{ marginTop: '2rem' }}>
+        Fitness Data Visualiser v{APP_VERSION}
+      </p>
     </>
   );
 }

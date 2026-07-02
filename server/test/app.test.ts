@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { APP_VERSION } from '@fitness/shared';
 import { buildApp } from '../src/app.js';
 import { createTestDb, createTrainingPlanAutofillDb } from './fixtures.js';
 
@@ -16,7 +17,7 @@ describe('GET /api/health', () => {
     app = buildApp({ dbPath: createTestDb(seed) });
     const res = await app.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ status: 'ok', dailySummaryRows: 1 });
+    expect(res.json()).toEqual({ status: 'ok', version: APP_VERSION, dailySummaryRows: 1 });
   });
 });
 

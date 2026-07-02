@@ -3,6 +3,7 @@ import fastifyCompress from '@fastify/compress';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import OpenAI from 'openai';
+import { APP_VERSION } from '@fitness/shared';
 import { openDb, openEventsDb } from './db.js';
 import type { CompletionClient } from './ai/chat.js';
 import { registerActivityAnalysisRoutes } from './routes/activityAnalysis.js';
@@ -101,7 +102,7 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
 
   app.get('/api/health', async () => {
     const row = db.prepare('SELECT COUNT(*) AS n FROM daily_summary').get() as { n: number };
-    return { status: 'ok', dailySummaryRows: row.n };
+    return { status: 'ok', version: APP_VERSION, dailySummaryRows: row.n };
   });
 
   // Runtime config — lets the client pick up secrets that can't be baked in at build time.

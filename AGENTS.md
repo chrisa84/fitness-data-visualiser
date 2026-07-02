@@ -35,6 +35,12 @@ stated:
 7. **Commits: terse one-line messages** (e.g. `add records page`,
    `fix volume filter`). Do **not** reference AI/Claude in commit messages, PR
    descriptions, code, or docs.
+8. **Every user-visible change bumps the version and gets a CHANGELOG entry.**
+   `APP_VERSION` in `shared/src/index.ts` is the single source of truth
+   (surfaced on the Settings page and `/api/health`); the scheme is
+   `0.<phase>.<patch>` — minor tracks the PLAN.md phase, patch for fixes
+   between phases. Add the matching entry to [CHANGELOG.md](CHANGELOG.md) in
+   the same commit. Internal-only refactors don't need a bump.
 
 ## Architecture in one breath
 
