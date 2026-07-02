@@ -30,8 +30,8 @@ export function runReadOnlySql(db: Database, query: string): unknown {
     throw new Error('only SELECT / WITH queries are allowed');
   }
   const rows = db.prepare(trimmed).all() as unknown[];
-  if (rows.length > 1000) {
-    return { truncated: true, rowCount: rows.length, rows: rows.slice(0, 1000) };
+  if (rows.length > 200) {
+    return { truncated: true, rowCount: rows.length, rows: rows.slice(0, 200) };
   }
   return { rowCount: rows.length, rows };
 }
@@ -170,7 +170,7 @@ export const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: 'run_sql',
       description:
-        'Run a single read-only SELECT/WITH query against the Garmin SQLite database for anything the other tools cannot express. Tables include activity, daily_summary, sleep, hrv, training_status, training_readiness, race_predictions, etc.',
+        'Run a single read-only SELECT/WITH query against the Garmin SQLite database for anything the other tools cannot express. Tables include activity, daily_summary, sleep, hrv, training_status, training_readiness, race_predictions, etc. Results are truncated to 200 rows — aggregate or LIMIT in the query rather than selecting raw rows.',
       parameters: {
         type: 'object',
         properties: { query: { type: 'string', description: 'a single SELECT or WITH statement' } },
