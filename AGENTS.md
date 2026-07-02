@@ -141,12 +141,13 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
 - **The AI layer is optional.** Without `OPENROUTER_API_KEY`, `/api/chat` returns
   503 and the Chat tab shows a setup hint; everything else must keep working.
 - **The AI model is user-configurable, not an env var.** `visualiser-events.db`
-  holds a single-row `ai_settings` table (Question AI / Plan AI roles, up to 3
-  candidate model strings each, one active) managed via
+  holds a single-row `ai_settings` table (Question AI / Plan AI / Analysis AI
+  roles, up to 3 candidate model strings each, one active) managed via
   `repositories/aiSettings.ts` / `GET`+`PUT /api/ai-settings` / the Settings
   page. `routes/chat.ts` reads the active Question AI model per-request via
-  `getAiSettings` — don't reintroduce a boot-time model constant. Plan AI's
-  first (and so far only) consumer is the training-plan generator (Phase 14).
+  `getAiSettings` — don't reintroduce a boot-time model constant. Plan AI powers
+  the training-plan generator (Phase 14); Analysis AI powers the per-activity
+  analysis (`routes/activityAnalysis.ts`).
 - **Training plans: one active at a time, and `workout_type` is a closed
   enum.** `createTrainingPlan` (`repositories/trainingPlans.ts`) throws
   `ActivePlanExistsError` (→ `409`) if `getActiveTrainingPlan` already returns

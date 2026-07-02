@@ -184,7 +184,7 @@ server/src/
     metrics.ts                 metric-catalog series (only joins needed tables)
     records.ts                 personal records derived from the activity table
     events.ts                  CRUD against the writable events DB
-    aiSettings.ts               Question AI / Plan AI model selection (writable DB)
+    aiSettings.ts               Question AI / Plan AI / Analysis AI model selection (writable DB)
     trainingPlans.ts            Training plan + workout CRUD (writable DB)
     trainingPlanAutofill.ts     Fitness summary for plan generation (no AI, plain queries)
   schemas/
@@ -221,6 +221,8 @@ to an open range.
 | GET    | `/api/intensity-distribution` | Seconds in each HR zone, summed per bucket.                         |
 | GET    | `/api/running-dynamics`       | Running-form metrics (GCT, balance, oscillation, stride, …) per bucket. |
 | GET    | `/api/efficiency`             | Effort-adjusted efficiency: EF (speed/HR) and pace within an HR band.   |
+| GET    | `/api/form-vs-pace`           | Per-activity form metrics vs average speed, for the form-vs-pace scatter. |
+| POST   | `/api/activities/:id/analyze` | AI analysis of one activity (optional question + model override). 503 if no API key. |
 | GET    | `/api/training-load`          | Weekly training monotony & strain (Foster), rest days as zero.          |
 | GET    | `/api/metrics`                | Multi-metric series from the catalog (`keys=a,b,c`, max 8).         |
 | GET    | `/api/records`                | Derived personal records.                                           |
@@ -233,7 +235,7 @@ to an open range.
 | GET    | `/api/chat/conversations`     | List saved conversations, most-recently-updated first.              |
 | GET    | `/api/chat/conversations/:id` | One conversation with its messages.                                 |
 | DELETE | `/api/chat/conversations/:id` | Delete a saved conversation. (writable DB)                          |
-| GET    | `/api/ai-settings`            | Question AI / Plan AI model options and the active selection.       |
+| GET    | `/api/ai-settings`            | Question AI / Plan AI / Analysis AI model options and the active selection. |
 | PUT    | `/api/ai-settings`            | Update model options/selection. (writable DB)                       |
 | GET    | `/api/training-plans`         | List training plans, optionally filtered by `status`. (writable DB) |
 | GET    | `/api/training-plans/active`  | The active plan + its workouts, 404 if none. (writable DB)          |
@@ -255,7 +257,10 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Dashboard** — health & recovery overview; 8 charts, each individually
   toggleable (persisted in the `?hidden=` URL param); life events overlaid.
 - **Activities** — filterable, sortable, paginated list → activity detail with
-  splits, HR zones, running dynamics.
+  splits, HR zones, running dynamics, and an on-demand AI analysis (optional
+  free-text question, model from the Analysis AI role).
+- **Compare** — pick any two activities: stat-diff table plus pace and HR
+  overlays by distance.
 - **Volume** — distance/duration/elevation/count over time by type/group.
 - **Performance** — VO2max, training load + ACWR (risk zones shaded), the
   Form/PMC chart (fitness − fatigue), readiness and its factor breakdown,
@@ -264,9 +269,11 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Intensity** — HR-zone stacked bars (hours or %) by type/group.
 - **Dynamics** — running-form trends (ground contact time, L/R balance, vertical
   oscillation/ratio, stride length, cadence, power), averaged per bucket, by
-  type/group.
+  type/group; plus a form-vs-pace scatter view (one point per activity, coloured
+  by year) for judging form at a given speed over time.
 - **Efficiency** — effort-adjusted fitness: efficiency factor (speed per
-  heartbeat) and pace within a chosen HR band, trended over time.
+  heartbeat, runs ≥ 3 km only) and pace within a chosen HR band, trended over
+  time; outlier clipping is a toggle, with clipped points pinned to the axis edge.
 - **Load** — weekly training monotony & strain (Foster): weekly load, monotony
   (sameness of daily load), and strain, with rest days counted as zero.
 - **Analysis** — overlay (up to 5 normalised metrics), compare (one metric across
@@ -278,8 +285,9 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Training** — set a goal, dates, and days/week (optionally autofilled from
   your own data); AI-generates a plan, previewed and editable before saving;
   active plan shown as a per-week checklist; past (ended) plans stay browsable.
-- **Settings** — pick the active OpenRouter model for Question AI (Chat) and
-  Plan AI (Training page), each with up to 3 editable candidate model strings.
+- **Settings** — pick the active OpenRouter model for Question AI (Chat),
+  Plan AI (Training page), and Analysis AI (activity detail), each with up to 3
+  editable candidate model strings.
 
 ## AI query layer
 
