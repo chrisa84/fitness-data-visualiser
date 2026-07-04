@@ -13,6 +13,7 @@ import { getPerformanceSeries } from '../repositories/performance.js';
 import { getRecords } from '../repositories/records.js';
 import { getRunningDynamics } from '../repositories/runningDynamics.js';
 import { getTrainingLoadStrain } from '../repositories/trainingLoad.js';
+import { localToday } from '../dates.js';
 
 export interface ToolContext {
   db: Database; // read-only Garmin database
@@ -29,11 +30,19 @@ export function runReadOnlySql(db: Database, query: string): unknown {
   if (!/^(select|with)\b/i.test(trimmed)) {
     throw new Error('only SELECT / WITH queries are allowed');
   }
-  const rows = db.prepare(trimmed).all() as unknown[];
-  if (rows.length > 200) {
-    return { truncated: true, rowCount: rows.length, rows: rows.slice(0, 200) };
+  // Stream rows and stop at the cap instead of .all(): the model writes these
+  // queries, and materialising a runaway result set (per-minute tables span
+  // years) on this synchronous connection would block the whole event loop.
+  const rows: unknown[] = [];
+  let truncated = false;
+  for (const row of db.prepare(trimmed).iterate()) {
+    if (rows.length >= 200) {
+      truncated = true;
+      break;
+    }
+    rows.push(row);
   }
-  return { rowCount: rows.length, rows };
+  return truncated ? { truncated: true, rows } : { rowCount: rows.length, rows };
 }
 
 export const TOOL_DEFINITIONS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
@@ -246,7 +255,7 @@ export function executeTool(name: string, args: Args, ctx: ToolContext): unknown
     case 'list_events':
       return listEvents(ctx.eventsDb, args.from as string | undefined, args.to as string | undefined);
     case 'get_intraday':
-      return getIntraday(ctx.db, (args.date as string) ?? new Date().toISOString().slice(0, 10));
+      return getIntraday(ctx.db, (args.date as string) ?? localToday());
     case 'run_sql':
       return runReadOnlySql(ctx.db, String(args.query ?? ''));
     default:

@@ -1,6 +1,7 @@
 import type OpenAI from 'openai';
 import { METRIC_CATALOG } from '@fitness/shared';
 import { TOOL_DEFINITIONS, executeTool, type ToolContext } from './tools.js';
+import { localToday } from '../dates.js';
 
 const MAX_STEPS = 8;
 
@@ -56,7 +57,7 @@ export async function runChat(opts: {
   /** Short description of the screen/filters the user is viewing (a hint). */
   context?: string;
 }): Promise<ChatResult> {
-  const today = opts.today ?? new Date().toISOString().slice(0, 10);
+  const today = opts.today ?? localToday();
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt(today, opts.context) },
     ...opts.messages,

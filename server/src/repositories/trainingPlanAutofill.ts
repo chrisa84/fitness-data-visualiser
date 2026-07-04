@@ -8,6 +8,7 @@ import {
 } from '@fitness/shared';
 import { getActivityVolume, typeFilterClause } from './activities.js';
 import { getPerformanceSeries } from './performance.js';
+import { localToday } from '../dates.js';
 
 const LOOKBACK_WEEKS = 12;
 const COMPLETE_WEEKS = 6;
@@ -155,7 +156,7 @@ function getRepresentativeRuns(
  * rows. Costs zero AI tokens; this is plain SQL.
  */
 export function getTrainingPlanAutofill(db: Database, today?: string): TrainingPlanAutofill {
-  const to = today ?? new Date().toISOString().slice(0, 10);
+  const to = today ?? localToday();
   const from = daysBefore(to, LOOKBACK_WEEKS * 7);
 
   const runningTypes = resolveActivityTypeFilter('group:running');

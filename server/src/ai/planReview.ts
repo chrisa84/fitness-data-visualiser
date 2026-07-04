@@ -14,6 +14,7 @@ import { daysBeforeISO, mmss, round1, PLAN_DATA_TOOLS } from './planGeneration.j
 import { executeTool, type ToolContext } from './tools.js';
 import { aiProposedPlanAdjustmentSchema } from '../schemas/trainingPlan.js';
 import { assertMergedWorkoutValid, WorkoutValidationError } from '../repositories/trainingPlans.js';
+import { localToday } from '../dates.js';
 
 const MAX_STEPS = 8;
 const ISO_DATE = { type: 'string', description: 'date as YYYY-MM-DD' } as const;
@@ -290,7 +291,7 @@ export async function reviewPlan(opts: {
   isRace: boolean;
   notes?: string;
 }): Promise<AiProposedPlanAdjustment> {
-  const today = opts.today ?? new Date().toISOString().slice(0, 10);
+  const today = opts.today ?? localToday();
   const tools = [...PLAN_DATA_TOOLS, PROPOSE_PLAN_ADJUSTMENT_TOOL];
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt(today, opts.summary, opts.isRace, opts.notes) },

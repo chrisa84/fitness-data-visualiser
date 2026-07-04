@@ -11,6 +11,7 @@ import { getTrainingPlanAutofill } from '../repositories/trainingPlanAutofill.js
 import { applyPlanReview } from '../repositories/trainingPlanReview.js';
 import { applyPlanReviewBody, generateTrainingPlanBody, reviewPlanBody, reviseTrainingPlanBody } from '../schemas/trainingPlan.js';
 import { badRequest } from './validation.js';
+import { localToday } from '../dates.js';
 
 export interface TrainingPlanGenerationRouteOptions {
   client: CompletionClient | null;
@@ -175,7 +176,7 @@ export function registerTrainingPlanGenerationRoutes(
     if (!parsed.success) return badRequest(reply, parsed.error);
     const input = parsed.data;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const { scopeStart, scopeEnd } = computeReviewScope(input.scope, today, plan.endDate);
     const workouts = listWorkouts(opts.eventsDb, id);
     const inScopeWorkouts = workouts.filter((w) => w.completedAt == null && w.date >= scopeStart && w.date <= scopeEnd);
@@ -221,7 +222,7 @@ export function registerTrainingPlanGenerationRoutes(
       return reply.code(400).send({ error: 'nothing_to_apply', message: 'no changes were selected' });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     // A prior review scoped the proposal, but by apply time we don't know which scope
     // was used — re-derive the widest possible bound (remaining plan) so a still-valid
     // change from a since-widened plan isn't rejected on a stale narrower window.

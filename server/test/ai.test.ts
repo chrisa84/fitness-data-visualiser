@@ -35,6 +35,16 @@ describe('runReadOnlySql', () => {
     const result = runReadOnlySql(db, 'WITH t AS (SELECT 1 AS x) SELECT x FROM t') as { rows: unknown[] };
     expect(result.rows).toHaveLength(1);
   });
+
+  it('stops at 200 rows and marks the result truncated', () => {
+    const db = openDb(createRecordsDb(activities));
+    const result = runReadOnlySql(
+      db,
+      'WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 500) SELECT x FROM c',
+    ) as { truncated?: boolean; rows: unknown[] };
+    expect(result.truncated).toBe(true);
+    expect(result.rows).toHaveLength(200);
+  });
 });
 
 describe('executeTool', () => {
