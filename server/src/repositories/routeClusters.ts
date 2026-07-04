@@ -1,7 +1,7 @@
 import type { Database } from 'better-sqlite3';
 import type { RouteClusterDetail, RouteClusterEffort, RouteClusterSummary } from '@fitness/shared';
 import { decodePolyline, symmetricTrackDistanceM } from '../geo.js';
-import { listPendingActivityIds, type GeometryBackfill } from './routeGeometry.js';
+import { activityFingerprint, listPendingActivityIds, type GeometryBackfill } from './routeGeometry.js';
 
 /**
  * Repeated-route detection (Phase 19), built on the route_geometry cache.
@@ -106,14 +106,16 @@ export function matchActivityIntoCluster(db: Database, eventsDb: Database, activ
     }
   }
 
-  const inserted = eventsDb
-    .prepare(
-      'INSERT INTO route_cluster (medoid_activity_id, start_lat, start_lon, distance_m, created_at) VALUES (?, ?, ?, ?, ?)',
-    )
-    .run(activityId, geom.start_lat, geom.start_lon, distanceM, now);
-  eventsDb
-    .prepare('INSERT OR IGNORE INTO route_cluster_member (activity_id, cluster_id, created_at) VALUES (?, ?, ?)')
-    .run(activityId, inserted.lastInsertRowid, now);
+  eventsDb.transaction(() => {
+    const inserted = eventsDb
+      .prepare(
+        'INSERT INTO route_cluster (medoid_activity_id, start_lat, start_lon, distance_m, created_at) VALUES (?, ?, ?, ?, ?)',
+      )
+      .run(activityId, geom.start_lat, geom.start_lon, distanceM, now);
+    eventsDb
+      .prepare('INSERT OR IGNORE INTO route_cluster_member (activity_id, cluster_id, created_at) VALUES (?, ?, ?)')
+      .run(activityId, inserted.lastInsertRowid, now);
+  })();
 }
 
 interface MemberMeta {
@@ -135,17 +137,20 @@ function loadMembers(db: Database, eventsDb: Database, clusterId?: number): Map<
           .prepare('SELECT cluster_id AS clusterId, activity_id AS id FROM route_cluster_member WHERE cluster_id = ?')
           .all(clusterId)
   ) as { clusterId: number; id: string }[];
-  const meta = new Map(
-    (
-      db
-        .prepare(
-          `SELECT activity_id AS id, name, type, start_time_local AS start, distance_m AS distanceM,
+  // A single cluster has few members — fetch just those; the all-clusters
+  // case covers (nearly) every tracked activity, so the whole table is right.
+  const metaSelect = `SELECT activity_id AS id, name, type, start_time_local AS start, distance_m AS distanceM,
                   duration_s AS durationS, avg_hr AS avgHr, avg_speed_mps AS avgSpeedMps
-           FROM activity`,
-        )
-        .all() as MemberMeta[]
-    ).map((r) => [r.id, r]),
-  );
+           FROM activity`;
+  const metaRows =
+    clusterId == null
+      ? (db.prepare(metaSelect).all() as MemberMeta[])
+      : memberRows.length === 0
+        ? []
+        : (db
+            .prepare(`${metaSelect} WHERE activity_id IN (${memberRows.map(() => '?').join(',')})`)
+            .all(...memberRows.map((m) => m.id)) as MemberMeta[]);
+  const meta = new Map(metaRows.map((r) => [r.id, r]));
   const byCluster = new Map<number, MemberMeta[]>();
   for (const m of memberRows) {
     const a = meta.get(m.id);
@@ -277,6 +282,8 @@ export interface ClusterBackfillStatus {
 export class ClusterBackfill {
   private current: Promise<void> | null = null;
   private stopped = false;
+  /** Activity-table fingerprint for which the pending scans came back empty. */
+  private settledFor: string | null = null;
 
   constructor(
     private readonly db: Database,
@@ -300,12 +307,19 @@ export class ClusterBackfill {
     if (this.current) return this.current;
     // Steady-state short-circuit, checked synchronously so status() right after
     // this call reports running=false when there is genuinely nothing to do.
+    // Fingerprint-cached: once the scans find nothing, don't rescan until the
+    // Garmin data changes (or the process restarts — which is also what picks
+    // up externally wiped cluster tables).
+    const fingerprint = activityFingerprint(this.db);
+    if (this.settledFor === fingerprint) return Promise.resolve();
     if (
       listPendingActivityIds(this.db, this.eventsDb).length === 0 &&
       listPendingClusterActivityIds(this.db, this.eventsDb).length === 0
     ) {
+      this.settledFor = fingerprint;
       return Promise.resolve();
     }
+    this.settledFor = null;
     this.current = this.run().finally(() => {
       this.current = null;
     });

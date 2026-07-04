@@ -13,6 +13,21 @@ const SIMPLIFY_TOLERANCE_M = 15;
 const MAX_POINTS = 100;
 
 /**
+ * Cheap change-detection key for "could there be new geometry work?": the
+ * activity table's count + newest start time, plus activity_sample's max
+ * rowid (an O(1) b-tree lookup) so per-sample GPS backfilled onto an
+ * *existing* activity is also seen. Lets the backfills skip the full pending
+ * scan on every steady-state request.
+ */
+export function activityFingerprint(db: Database): string {
+  const a = db
+    .prepare('SELECT COUNT(*) AS n, MAX(start_time_local) AS m FROM activity')
+    .get() as { n: number; m: string | null };
+  const s = db.prepare('SELECT MAX(rowid) AS r FROM activity_sample').get() as { r: number | null };
+  return `${a.n}|${a.m ?? ''}|${s.r ?? 0}`;
+}
+
+/**
  * Activity ids needing geometry work, oldest first: activities with no
  * route_geometry row yet, plus point_count-0 rows whose activity has since
  * gained GPS samples (the sync app backfills per-sample data over time).
@@ -119,6 +134,8 @@ export interface GeometryBackfillStatus {
 export class GeometryBackfill {
   private current: Promise<void> | null = null;
   private stopped = false;
+  /** Activity-table fingerprint for which the pending scan came back empty. */
+  private settledFor: string | null = null;
 
   constructor(
     private readonly db: Database,
@@ -135,8 +152,17 @@ export class GeometryBackfill {
   /** Kicks the backfill if it isn't already running. Never rejects. */
   ensureStarted(): Promise<void> {
     if (this.current) return this.current;
+    // Steady-state short-circuit: once a scan finds nothing pending, don't
+    // rescan until the activity table changes (or the process restarts —
+    // which is also what picks up an externally wiped route_geometry table).
+    const fingerprint = activityFingerprint(this.db);
+    if (this.settledFor === fingerprint) return Promise.resolve();
     const pending = listPendingActivityIds(this.db, this.eventsDb);
-    if (pending.length === 0) return Promise.resolve();
+    if (pending.length === 0) {
+      this.settledFor = fingerprint;
+      return Promise.resolve();
+    }
+    this.settledFor = null;
     this.current = this.run(pending).finally(() => {
       this.current = null;
     });

@@ -14,11 +14,17 @@ export function registerHeatmapRoutes(app: FastifyInstance, opts: HeatmapRouteOp
   app.get('/api/heatmap', async (request, reply) => {
     void opts.backfill.ensureStarted();
     const status = opts.backfill.status();
-    const entries = listHeatmapEntries(opts.db, opts.eventsDb);
-    const etag = `"hm-${status.total}-${status.processed}-${entries.length}"`;
+    // ETag from cheap counts, checked BEFORE building the payload, so a 304
+    // costs two COUNT queries instead of assembling every polyline.
+    const drawable = (
+      opts.eventsDb.prepare('SELECT COUNT(*) AS n FROM route_geometry WHERE point_count >= 2').get() as {
+        n: number;
+      }
+    ).n;
+    const etag = `"hm-${status.total}-${status.processed}-${drawable}"`;
     if (request.headers['if-none-match'] === etag) return reply.code(304).send();
     reply.header('etag', etag);
-    return { ready: status.processed >= status.total, entries };
+    return { ready: status.processed >= status.total, entries: listHeatmapEntries(opts.db, opts.eventsDb) };
   });
 
   app.get('/api/heatmap/status', async () => {
