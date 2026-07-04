@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from './api';
 
 interface Config { stadiaApiKey: string; }
 
 async function fetchConfig(): Promise<Config> {
   try {
-    const res = await fetch('/api/config');
+    const res = await apiFetch('/api/config');
     if (!res.ok) return { stadiaApiKey: '' };
     return res.json() as Promise<Config>;
   } catch { return { stadiaApiKey: '' }; }

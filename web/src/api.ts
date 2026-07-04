@@ -69,7 +69,7 @@ function handleAuthExpired(): never {
   throw new Error('Session expired — signing in again.');
 }
 
-async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (!headers.has('Accept')) headers.set('Accept', 'application/json');
   const res = await fetch(input, { ...init, headers });

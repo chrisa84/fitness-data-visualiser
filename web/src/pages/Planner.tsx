@@ -6,7 +6,7 @@ import { useConfig } from '../useConfig';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { SavedRoute } from '@fitness/shared';
-import { fetchActivities, fetchRoutes, createSavedRoute, deleteSavedRoute } from '../api';
+import { apiFetch, fetchActivities, fetchRoutes, createSavedRoute, deleteSavedRoute } from '../api';
 import Chart from '../Chart';
 
 // ---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ async function fetchElevations(coords: LngLat[]): Promise<number[] | 'error'> {
   // proxied through /api/elevation to avoid CORS; opentopodata expects lat,lng order
   const locs = coords.map(([lng, lat]) => `${lat.toFixed(6)},${lng.toFixed(6)}`).join('|');
   try {
-    const res = await fetch(`${TOPO_API}?locations=${locs}`);
+    const res = await apiFetch(`${TOPO_API}?locations=${locs}`);
     if (!res.ok) {
       console.error('opentopodata HTTP error', res.status, await res.text().catch(() => ''));
       return 'error';
