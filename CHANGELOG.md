@@ -12,6 +12,13 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.19.1 — 2026-07-04
+
+- **Similar efforts on the activity page.** An activity on a repeated route
+  now shows a "Similar efforts" section — how many times the route has been
+  done, all efforts with the current one highlighted, and a link to the
+  route's detail page. New endpoint: `GET /api/activities/:id/route-cluster`.
+
 ## 0.19.0 — 2026-07-02
 
 - **Routes page (repeated route detection).** Activities that follow the same

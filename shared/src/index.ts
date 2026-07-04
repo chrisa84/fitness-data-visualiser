@@ -5,7 +5,7 @@
  * patch is for fixes between phases. Bump this and add a CHANGELOG.md entry
  * with every user-visible change.
  */
-export const APP_VERSION = '0.19.0';
+export const APP_VERSION = '0.19.1';
 
 export type Granularity = 'day' | 'week' | 'month' | 'year';
 
@@ -933,4 +933,15 @@ export interface RouteClusterDetail {
   distanceM: number | null;
   polyline: string;
   efforts: RouteClusterEffort[];
+}
+
+export interface ActivityRouteClusterResponse {
+  /** False while the initial matching backfill is still running. */
+  ready: boolean;
+  /**
+   * The repeated-route cluster this activity belongs to. Null when the
+   * activity has no usable track, isn't matched yet, or is the only effort
+   * on its route.
+   */
+  cluster: RouteClusterDetail | null;
 }

@@ -172,7 +172,11 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   `symmetricTrackDistanceM` ≤ 40 m against the cluster's representative
   (earliest member) only — don't "improve" it to compare against every
   member, that's the O(clusters) incremental-cost guarantee. Wiping the
-  cluster tables just triggers a re-match on next request.
+  cluster tables just triggers a re-match on next request. The per-activity
+  lookup (`GET /api/activities/:id/route-cluster`, the activity page's
+  "Similar efforts" section) answers `{ ready, cluster: null }` — never a
+  404 — for unknown, unmatched, no-GPS, and singleton-cluster activities
+  alike, so the section simply doesn't render; it kicks the same backfill.
 - **Training plans: one active at a time, and `workout_type` is a closed
   enum.** `createTrainingPlan` (`repositories/trainingPlans.ts`) throws
   `ActivePlanExistsError` (→ `409`) if `getActiveTrainingPlan` already returns

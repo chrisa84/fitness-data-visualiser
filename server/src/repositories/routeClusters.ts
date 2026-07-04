@@ -244,6 +244,24 @@ export function getRouteClusterDetail(db: Database, eventsDb: Database, id: numb
   };
 }
 
+/**
+ * The repeated-route cluster an activity belongs to, or null when the
+ * activity has no usable track, isn't matched yet, or its cluster is a
+ * singleton — same "2+ efforts" surfacing rule as the cluster list.
+ */
+export function getRouteClusterForActivity(
+  db: Database,
+  eventsDb: Database,
+  activityId: string,
+): RouteClusterDetail | null {
+  const member = eventsDb
+    .prepare('SELECT cluster_id AS id FROM route_cluster_member WHERE activity_id = ?')
+    .get(activityId) as { id: number } | undefined;
+  if (!member) return null;
+  const detail = getRouteClusterDetail(db, eventsDb, member.id);
+  return detail && detail.efforts.length >= 2 ? detail : null;
+}
+
 export interface ClusterBackfillStatus {
   total: number;
   processed: number;

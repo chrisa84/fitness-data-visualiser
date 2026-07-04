@@ -863,6 +863,15 @@ constant terrain. Builds directly on `route_geometry`. Shipped as designed:
   and EF-over-time charts, and an efforts table where ticking two efforts
   links straight into the existing Compare page (`/compare?a=&b=`).
 
+#### Phase 19.1 — Similar efforts on the activity page ✅
+
+Surface route-cluster membership from the activity's side, Strava-style:
+`GET /api/activities/:id/route-cluster` (kicks the same matching backfill;
+answers `{ ready, cluster }` with `cluster: null` for unknown/unmatched/
+singleton activities rather than 404) and a "Similar efforts" section on the
+activity page — effort count, the full efforts table with the current
+activity highlighted, and a link to the route's detail page.
+
 ### Parked (requires Garmin-Sync work first)
 
 Gear/shoe mileage, body composition (weight, W/kg, weight-adjusted EF need a

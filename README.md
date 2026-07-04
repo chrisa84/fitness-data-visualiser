@@ -233,6 +233,7 @@ to an open range.
 | GET    | `/api/route-clusters`         | Repeated routes (2+ efforts on the same track). Kicks the matching backfill. |
 | GET    | `/api/route-clusters/status`  | Route-matching backfill progress.                                   |
 | GET    | `/api/route-clusters/:id`     | One route cluster with its efforts (distance, duration, HR, speed). |
+| GET    | `/api/activities/:id/route-cluster` | The repeated-route cluster an activity belongs to (`cluster: null` if none). Kicks the matching backfill. |
 | GET    | `/api/events`                 | Life events overlapping an optional window.                        |
 | POST   | `/api/events`                 | Create an event. (writable DB)                                      |
 | PATCH  | `/api/events/:id`             | Update an event. (writable DB)                                      |
@@ -264,8 +265,9 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Dashboard** — health & recovery overview; 8 charts, each individually
   toggleable (persisted in the `?hidden=` URL param); life events overlaid.
 - **Activities** — filterable, sortable, paginated list → activity detail with
-  splits, HR zones, running dynamics, and an on-demand AI analysis (optional
-  free-text question, model from the Analysis AI role).
+  splits, HR zones, running dynamics, similar efforts (other activities on the
+  same route, linking to the Routes page), and an on-demand AI analysis
+  (optional free-text question, model from the Analysis AI role).
 - **Compare** — pick any two activities from a filterable table (name search,
   date range, distance range, or "similar distance to A"): stat-diff table plus
   pace and HR overlays by distance.
@@ -292,7 +294,8 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
   in the events DB by a lazy, throttled backfill.
 - **Routes** — repeated routes detected by geometric matching of the cached
   tracks; per-route effort history with pace/EF trends and one-click Compare
-  between two efforts.
+  between two efforts. Each activity on a repeated route also shows its
+  "Similar efforts" on the activity page itself.
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
 - **Chat** — natural-language questions answered via the AI query layer.

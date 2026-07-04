@@ -1,6 +1,7 @@
 import type {
   ActivityDetail,
   ActivityListResponse,
+  ActivityRouteClusterResponse,
   ActivitySample,
   ActivitySortKey,
   ActivityTypeCount,
@@ -215,6 +216,10 @@ export function fetchRouteClusterStatus() {
 
 export function fetchRouteClusterDetail(id: number) {
   return getJson<RouteClusterDetail>(`/api/route-clusters/${id}`);
+}
+
+export function fetchActivityRouteCluster(id: string) {
+  return getJson<ActivityRouteClusterResponse>(`/api/activities/${id}/route-cluster`);
 }
 
 export function fetchEvents(params?: { from?: string; to?: string }) {

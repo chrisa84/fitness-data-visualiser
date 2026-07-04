@@ -143,6 +143,33 @@ describe('route cluster endpoints', () => {
     }
   });
 
+  it('answers per-activity cluster lookups, null for singletons and no-GPS', async () => {
+    const { app } = buildFixtureApp();
+    try {
+      await app.inject({ url: '/api/activities/a1/route-cluster' }); // kicks the backfill too
+      await waitForMatching(app, 4);
+
+      const res = await app.inject({ url: '/api/activities/a1/route-cluster' });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as {
+        ready: boolean;
+        cluster: { id: number; name: string; efforts: { activityId: string }[] } | null;
+      };
+      expect(body.ready).toBe(true);
+      expect(body.cluster?.name).toBe('Park loop');
+      expect(body.cluster?.efforts.map((e) => e.activityId)).toEqual(['a1', 'a2']);
+
+      // Singleton cluster (unique route), no GPS, and unknown id all → null.
+      for (const id of ['c1', 'd1', 'nope']) {
+        const r = await app.inject({ url: `/api/activities/${id}/route-cluster` });
+        expect(r.statusCode).toBe(200);
+        expect((r.json() as { cluster: unknown }).cluster).toBeNull();
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects a bad cluster id and 404s an unknown one', async () => {
     const { app } = buildFixtureApp();
     try {

@@ -5,7 +5,13 @@ import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link, useParams } from 'react-router-dom';
-import { analyzeActivity, fetchActivity, fetchActivitySamples, fetchAiSettings } from '../api';
+import {
+  analyzeActivity,
+  fetchActivity,
+  fetchActivityRouteCluster,
+  fetchActivitySamples,
+  fetchAiSettings,
+} from '../api';
 import Chart from '../Chart';
 import { bucketAverage } from '../chartHelpers';
 import RouteMap from '../RouteMap';
@@ -387,6 +393,58 @@ function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
   );
 }
 
+function SimilarEfforts({ activityId }: { activityId: string }) {
+  const { data } = useQuery({
+    queryKey: ['activity-route-cluster', activityId],
+    queryFn: () => fetchActivityRouteCluster(activityId),
+    // Matching runs as a lazy backfill; poll until it settles, then stop.
+    refetchInterval: (query) => (query.state.data && !query.state.data.ready ? 2500 : false),
+  });
+  const cluster = data?.cluster;
+  if (!cluster) return null;
+  return (
+    <section>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
+        <h3 style={{ marginBottom: 0 }}>Similar efforts</h3>
+        <span className="status">
+          you've done this route {cluster.efforts.length} times ·{' '}
+          <Link to={`/routes/${cluster.id}`}>view route →</Link>
+        </span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left' }}>Date</th>
+            <th style={{ textAlign: 'left' }}>Activity</th>
+            <th className="num">Distance</th>
+            <th className="num">Duration</th>
+            <th className="num">Pace</th>
+            <th className="num">Avg HR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cluster.efforts.map((e) => (
+            <tr key={e.activityId} style={e.activityId === activityId ? { fontWeight: 600 } : undefined}>
+              <td>{e.date}</td>
+              <td>
+                {e.activityId === activityId ? (
+                  <>{e.name ?? e.activityId} (this activity)</>
+                ) : (
+                  <Link to={`/activities/${e.activityId}`}>{e.name ?? e.activityId}</Link>
+                )}
+              </td>
+              <td className="num">{e.distanceM != null ? formatKm(e.distanceM, 1) : '—'}</td>
+              <td className="num">{formatDuration(e.durationS)}</td>
+              <td className="num">{formatPace(e.avgSpeedMps)}</td>
+              <td className="num">{e.avgHr != null ? `${Math.round(e.avgHr)} bpm` : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function AiAnalysis({ activityId }: { activityId: string }) {
   const settings = useQuery({ queryKey: ['ai-settings'], queryFn: fetchAiSettings });
   const [question, setQuestion] = useState('');
@@ -534,6 +592,7 @@ export default function ActivityDetail() {
 
       <SamplesChart samples={samples} type={a.type} onHighlight={setHighlightedIdx} mapHoveredIdx={mapHoveredIdx} />
       <RouteMap samples={samples} highlightedSampleIdx={highlightedIdx} onMapHover={setMapHoveredIdx} />
+      <SimilarEfforts activityId={a.activityId} />
       <HrZones a={a} />
       <Splits a={a} />
       <AiAnalysis activityId={a.activityId} />
