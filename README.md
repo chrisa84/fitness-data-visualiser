@@ -308,11 +308,8 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 The Chat tab is powered by OpenRouter (OpenAI-compatible) via the `openai` SDK.
 It is **tool-use**, not text-to-SQL-by-default:
 
-1. The model receives the question plus a list of named tools (the repository
-   functions: `get_metric_series`, `list_activities`, `get_activity_volume`,
-   `get_performance_series`, `get_running_dynamics`, `get_efficiency`,
-   `get_training_load`, `get_records`, `list_events`) and one guarded escape
-   hatch, `run_sql`.
+1. The model receives the question plus a list of named tools (below), plus one
+   guarded escape hatch, `run_sql`.
 2. The model only _requests_ a tool by emitting JSON. The **server** executes the
    tool in-process against the local read-only database and feeds the JSON
    result back. This loop runs up to 8 steps, then the model answers.
@@ -320,10 +317,27 @@ It is **tool-use**, not text-to-SQL-by-default:
    small JSON results of tool calls are sent to OpenRouter, and only when the AI
    layer is enabled.
 
+### Tools (`server/src/ai/tools.ts`)
+
+| Tool | Returns |
+| --- | --- |
+| `get_metric_series` | Daily (or bucketed) values for one or more named health/training metrics, aligned by date. |
+| `list_activities` | Activities with optional type/date/text filters, sorted. Type may be a raw type or a group like `group:running`. |
+| `get_activity_volume` | Aggregated activity volume (count, distance, duration, elevation) per day/week/month/year, optionally filtered by type or group. |
+| `get_performance_series` | Daily performance metrics (VO2max, training load, ACWR, readiness, race predictions, lactate threshold, endurance/hill scores). |
+| `get_running_dynamics` | Running-form metrics (ground contact time, L/R balance, vertical oscillation/ratio, stride length, cadence, power) averaged per day/week/month/year. |
+| `get_efficiency` | Effort-adjusted running efficiency per day/week/month/year: efficiency factor (speed per heartbeat) and average pace within a heart-rate band (default 145-155). |
+| `get_training_load` | Weekly training monotony and strain (Foster): weekly load, monotony, strain. Rest days count as zero. |
+| `get_records` | Personal records derived from activities (fastest 1k/mile/5k, longest run/ride/activity, biggest climb, best VO2max). |
+| `list_events` | User-recorded life events (races, injuries, illness, medication, etc.) optionally overlapping a date window. |
+| `get_intraday` | Per-minute HR, per-~4-minute stress, per-15-minute step counts, and per-minute respiration for a single day. |
+| `run_sql` | Guarded escape hatch — a single read-only `SELECT`/`WITH` statement against the Garmin SQLite database, for anything the named tools can't express. |
+
 `run_sql` is deliberately constrained: a single statement, `SELECT`/`WITH` only,
-run on the read-only connection, with rows capped at 1000. It exists for
-questions the named tools can't express; the preferred path is to add a new named
-tool when a question shape recurs. Without `OPENROUTER_API_KEY` the whole layer
+run on the read-only connection, with rows capped at 200 (truncated results say
+so explicitly). It exists for questions the named tools can't express; the
+preferred path is to add a new named tool when a question shape recurs (see
+[AGENTS.md](AGENTS.md) for how). Without `OPENROUTER_API_KEY` the whole layer
 is disabled and every other feature is unaffected.
 
 Conversations are **persisted** to the writable events DB (`chat_conversation` /
