@@ -6,8 +6,10 @@ A local web app for visualising and analysing the Garmin data mirrored by
 ranges, no display caps, cross-metric analysis, life-event annotations, and a
 natural-language query layer.
 
-It is a personal, single-user, localhost app. There is no authentication and it
-binds to `127.0.0.1` only.
+It is a personal app for one household. Run locally it has no authentication
+and binds to `127.0.0.1` only; the internet-reachable deployment fronts it with
+oauth2-proxy and an email allowlist — auth lives at the edge, never in the app
+(see [deploy/PWA-DEPLOY.md](deploy/PWA-DEPLOY.md)).
 
 ### Companion to fitness-data-sync
 
@@ -254,8 +256,16 @@ to an open range.
 | POST   | `/api/training-plans/:id/end` | End a plan (idempotent). (writable DB)                              |
 | DELETE | `/api/training-plans/:id`     | Delete a plan and its workouts. (writable DB)                       |
 | POST   | `/api/training-plans/:id/workouts` | Add a workout to a plan. (writable DB)                         |
+| POST   | `/api/training-plans/revise`  | AI-revise a generated (unsaved) plan draft from free-text instructions. 503 if no API key. |
+| POST   | `/api/training-plans/:id/review` | AI-review an active plan's upcoming workouts; returns a proposed adjustment (not persisted). |
+| POST   | `/api/training-plans/:id/review/apply` | Apply selected changes from a review proposal. (writable DB) |
 | PATCH  | `/api/training-plan-workouts/:id`  | Update/tick a workout. (writable DB)                           |
 | DELETE | `/api/training-plan-workouts/:id`  | Delete a workout. (writable DB)                                |
+| GET    | `/api/routes`                 | Saved planner routes. (writable DB)                                 |
+| POST   | `/api/routes`                 | Save a planner route. (writable DB)                                 |
+| DELETE | `/api/routes/:id`             | Delete a saved planner route. (writable DB)                         |
+| GET    | `/api/config`                 | Client config (map-tiles API key).                                  |
+| GET    | `/api/elevation`              | Elevation lookup for planner profiles (proxies opentopodata, avoids CORS). |
 
 The activity-type filter accepts a raw Garmin type (`running`) or a group
 (`group:running`, `group:cycling`, `group:swimming`, `group:walking`).
@@ -296,6 +306,10 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
   tracks; per-route effort history with pace/EF trends and one-click Compare
   between two efforts. Each activity on a repeated route also shows its
   "Similar efforts" on the activity page itself.
+- **Planner** — draw a route on the map (waypoints snapped to paths via OSRM
+  foot routing, place search via Nominatim), with distance, an elevation
+  profile (proxied through `/api/elevation`), estimated time at a chosen pace,
+  and saved routes (stored in the events DB via `/api/routes`).
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
 - **Chat** — natural-language questions answered via the AI query layer.
@@ -394,6 +408,6 @@ so they exercise the tool-use loop without any network calls. One test
 
 ## Parked (needs Garmin-Sync work first)
 
-GPS routes/maps, in-activity per-second sample charts, gear/shoe mileage, body
-composition. These depend on data Garmin-Sync does not yet mirror. See
+Gear/shoe mileage and body composition (weight, W/kg, weight-adjusted
+efficiency). These depend on data Garmin-Sync does not yet mirror. See
 [PLAN.md](PLAN.md) for the full phase history.

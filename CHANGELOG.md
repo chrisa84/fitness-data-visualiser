@@ -12,6 +12,24 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.19.2 — 2026-07-04
+
+- **Weekly buckets are now real Monday dates** (e.g. `2026-06-29`) instead of
+  `year-weeknumber` labels, on every weekly chart. Weeks no longer split at
+  year boundaries (which previously distorted the Load page's monotony and
+  strain for the New Year weeks), life-event overlays now appear on weekly
+  charts, and weeks match the Training page's Monday-based weeks.
+- The AI chat and plan generation now compute "today" in the server's local
+  timezone rather than UTC, fixing wrong "today/yesterday/this week" answers
+  in late-evening conversations.
+- The AI's raw-SQL tool streams results and stops at the 200-row cap instead
+  of loading the full result set first — a runaway query can no longer stall
+  the app.
+- Faster steady-state heatmap and route requests: backfill pending-work scans
+  are skipped until new Garmin data appears, cached heatmap responses (304)
+  no longer rebuild the full payload, and route-cluster detail lookups fetch
+  only that cluster's activities.
+
 ## 0.19.1 — 2026-07-04
 
 - **Similar efforts on the activity page.** An activity on a repeated route

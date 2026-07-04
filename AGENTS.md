@@ -105,8 +105,10 @@ repository functions as named tools.
    args, and default sensibly. The tool-use loop in `chat.ts` picks it up
    automatically.
 3. Prefer a new named tool over leaning on `run_sql`. `run_sql` is the guarded
-   escape hatch (single `SELECT`/`WITH`, read-only connection, 1000-row cap); a
-   recurring question shape should become its own tool.
+   escape hatch (single `SELECT`/`WITH`, read-only connection, results
+   streamed via `.iterate()` and capped at 200 rows — never `.all()`, a
+   model-written query can be millions of rows on a synchronous connection);
+   a recurring question shape should become its own tool.
 4. Test in `server/test/ai.test.ts` (uses a structural fake client — no network).
 
 ### Add a life-event type
@@ -130,6 +132,15 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
 
 - **Activities bucket by `date(start_time_local)`** (the user's local day), not
   the UTC `start_time`. Use the same expression for any new activity aggregation.
+- **"Today" is `localToday()` from `src/dates.ts`, never
+  `new Date().toISOString().slice(0, 10)`** — that's the UTC day, off by one
+  near midnight for non-UTC users, while everything buckets by
+  `start_time_local`. Deployment should set `TZ` to the users' timezone.
+- **Week buckets are Monday dates** — `date(x, 'weekday 0', '-6 days')` in
+  every repository's bucket map, not `strftime('%Y-%W', …)`. Real dates keep
+  weekly labels comparable as ISO strings (the event-overlay `bucketIndex`
+  relies on that), avoid `%W`'s partial year-boundary weeks (which distorted
+  Foster monotony/strain), and match `trainingPlanAutofill`'s Monday spine.
 - **Performance tables are sparse.** `performance.ts` builds a date-spine
   (`UNION` of `date` across the eight tables) then `LEFT JOIN`s. Every metric
   column is independently nullable — assume nulls everywhere.
@@ -158,10 +169,13 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   simplified tracks live in the writable events DB, filled by a lazy,
   throttled backfill (`GeometryBackfill` in `repositories/routeGeometry.ts`)
   kicked on `/api/heatmap*` requests — never by a sync-side hook; the Garmin
-  DB stays read-only. Rows are idempotent per `activity_id`; wiping the table
-  just triggers a re-backfill. No-GPS activities get `point_count = 0` rows
-  and are re-examined if samples appear later. Phase 19 (route detection)
-  builds on this table.
+  DB stays read-only. Rows are idempotent per `activity_id`. No-GPS
+  activities get `point_count = 0` rows and are re-examined if samples appear
+  later. The steady-state pending scan is fingerprint-cached in-process
+  (`activityFingerprint`: activity count + newest start time + max
+  `activity_sample` rowid), so wiping the table triggers a re-backfill only
+  after a server restart or new Garmin data — not the next request. Phase 19
+  (route detection) builds on this table.
 - **Route clusters are derived too, and every tracked activity is a member of
   exactly one.** `route_cluster`/`route_cluster_member` (events DB) are filled
   by `ClusterBackfill` (`repositories/routeClusters.ts`), kicked lazily by
@@ -172,7 +186,9 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   `symmetricTrackDistanceM` ≤ 40 m against the cluster's representative
   (earliest member) only — don't "improve" it to compare against every
   member, that's the O(clusters) incremental-cost guarantee. Wiping the
-  cluster tables just triggers a re-match on next request. The per-activity
+  cluster tables triggers a re-match after a restart or new Garmin data (the
+  pending scans are fingerprint-cached, same as the geometry backfill). The
+  per-activity
   lookup (`GET /api/activities/:id/route-cluster`, the activity page's
   "Similar efforts" section) answers `{ ready, cluster: null }` — never a
   404 — for unknown, unmatched, no-GPS, and singleton-cluster activities
