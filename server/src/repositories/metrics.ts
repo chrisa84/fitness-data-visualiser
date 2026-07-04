@@ -86,7 +86,7 @@ const METRIC_SQL: Record<string, MetricSql> = {
 export const METRIC_SQL_KEYS = Object.keys(METRIC_SQL);
 
 const BUCKET_EXPR: Record<Exclude<Granularity, 'day'>, string> = {
-  week: "strftime('%Y-%W', d.date)",
+  week: "date(d.date, 'weekday 0', '-6 days')",
   month: "strftime('%Y-%m', d.date)",
   year: "strftime('%Y', d.date)",
 };

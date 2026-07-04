@@ -2,7 +2,7 @@ import type { Database } from 'better-sqlite3';
 import type { DailyHealthPoint, Granularity } from '@fitness/shared';
 
 const BUCKET_EXPR: Record<Exclude<Granularity, 'day'>, string> = {
-  week: "strftime('%Y-%W', d.date)",
+  week: "date(d.date, 'weekday 0', '-6 days')",
   month: "strftime('%Y-%m', d.date)",
   year: "strftime('%Y', d.date)",
 };

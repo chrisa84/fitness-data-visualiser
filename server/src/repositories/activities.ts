@@ -225,7 +225,7 @@ export function getActivitySamples(db: Database, activityId: string): ActivitySa
 
 const VOLUME_BUCKET: Record<Granularity, string> = {
   day: 'date(start_time_local)',
-  week: "strftime('%Y-%W', start_time_local)",
+  week: "date(start_time_local, 'weekday 0', '-6 days')",
   month: "strftime('%Y-%m', start_time_local)",
   year: "strftime('%Y', start_time_local)",
 };

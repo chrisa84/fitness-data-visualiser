@@ -3,7 +3,7 @@ import type { Granularity, IntensityPoint, PerformancePoint } from '@fitness/sha
 import { typeFilterClause } from './activities.js';
 
 const BUCKET_EXPR: Record<Exclude<Granularity, 'day'>, string> = {
-  week: "strftime('%Y-%W', d.date)",
+  week: "date(d.date, 'weekday 0', '-6 days')",
   month: "strftime('%Y-%m', d.date)",
   year: "strftime('%Y', d.date)",
 };
@@ -121,7 +121,7 @@ export function getPerformanceSeries(
 
 const INTENSITY_BUCKET: Record<Granularity, string> = {
   day: 'date(start_time_local)',
-  week: "strftime('%Y-%W', start_time_local)",
+  week: "date(start_time_local, 'weekday 0', '-6 days')",
   month: "strftime('%Y-%m', start_time_local)",
   year: "strftime('%Y', start_time_local)",
 };

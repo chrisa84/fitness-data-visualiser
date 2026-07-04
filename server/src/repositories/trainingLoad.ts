@@ -40,7 +40,7 @@ export function getTrainingLoadStrain(db: Database, from: string, to: string): T
                 - AVG(COALESCE(act.load, 0)) * AVG(COALESCE(act.load, 0))    AS variance,
               COUNT(*)                                                       AS days
        FROM days LEFT JOIN act ON act.d = days.d
-       GROUP BY strftime('%Y-%W', days.d)
+       GROUP BY date(days.d, 'weekday 0', '-6 days')
        ORDER BY date`,
     )
     .all({ from, to }) as Row[];
