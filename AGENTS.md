@@ -322,10 +322,22 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   separate `{role:'user'}` message, not folded into the system prompt —
   keep that split if you touch `generatePlan`'s message construction.
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
-  `Accept: application/json` and reloads the page on a `401` so an expired
-  oauth2-proxy session re-authenticates cleanly (a `403` is left alone — that's
-  the wrong-account gate, and reloading would loop). Don't call `fetch()` directly
-  for `/api/*` from a page or you'll bypass this.
+  `Accept: application/json` and, on a `401`, re-authenticates by triggering a
+  top-level network navigation so *whatever* edge auth proxy is in front runs
+  its own login flow — the app assumes no proxy, provider, or login path
+  (keeping "auth is at the edge, never in the app" intact; the same code is
+  inert in the no-proxy Electron installer and on localhost, which never 401).
+  It must **not** just `window.location.reload()`: in the installed PWA the
+  Workbox service worker serves the *precached* app shell for navigations, so a
+  reload never reaches the proxy — it reboots the cached shell, 401s again, and
+  loops forever with no window to clear site data. So `handleAuthExpired` first
+  **unregisters the service worker**, then reloads — with nothing intercepting,
+  the reload is a real network navigation the edge proxy can redirect. The SW
+  re-registers on the next clean load. A sessionStorage-stamped cooldown guards
+  the loop: if we come back still 401ing within 20s, `apiFetch` shows a tappable
+  full-screen "sign in" overlay instead of reloading again. A `403` is left
+  alone — that's the wrong-account gate, and reloading would loop. Don't call
+  `fetch()` directly for `/api/*` from a page or you'll bypass all of this.
 
 ## Deployment & PWA
 
@@ -343,7 +355,16 @@ anything in `deploy/`. Key points an agent will not infer:
   (shell and PWA assets included, not just `/api`) so a wrong-account session sees
   nothing at all. It **fails closed**: in deploy posture (`WEB_DIST_PATH` set, or
   `REQUIRE_AUTH=1`) a missing allowlist makes the server refuse to start rather
-  than silently open. Keep local dev (no bundle) able to run open.
+  than silently open. Keep local dev (no bundle) able to run open. **The client
+  respects this too:** the `401` re-auth path in `web/src/api.ts` is proxy-
+  *agnostic* — it never references oauth2-proxy, Google, `/oauth2/*`, or any
+  login URL. It just forces a top-level network navigation (by unregistering the
+  service worker first, see the `apiFetch` note above) and lets whatever proxy is
+  at the edge — oauth2-proxy, Authelia, Cloudflare Access, none at all — do its
+  own thing. This keeps the same bundle working unchanged in the no-proxy Electron
+  installer, on localhost, and behind any edge auth. **Do not hardcode a proxy or
+  provider path into the app** (client or server) — that's the coupling this
+  design exists to avoid.
 - **PWA wiring lives in `web/vite.config.ts`** (`vite-plugin-pwa`): manifest +
   Workbox service worker, app-shell precache, `NetworkFirst` for `/api` (200s
   only). The data is never precached — the cache is the shell, not the metrics.

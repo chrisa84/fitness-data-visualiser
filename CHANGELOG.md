@@ -12,6 +12,16 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.19.3 — 2026-07-08
+
+- **Fixed the installed PWA getting stuck in an endless reload loop after the
+  login session expired.** An expired session now re-authenticates by
+  navigating to the proxy's sign-in endpoint (which reaches Google and back)
+  instead of reloading the page — a plain reload was served the cached app
+  shell by the service worker, never reached the proxy, and looped on 401 with
+  no way to interact with the page. If re-authentication doesn't succeed, the
+  app now shows a tappable "Sign in again" screen instead of looping.
+
 ## 0.19.2 — 2026-07-04
 
 - **Weekly buckets are now real Monday dates** (e.g. `2026-06-29`) instead of

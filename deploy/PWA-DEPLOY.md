@@ -189,9 +189,15 @@ one account.
 ## Phase 2 — SPA auth-expiry handling (already in the code)
 
 When the proxy session expires, `/api/*` calls return `401` instead of JSON. The
-`web/src/api.ts` `apiFetch` wrapper detects that and does a full-page reload to
-re-authenticate through Google. (`403` is left alone — wrong-account, reloading
-would loop.) Nothing to do here; it's wired in.
+`web/src/api.ts` `apiFetch` wrapper detects that and re-authenticates by
+unregistering the service worker and then reloading, so the reload is a real
+network navigation this proxy can redirect through Google (the app stays
+decoupled from the proxy — it just needs *a* network navigation). It must not
+reload without unregistering first: in the installed PWA the service worker
+serves the precached shell for navigations, so a plain reload never reaches the
+proxy and loops on 401. If re-auth doesn't take within 20s the wrapper shows a
+tappable "sign in" overlay rather than looping. (`403` is left alone —
+wrong-account, reloading would loop.) Nothing to do here; it's wired in.
 
 ## Phase 3 — PWA shell (already in the code)
 
