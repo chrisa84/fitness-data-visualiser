@@ -12,6 +12,15 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.19.4 — 2026-07-12
+
+- **The AI chat now reliably answers plain "how has my HR changed" questions**
+  instead of timing out. Nothing about "heart rate" told the model which tool
+  to use, so it would sometimes reach for `get_intraday` (single-day only) or
+  `run_sql` (a full raw scan over years of per-minute rows) instead of the
+  cheap daily `resting_hr` metric. The system prompt now explicitly points
+  plain HR/training-load questions at the right tool.
+
 ## 0.19.3 — 2026-07-08
 
 - **Fixed the installed PWA getting stuck in an endless reload loop after the
