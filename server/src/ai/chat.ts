@@ -34,6 +34,7 @@ function systemPrompt(today: string, context?: string): string {
     'All data is local and read-only. Stored distances are metres, durations seconds, dates ISO (YYYY-MM-DD). When you report numbers, convert to friendly units (km, min/km pace, h:mm). Be concise and specific, and cite the date ranges you used. If data is missing for a period, say so rather than guessing.',
     'Replies are rendered as GitHub-flavored markdown. Use it for clarity (short tables, lists, bold), but keep tables narrow (2–3 columns) so they fit a side panel.',
     `Metric keys for get_metric_series: ${catalog}.`,
+    'Disambiguation: a plain "heart rate" / "HR" trend question (e.g. "how has my HR changed") means get_metric_series with resting_hr — do not use get_intraday (single-day per-minute detail only) or run_sql (raw scan over years of per-minute rows) unless the user explicitly asks for a specific day or workout-level detail. A plain "training load" question means get_training_load (weekly monotony/strain); use the training_load_acute/training_load_chronic/acwr metric keys only if the user asks about ramp rate or acute:chronic ratio specifically.',
   ];
   if (context) {
     lines.push(
