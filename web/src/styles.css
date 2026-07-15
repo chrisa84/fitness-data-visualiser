@@ -11,14 +11,9 @@ body {
 
 header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 2rem;
-  padding: 1rem 1.5rem 0;
-}
-
-/* Hamburger toggle — hidden on desktop, shown in the mobile media query. */
-.nav-toggle {
-  display: none;
+  padding: 0.75rem 1.5rem;
 }
 
 header h1 {
@@ -28,18 +23,128 @@ header h1 {
 
 nav {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 nav a {
   color: #8a93a0;
   text-decoration: none;
-  padding-bottom: 2px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
 }
 
 nav a.active {
   color: #e6e8eb;
-  border-bottom: 2px solid #5fa8e6;
+  background: #1e2630;
+}
+
+/* Desktop grouped nav: hover/focus opens a group's dropdown menu. */
+.nav-group {
+  position: relative;
+}
+
+.nav-group-btn {
+  background: none;
+  border: none;
+  color: #8a93a0;
+  font-size: 0.95rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.nav-group-btn span {
+  font-size: 0.65rem;
+}
+
+.nav-group.active > .nav-group-btn {
+  color: #e6e8eb;
+  background: #1e2630;
+}
+
+.nav-group:hover > .nav-group-btn,
+.nav-group:focus-within > .nav-group-btn {
+  color: #e6e8eb;
+}
+
+.nav-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 10rem;
+  flex-direction: column;
+  padding: 0.35rem;
+  background: #1a1f26;
+  border: 1px solid #232932;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 60;
+}
+
+.nav-group:hover > .nav-menu,
+.nav-group:focus-within > .nav-menu {
+  display: flex;
+}
+
+.nav-menu a {
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+}
+
+/* Mobile bottom tab bar + "More" sheet — hidden on desktop. */
+.tabbar {
+  display: none;
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 70;
+}
+
+.nav-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 75vh;
+  overflow-y: auto;
+  background: #1a1f26;
+  border-top: 1px solid #232932;
+  border-radius: 12px 12px 0 0;
+  padding: 0.85rem 1rem calc(0.85rem + 3.2rem + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.nav-section-label {
+  color: #8a93a0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.nav-sheet a {
+  color: #cdd3db;
+  text-decoration: none;
+  padding: 0.45rem 0.35rem;
+  border-radius: 4px;
+}
+
+.nav-sheet a.active {
+  color: #e6e8eb;
+  background: #1e2630;
 }
 
 main {
@@ -227,13 +332,14 @@ button.active {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 50;
+  z-index: 85; /* above the mobile tab bar (80) */
 }
 
 .chat-drawer {
   position: fixed;
   top: 0;
   right: 0;
+  z-index: 90;
   height: 100vh;
   width: 400px;
   max-width: 92vw;
@@ -538,7 +644,6 @@ button.active {
    --------------------------------------------------------------------------- */
 @media (max-width: 768px) {
   header {
-    flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
@@ -549,39 +654,43 @@ button.active {
     flex: 1;
   }
 
-  .nav-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    line-height: 1;
-    padding: 0.4rem 0.7rem;
-  }
-
-  /* Nav collapses to a full-width drawer below the top bar, toggled by .open. */
-  nav {
-    order: 3;
-    flex-basis: 100%;
-    flex-direction: column;
-    gap: 0;
+  /* The desktop dropdown nav gives way to the bottom tab bar. */
+  header nav {
     display: none;
   }
 
-  nav.open {
+  .tabbar {
     display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    background: #1a1f26;
+    border-top: 1px solid #232932;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
-  nav a {
-    padding: 0.7rem 0.25rem;
-    border-bottom: 1px solid #232932;
+  .tabbar a,
+  .tabbar button {
+    flex: 1;
+    text-align: center;
+    padding: 0.75rem 0.25rem;
+    color: #8a93a0;
+    text-decoration: none;
+    background: none;
+    border: none;
+    border-radius: 0;
+    font-size: 0.82rem;
   }
 
-  nav a.active {
-    border-bottom: 1px solid #5fa8e6;
+  .tabbar a.active,
+  .tabbar button.active {
+    color: #5fa8e6;
   }
 
   main {
-    padding: 0.85rem 1rem;
+    padding: 0.85rem 1rem calc(3.2rem + env(safe-area-inset-bottom) + 1rem);
   }
 
   /* One chart per row. */

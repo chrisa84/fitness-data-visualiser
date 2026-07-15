@@ -16,6 +16,7 @@ import type {
   ChatConversation,
   ChatConversationDetail,
   EfficiencyResponse,
+  FitnessTrendResponse,
   FormVsPaceResponse,
   IntensityResponse,
   IntradayResponse,
@@ -265,6 +266,16 @@ export function fetchEfficiency(params: {
   hrMax?: number;
 }) {
   return getJson<EfficiencyResponse>('/api/efficiency', params);
+}
+
+// EXPERIMENTAL — backs the Fitness Trend page only. See EXPERIMENTS.md.
+export function fetchFitnessTrend(params: {
+  from?: string;
+  to?: string;
+  granularity?: Granularity;
+  type?: string;
+}) {
+  return getJson<FitnessTrendResponse>('/api/experimental/fitness-trend', params);
 }
 
 export function fetchTrainingLoad(params: { from?: string; to?: string }) {

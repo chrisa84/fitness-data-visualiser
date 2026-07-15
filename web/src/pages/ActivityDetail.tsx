@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
@@ -89,6 +89,41 @@ function Splits({ a }: { a: Detail }) {
       </table>
     </section>
   );
+}
+
+/**
+ * Cardiac drift (Pa:HR decoupling): output-per-beat (speed/HR) of the first
+ * half of the effort vs the second, split at half distance. Positive %
+ * means the same pace cost more heartbeats late in the run — under ~5% is
+ * generally read as aerobically coupled. Needs ≥20 min and dense samples.
+ */
+function hrDecoupling(samples: ActivitySample[], durationS: number | null): number | null {
+  if (durationS == null || durationS < 1200) return null;
+  const valid = samples.filter(
+    (s) =>
+      s.speedMps != null && s.speedMps >= 0.5 && s.heartRate != null && s.heartRate > 0 && s.distanceM != null,
+  );
+  if (valid.length < 120) return null;
+  const totalDist = valid[valid.length - 1]!.distanceM!;
+  if (totalDist <= 0) return null;
+  const half = totalDist / 2;
+  let speed1 = 0, hr1 = 0, n1 = 0, speed2 = 0, hr2 = 0, n2 = 0;
+  for (const s of valid) {
+    if (s.distanceM! <= half) {
+      speed1 += s.speedMps!;
+      hr1 += s.heartRate!;
+      n1++;
+    } else {
+      speed2 += s.speedMps!;
+      hr2 += s.heartRate!;
+      n2++;
+    }
+  }
+  if (n1 < 30 || n2 < 30) return null;
+  const r1 = speed1 / n1 / (hr1 / n1);
+  const r2 = speed2 / n2 / (hr2 / n2);
+  if (r1 <= 0 || r2 <= 0) return null;
+  return ((r1 - r2) / r1) * 100;
 }
 
 function paceLabel(v: number): string {
@@ -509,6 +544,11 @@ export default function ActivityDetail() {
   const [highlightedIdx, setHighlightedIdx] = useState<number | null>(null);
   const [mapHoveredIdx,  setMapHoveredIdx]  = useState<number | null>(null);
 
+  const decoupling = useMemo(
+    () => hrDecoupling(samples, a?.movingDurationS ?? a?.durationS ?? null),
+    [samples, a],
+  );
+
   if (isPending) return <p className="status">Loading…</p>;
   if (error) return <p className="status">Failed to load: {(error as Error).message}</p>;
   if (!a) return null;
@@ -545,6 +585,10 @@ export default function ActivityDetail() {
         <Stat label="Calories" value={formatNumber(a.calories)} />
         <Stat label="Training load" value={formatNumber(a.trainingLoad)} />
         <Stat label="Aerobic TE" value={formatNumber(a.aerobicTe, '', 1)} />
+        <Stat
+          label="HR decoupling"
+          value={decoupling != null ? `${decoupling > 0 ? '+' : ''}${decoupling.toFixed(1)}%` : '—'}
+        />
         <Stat label="Anaerobic TE" value={formatNumber(a.anaerobicTe, '', 1)} />
         <Stat label="VO2max" value={formatNumber(a.vo2max, '', 1)} />
         <Stat label="Avg cadence" value={formatNumber(a.avgCadence, ' spm')} />

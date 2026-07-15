@@ -7,7 +7,7 @@ There are two SQLite databases, with a strict boundary between them:
 | Database                | Owner          | Access from this app | Contents                          |
 | ----------------------- | -------------- | -------------------- | --------------------------------- |
 | `garmin_sync.db`        | **Garmin-Sync**| **Read-only** (`mode=ro`) | All Garmin activity & health data |
-| `visualiser-events.db`  | **This app**   | Read/write           | Life-event annotations only       |
+| `visualiser-events.db`  | **This app**   | Read/write           | All app-owned state: events, chats, saved routes, AI settings, training plans, derived route cache |
 
 > **Source of truth.** [fitness-data-sync](https://github.com/chrisa84/fitness-data-sync)
 > owns `garmin_sync.db` and its schema; this visualiser is its read-only
@@ -171,9 +171,15 @@ Notes:
 
 ## Writable tables (`visualiser-events.db`)
 
-The visualiser's own state (life events and saved chats). Created automatically
-(`openEventsDb`) with `CREATE TABLE IF NOT EXISTS`, in WAL mode, separate from
-the Garmin mirror so that database stays read-only.
+The visualiser's own state. Created automatically (`openEventsDb`) with
+`CREATE TABLE IF NOT EXISTS`, in WAL mode, separate from the Garmin mirror so
+that database stays read-only. Eleven tables in five groups: life events
+(`event`), saved chats (`chat_conversation`, `chat_message`), Planner routes
+(`saved_route`), AI model settings (`ai_settings`), training plans
+(`training_plan`, `training_plan_workout`, `training_plan_revision`), and the
+derived route cache (`route_geometry`, `route_cluster`,
+`route_cluster_member`). The most intricate ones are documented below;
+`server/src/db.ts` is the authoritative schema for all of them.
 
 ### `event`
 
@@ -248,6 +254,25 @@ Index: `idx_training_plan_workout_plan` on `(plan_id)`.
 `POST /api/training-plans/generate` never writes either table — the AI's
 proposal is only persisted when the user calls `POST /api/training-plans` to
 save it.
+
+### The remaining writable tables (brief)
+
+- **`training_plan_revision`** — audit log of applied AI plan reviews (Phase
+  15A): `plan_id`, `rationale`, `changes` (JSON of before/after per workout),
+  `created_at`.
+- **`saved_route`** — Planner routes: `name`, `waypoints` (JSON `[{lat,lng}]`),
+  `snap` (0/1, OSRM path-snapping), `total_distance_m`, `created_at`.
+- **`ai_settings`** — single row (`id = 1`): three candidate model slugs plus
+  the selected one for each AI role (`question_*`, `plan_*`, `analysis_*`).
+  Managed via `repositories/aiSettings.ts`; see AGENTS.md for why this is not
+  an env var.
+- **`route_geometry`** — derived cache, not source data: simplified encoded
+  `polyline` + `point_count` + start/end coords per activity, filled lazily by
+  `GeometryBackfill`. `point_count = 0` marks a no-GPS activity as processed.
+- **`route_cluster`** / **`route_cluster_member`** — repeated-route detection
+  (Phase 19): every tracked activity belongs to exactly one cluster
+  (singletons included); only clusters with ≥ 2 members are served. Filled
+  lazily by `ClusterBackfill`.
 
 ---
 

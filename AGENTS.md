@@ -4,7 +4,10 @@ Guidance for AI agents (and humans) extending this codebase. Read this before
 making changes. For orientation, also read [README.md](README.md) (architecture,
 API surface, how to run) and [DATA_MODEL.md](DATA_MODEL.md) (every table and
 column, with the nullable/never-populated traps). [PLAN.md](PLAN.md) is the
-phase history.
+phase history. [EXPERIMENTS.md](EXPERIMENTS.md) tracks trial features (the
+Experimental nav section) and the exact removal recipe for each — anything you
+add under `/api/experimental` or the Experimental nav group must be documented
+there.
 
 ## Non-negotiables
 
@@ -15,7 +18,9 @@ stated:
    (`openDb`). Never write to it, never `CREATE`/`ALTER`/`INSERT`/`UPDATE`
    against it. [fitness-data-sync](https://github.com/chrisa84/fitness-data-sync)
    is its sole writer. The **only** writable database is `visualiser-events.db`
-   (`openEventsDb`), and it holds only the `event` table.
+   (`openEventsDb`) — it holds all app-owned state: life events, saved chats,
+   saved routes, AI settings, training plans, and the derived route
+   geometry/cluster cache (see `server/src/db.ts` for the full schema).
 2. **`shared/` (`@fitness/shared`) is the contract** between server and web. Any
    type or pure helper used by both sides — response shapes, the metric catalog,
    activity groups, event types — lives there. Do not duplicate types across

@@ -34,11 +34,15 @@ export interface ActivitySeed {
   distance_m?: number | null;
   duration_s?: number | null;
   avg_hr?: number | null;
+  max_hr?: number | null;
   avg_speed_mps?: number | null;
   elevation_gain_m?: number | null;
   training_load?: number | null;
   avg_cadence?: number | null;
   avg_power?: number | null;
+  fastest_km_s?: number | null;
+  fastest_5k_s?: number | null;
+  temp_avg_c?: number | null;
   ground_contact_ms?: number | null;
   ground_contact_balance_left?: number | null;
   vertical_oscillation_cm?: number | null;
@@ -264,13 +268,13 @@ export function createTestDb(
   }
   const insertActivity = db.prepare(
     `INSERT INTO activity (activity_id, name, type, start_time_local, distance_m,
-                           duration_s, avg_hr, avg_speed_mps, elevation_gain_m, training_load,
-                           avg_cadence, avg_power,
+                           duration_s, avg_hr, max_hr, avg_speed_mps, elevation_gain_m, training_load,
+                           avg_cadence, avg_power, fastest_km_s, fastest_5k_s, temp_avg_c,
                            ground_contact_ms, ground_contact_balance_left,
                            vertical_oscillation_cm, vertical_ratio_pct, stride_length_cm)
      VALUES (@activity_id, @name, @type, @start_time_local, @distance_m,
-             @duration_s, @avg_hr, @avg_speed_mps, @elevation_gain_m, @training_load,
-             @avg_cadence, @avg_power,
+             @duration_s, @avg_hr, @max_hr, @avg_speed_mps, @elevation_gain_m, @training_load,
+             @avg_cadence, @avg_power, @fastest_km_s, @fastest_5k_s, @temp_avg_c,
              @ground_contact_ms, @ground_contact_balance_left,
              @vertical_oscillation_cm, @vertical_ratio_pct, @stride_length_cm)`,
   );
@@ -282,11 +286,15 @@ export function createTestDb(
       distance_m: null,
       duration_s: null,
       avg_hr: null,
+      max_hr: null,
       avg_speed_mps: null,
       elevation_gain_m: null,
       training_load: null,
       avg_cadence: null,
       avg_power: null,
+      fastest_km_s: null,
+      fastest_5k_s: null,
+      temp_avg_c: null,
       ground_contact_ms: null,
       ground_contact_balance_left: null,
       vertical_oscillation_cm: null,

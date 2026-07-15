@@ -101,13 +101,21 @@ export default function Intensity() {
     };
   }, [data, mode]);
 
-  const totalHours = useMemo(() => {
+  const summary = useMemo(() => {
     if (!data) return null;
-    const seconds = data.points.reduce(
-      (sum, p) => sum + zoneSeconds(p).reduce((s, z) => s + z, 0),
-      0,
-    );
-    return formatDuration(seconds);
+    let easy = 0;
+    let hard = 0;
+    for (const p of data.points) {
+      easy += p.zone1S + p.zone2S;
+      hard += p.zone3S + p.zone4S + p.zone5S;
+    }
+    const total = easy + hard;
+    if (total === 0) return null;
+    return {
+      totalHours: formatDuration(total),
+      easyPct: Math.round((easy / total) * 100),
+      hardPct: Math.round((hard / total) * 100),
+    };
   }, [data]);
 
   return (
@@ -118,7 +126,14 @@ export default function Intensity() {
         granularity={granularity}
         granularities={GRANULARITIES}
         setParam={setParam}
-        status={totalHours && <span className="status">{totalHours} total</span>}
+        status={
+          summary && (
+            <span className="status">
+              {summary.totalHours} total · easy (Z1–2) {summary.easyPct}% / hard (Z3–5){' '}
+              {summary.hardPct}% — 80/20 target
+            </span>
+          )
+        }
       >
         <select value={type} onChange={(e) => setType(e.target.value)}>
           <option value="">all types</option>

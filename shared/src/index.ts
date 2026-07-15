@@ -5,7 +5,7 @@
  * patch is for fixes between phases. Bump this and add a CHANGELOG.md entry
  * with every user-visible change.
  */
-export const APP_VERSION = '0.19.4';
+export const APP_VERSION = '0.20.0';
 
 export type Granularity = 'day' | 'week' | 'month' | 'year';
 
@@ -933,6 +933,49 @@ export interface RouteClusterDetail {
   distanceM: number | null;
   polyline: string;
   efforts: RouteClusterEffort[];
+}
+
+// ---------------------------------------------------------------------------
+// EXPERIMENTAL — Fitness trend (Phase 20). Everything in this block backs the
+// Experimental → Fitness Trend page only. See EXPERIMENTS.md for what each
+// series is and how to remove it cleanly.
+// ---------------------------------------------------------------------------
+
+/**
+ * One bucket of %HRR-normalised efficiency: metres per minute per percent of
+ * heart-rate reserve, where reserve uses the same-day resting HR and a rolling
+ * 12-month max observed HR. Unlike the classic EF (speed/HR), this stays
+ * comparable across years as max HR falls with age.
+ */
+export interface HrrEfficiencyPoint {
+  date: string;
+  hrrEf: number | null;
+  runs: number;
+}
+
+/** One activity's Garmin best-split effort (fastest 1 km or 5 km within a run). */
+export interface BestEffortPoint {
+  date: string;
+  distanceKey: '1k' | '5k';
+  seconds: number;
+}
+
+/** One run's average temperature against its pace, for the heat-sensitivity scatter. */
+export interface TempPacePoint {
+  date: string;
+  tempC: number;
+  paceSecPerKm: number;
+  distanceM: number;
+}
+
+export interface FitnessTrendResponse {
+  from: string;
+  to: string;
+  granularity: Granularity;
+  type: string | null;
+  hrrEf: HrrEfficiencyPoint[];
+  bestEfforts: BestEffortPoint[];
+  tempPace: TempPacePoint[];
 }
 
 export interface ActivityRouteClusterResponse {

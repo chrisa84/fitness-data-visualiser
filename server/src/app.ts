@@ -12,6 +12,7 @@ import { registerAiSettingsRoutes } from './routes/aiSettings.js';
 import { registerAnalysisRoutes, registerEventRoutes } from './routes/analysis.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerDailyHealthRoutes } from './routes/dailyHealth.js';
+import { registerExperimentalRoutes } from './routes/experimental.js';
 import { registerHeatmapRoutes } from './routes/heatmap.js';
 import { registerIntradayRoutes } from './routes/intraday.js';
 import { registerPerformanceRoutes } from './routes/performance.js';
@@ -125,6 +126,7 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
 
   registerDailyHealthRoutes(app, db);
   registerActivityRoutes(app, db);
+  registerExperimentalRoutes(app, db); // EXPERIMENTAL — see EXPERIMENTS.md
   registerIntradayRoutes(app, db);
   registerPerformanceRoutes(app, db);
   registerAnalysisRoutes(app, db);

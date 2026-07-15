@@ -11,6 +11,7 @@ import Compare from './pages/Compare';
 import Dashboard from './pages/Dashboard';
 import Efficiency from './pages/Efficiency';
 import Events from './pages/Events';
+import FitnessTrend from './pages/FitnessTrend';
 import Heatmap from './pages/Heatmap';
 import Intraday from './pages/Intraday';
 import Planner from './pages/Planner';
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
       { path: '/routes', element: <Routes /> },
       { path: '/routes/:id', element: <RouteDetail /> },
       { path: '/events', element: <Events /> },
+      { path: '/experimental/fitness-trend', element: <FitnessTrend /> },
       { path: '/intraday', element: <Intraday /> },
       { path: '/planner', element: <Planner /> },
       { path: '/training', element: <Training /> },

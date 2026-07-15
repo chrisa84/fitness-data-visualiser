@@ -175,7 +175,11 @@ parts, delivered and committed one at a time:
    weekly load bars with monotony/strain lines (on the Performance page or a small
    Load section), and a `get_training_load` AI tool.
 
-### Phase 8 — Activity time-series charts ✅
+### Phase 8B — Activity time-series charts ✅
+
+(Historically also numbered "Phase 8" — renamed 8B to keep the
+phase-number → version mapping unambiguous; no version ever shipped against
+the duplicate number.)
 
 Per-second sample streams from `activity_sample` (Garmin-Sync Phase 6b), surfaced
 as in-activity charts on the Activity Detail page. Up to 2000 samples per
@@ -871,6 +875,35 @@ answers `{ ready, cluster }` with `cluster: null` for unknown/unmatched/
 singleton activities rather than 404) and a "Similar efforts" section on the
 activity page — effort count, the full efforts table with the current
 activity highlighted, and a link to the route's detail page.
+
+### Phase 20 — Experimental fitness trends, nav rework, in-app changelog ✅
+
+Three strands, shipped together as 0.20.0:
+
+- **Experimental section** (see [EXPERIMENTS.md](EXPERIMENTS.md) for the
+  per-feature removal map — the section exists to make trialling and
+  *removing* features cheap). One endpoint
+  (`GET /api/experimental/fitness-trend`, repository
+  `repositories/experimental.ts`) and one page (Fitness trend) carrying four
+  trials: **%HRR-normalised efficiency** (speed per % of heart-rate reserve,
+  same-day resting HR + rolling 12-month max observed HR, so the metric stays
+  comparable as max HR falls with age — charted against the classic EF),
+  **rolling best-effort VDOT** (Daniels, from Garmin's fastest-1k/5k split
+  columns; data exists ~2024+), **age-graded 5k performance** (approximate WMA
+  road factors; DOB/sex entered on the page, stored in localStorage only), and
+  a **temperature-vs-pace scatter** (watch `temp_avg_c`, ~2021+).
+- **Grouped navigation.** The 19-item flat nav became grouped
+  (Health / Activities / Trends / AI / Experimental + Settings): dropdown
+  menus in the desktop header; on mobile the hamburger drawer was replaced by
+  a fixed bottom tab bar (Home, Activities, Chat, More — More opens a grouped
+  sheet), sized for thumb reach in the installed PWA
+  (safe-area-inset padding, content bottom padding).
+- **Smaller additions:** an easy/hard **80/20 polarisation summary** on the
+  Intensity page (Z1–2 vs Z3–5 over the filtered range); **HR decoupling**
+  (cardiac drift — first-half vs second-half speed-per-beat from the sample
+  stream, ≥20-min activities) on the activity detail page; and a **"What's
+  new" change history** on the Settings page (CHANGELOG.md baked into the web
+  bundle at build time via a `?raw` import — no endpoint, works offline).
 
 ### Parked (requires Garmin-Sync work first)
 

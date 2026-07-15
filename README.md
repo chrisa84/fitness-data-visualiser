@@ -120,10 +120,11 @@ only if you need to change them or enable the AI layer.
 
 The model itself is **not** an env var — it's user-configurable at runtime from
 the **Settings** page (`/settings`, backed by `GET`/`PUT /api/ai-settings`).
-Two independent roles are stored, each with up to 3 candidate OpenRouter model
-slugs and one marked active: **Question AI** (powers Chat/Ask AI) and
-**Plan AI** (powers the Training page's plan generator).
-All 3 slots on both roles default to `deepseek/deepseek-v4-flash`,
+Three independent roles are stored, each with up to 3 candidate OpenRouter
+model slugs and one marked active: **Question AI** (powers Chat/Ask AI),
+**Plan AI** (powers the Training page's plan generator), and **Analysis AI**
+(powers the per-activity analysis on the activity page).
+All 3 slots on every role default to `deepseek/deepseek-v4-flash`,
 `google/gemini-3.5-flash`, `deepseek/deepseek-v4-pro` — editable to any
 OpenRouter slug that supports tool calling.
 
@@ -220,6 +221,8 @@ to an open range.
 | GET    | `/api/activities`             | Filtered/sorted/paginated activity list (`type`, `q`, `minKm`, `maxKm`, `sort`, …). |
 | GET    | `/api/activity-types`         | Distinct activity types with counts.                                |
 | GET    | `/api/activities/:id`         | Full activity detail + splits.                                      |
+| GET    | `/api/activities/:id/samples` | Per-second time-series samples (pace, HR, altitude, GPS, dynamics) for one activity. |
+| GET    | `/api/intraday`               | One day's intraday HR, stress, steps, and respiration series (`date=`). |
 | GET    | `/api/activity-volume`        | Count/distance/duration/elevation aggregated per bucket.            |
 | GET    | `/api/performance`            | VO2max, load, ACWR, readiness, race predictions, scores, status.    |
 | GET    | `/api/intensity-distribution` | Seconds in each HR zone, summed per bucket.                         |
@@ -228,6 +231,7 @@ to an open range.
 | GET    | `/api/form-vs-pace`           | Per-activity form metrics vs average speed, for the form-vs-pace scatter. |
 | POST   | `/api/activities/:id/analyze` | AI analysis of one activity (optional question + model override). 503 if no API key. |
 | GET    | `/api/training-load`          | Weekly training monotony & strain (Foster), rest days as zero.          |
+| GET    | `/api/experimental/fitness-trend` | **Experimental** — %HRR efficiency, best-split efforts, temp-vs-pace points for the Fitness Trend page. See [EXPERIMENTS.md](EXPERIMENTS.md). |
 | GET    | `/api/metrics`                | Multi-metric series from the catalog (`keys=a,b,c`, max 8).         |
 | GET    | `/api/records`                | Derived personal records.                                           |
 | GET    | `/api/heatmap`                | All simplified GPS tracks as encoded polylines (ETag/304). Kicks the geometry backfill. |
@@ -275,7 +279,8 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
 - **Dashboard** — health & recovery overview; 8 charts, each individually
   toggleable (persisted in the `?hidden=` URL param); life events overlaid.
 - **Activities** — filterable, sortable, paginated list → activity detail with
-  splits, HR zones, running dynamics, similar efforts (other activities on the
+  splits, HR zones, running dynamics, HR decoupling (cardiac drift, first-half
+  vs second-half speed-per-beat), similar efforts (other activities on the
   same route, linking to the Routes page), and an on-demand AI analysis
   (optional free-text question, model from the Analysis AI role).
 - **Compare** — pick any two activities from a filterable table (name search,
@@ -286,7 +291,8 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
   Form/PMC chart (fitness − fatigue), readiness and its factor breakdown,
   race-prediction trends, lactate threshold, endurance and hill scores, and a
   colour-coded training-status timeline.
-- **Intensity** — HR-zone stacked bars (hours or %) by type/group.
+- **Intensity** — HR-zone stacked bars (hours or %) by type/group, with an
+  easy/hard (80/20 polarisation) summary for the filtered range.
 - **Dynamics** — running-form trends (ground contact time, L/R balance, vertical
   oscillation/ratio, stride length, cadence, power), averaged per bucket, by
   type/group; plus a form-vs-pace scatter view (one point per activity, coloured
@@ -312,13 +318,22 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
   and saved routes (stored in the events DB via `/api/routes`).
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
+- **Intraday** — one day's raw HR, stress, steps, and respiration series.
+- **Fitness trend** (Experimental) — %HRR-normalised efficiency, rolling
+  best-effort VDOT, age-graded 5k performance, and a temperature-vs-pace
+  scatter. Trial features; see [EXPERIMENTS.md](EXPERIMENTS.md).
 - **Chat** — natural-language questions answered via the AI query layer.
 - **Training** — set a goal, dates, and days/week (optionally autofilled from
   your own data); AI-generates a plan, previewed and editable before saving;
   active plan shown as a per-week checklist; past (ended) plans stay browsable.
 - **Settings** — pick the active OpenRouter model for Question AI (Chat),
   Plan AI (Training page), and Analysis AI (activity detail), each with up to 3
-  editable candidate model strings.
+  editable candidate model strings; also shows the app version and a
+  "What's new" change history (the CHANGELOG, baked into the bundle).
+
+Navigation is grouped (Health / Activities / Trends / AI / Experimental):
+dropdown menus in the desktop header, and on mobile a fixed bottom tab bar
+(Home, Activities, Chat, More) where More opens a sheet with every page.
 
 ## AI query layer
 

@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { APP_VERSION, type AiRoleSettings, type AiSettings } from '@fitness/shared';
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { fetchAiSettings, updateAiSettings } from '../api';
+// Baked into the bundle at build time, so the change history ships with the
+// exact build it describes — no server endpoint, works offline in the PWA.
+import changelog from '../../../CHANGELOG.md?raw';
 
 function RoleCard(props: {
   title: string;
@@ -92,6 +97,14 @@ export default function Settings() {
       <p className="status" style={{ marginTop: '2rem' }}>
         Fitness Data Visualiser v{APP_VERSION}
       </p>
+      <details style={{ marginTop: '0.5rem' }}>
+        <summary style={{ cursor: 'pointer' }} className="status">
+          What's new — full change history
+        </summary>
+        <div className="chat-md" style={{ maxWidth: 820 }}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{changelog}</ReactMarkdown>
+        </div>
+      </details>
     </>
   );
 }

@@ -12,6 +12,30 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.20.0 — 2026-07-15
+
+- **New Experimental section** with a Fitness trend page — four trial views of
+  long-term running fitness (see EXPERIMENTS.md): efficiency normalised by
+  heart-rate reserve (stays comparable across years as max HR falls with age,
+  shown against the classic EF), a rolling best-effort VDOT score from
+  fastest-1k/5k splits, age-graded 5k performance (date of birth and sex are
+  entered on the page and stored only in your browser), and a
+  temperature-vs-pace scatter showing personal heat sensitivity.
+- **Reworked navigation.** Pages are now grouped (Health, Activities, Trends,
+  AI, Experimental) — dropdown menus on desktop, and on phones a bottom tab
+  bar (Home, Activities, Chat, More) replaces the hamburger menu.
+- **80/20 polarisation summary on the Intensity page** — easy (Z1–2) vs hard
+  (Z3–5) share of training time for the filtered range.
+- **HR decoupling (cardiac drift) on the activity page** — first-half vs
+  second-half speed-per-beat for activities over 20 minutes with sample data;
+  under ~5% generally reads as aerobically coupled.
+- **"What's new" on the Settings page** — the full change history is now
+  viewable in the app.
+- Docs corrected: the writable database's real contents (AGENTS.md,
+  DATA_MODEL.md), the three AI roles, the previously undocumented Intraday
+  page and `/api/intraday` + `/api/activities/:id/samples` endpoints
+  (README.md), and the duplicate "Phase 8" in PLAN.md (renamed 8B).
+
 ## 0.19.4 — 2026-07-12
 
 - **The AI chat now reliably answers plain "how has my HR changed" questions**
