@@ -5,7 +5,7 @@
  * patch is for fixes between phases. Bump this and add a CHANGELOG.md entry
  * with every user-visible change.
  */
-export const APP_VERSION = '0.20.0';
+export const APP_VERSION = '0.20.1';
 
 export type Granularity = 'day' | 'week' | 'month' | 'year';
 

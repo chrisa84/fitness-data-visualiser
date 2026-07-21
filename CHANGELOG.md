@@ -12,6 +12,16 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.20.1 — 2026-07-22
+
+- **Fixed the "Sign in again" screen not actually signing you back in on the
+  installed PWA.** Its button reloaded through the freshly re-registered
+  service worker, so it was served the cached app shell, never reached the
+  login proxy, and came straight back to the same screen — leaving "clear site
+  data" as the only way out. Tapping it now unregisters the service worker
+  first (same as the automatic re-auth path), so the reload is a real network
+  navigation the login flow can intercept.
+
 ## 0.20.0 — 2026-07-15
 
 - **New Experimental section** with a Fitness trend page — four trial views of

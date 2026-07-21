@@ -101,9 +101,19 @@ function showSignInOverlay(): void {
     'padding:14px 28px;border:0;border-radius:10px;background:#e05a47;color:#fff;' +
       'font-size:17px;font-weight:600;cursor:pointer;',
   );
-  // The SW was already unregistered on the previous attempt, so this reload is a
-  // real network navigation the edge proxy can redirect to its login.
-  btn.addEventListener('click', () => window.location.reload());
+  // By the time this overlay is visible, the reloaded shell has RE-registered
+  // the service worker — a plain reload would be served the cached shell and
+  // never reach the proxy. Re-run the full unregister-then-reload dance, and
+  // re-stamp the cooldown so a failed attempt lands back here instead of
+  // looping.
+  btn.addEventListener('click', () => {
+    try {
+      sessionStorage.setItem(AUTH_ATTEMPT_KEY, String(Date.now()));
+    } catch {
+      // ignore — worst case the cooldown can't re-arm.
+    }
+    void reauthenticate();
+  });
   overlay.append(msg, btn);
   document.body.append(overlay);
 }
