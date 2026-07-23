@@ -145,10 +145,14 @@ function Overlay({ searchParams, setParam }: PaneProps) {
   const option = useMemo<echarts.EChartsOption>(() => {
     const points = data?.points ?? [];
     const dates = points.map((p) => p.date);
+    // A single metric doesn't need normalising — plot raw values with a real
+    // axis. Normalisation (and the hidden axis) only earn their keep once two
+    // metrics with different units share the chart.
+    const single = keys.length === 1 ? metricMeta(keys[0]!) : undefined;
     const series = keys.map((key, i) => {
       const meta = metricMeta(key);
       const raw = points.map((p) => p.values[key] ?? null);
-      const norm = normalise(raw);
+      const norm = single ? raw : normalise(raw);
       return line(
         meta?.label ?? key,
         norm,
@@ -157,9 +161,19 @@ function Overlay({ searchParams, setParam }: PaneProps) {
       );
     });
     const eventSeries = buildEventSeries(events.data, dates);
+    const title = single
+      ? `${single.label}${single.unit ? ` (${single.unit})` : ''}`
+      : 'Metric overlay (each normalised to its own range)';
     return {
-      ...baseOption('Metric overlay (each normalised to its own range)', dates),
-      yAxis: { type: 'value', axisLabel: { show: false }, splitLine: { lineStyle: { color: '#2a3038' } } },
+      ...baseOption(title, dates),
+      yAxis: single
+        ? {
+            type: 'value',
+            scale: true,
+            axisLabel: single.format === 'duration' ? { formatter: (v: number) => formatDuration(v) } : undefined,
+            splitLine: { lineStyle: { color: '#2a3038' } },
+          }
+        : { type: 'value', axisLabel: { show: false }, splitLine: { lineStyle: { color: '#2a3038' } } },
       tooltip: {
         trigger: 'axis',
         formatter: (params: unknown) => {

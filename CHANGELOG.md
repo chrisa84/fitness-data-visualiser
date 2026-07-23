@@ -12,6 +12,15 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.20.2 — 2026-07-23
+
+- **Analysis overlay now shows a real y-axis when a single metric is
+  selected.** With one metric there is nothing to normalise, so the chart
+  plots raw values with a labelled scale (time metrics formatted as
+  durations) and titles itself with the metric name and unit. Selecting two
+  or more metrics keeps the normalised overlay with the axis hidden, as
+  before.
+
 ## 0.20.1 — 2026-07-22
 
 - **Fixed the "Sign in again" screen not actually signing you back in on the
