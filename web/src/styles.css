@@ -832,3 +832,43 @@ button.tag-chip.selected {
   gap: 0.35rem;
   align-items: center;
 }
+
+/* --- Service-worker update toast ---------------------------------------- */
+
+.update-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 1.25rem;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.6rem 0.8rem;
+  background: #1a1f26;
+  border: 1px solid #3a4250;
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  font-size: 0.85rem;
+  color: #e6e8eb;
+}
+
+.update-toast button {
+  border-color: #5fa8e6;
+  color: #5fa8e6;
+  flex-shrink: 0;
+}
+
+.update-toast button.update-toast-dismiss {
+  border-color: #3a4250;
+  color: #8a93a0;
+}
+
+/* Below the nav breakpoint the fixed tab bar owns the bottom edge, so lift the
+   toast clear of it (and of the home indicator under it). */
+@media (max-width: 768px) {
+  .update-toast {
+    bottom: calc(3.6rem + env(safe-area-inset-bottom) + 0.6rem);
+  }
+}

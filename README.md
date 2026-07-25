@@ -158,6 +158,11 @@ precaches the app shell and serves `/api/*` `NetworkFirst`, so it installs to th
 home screen and survives a brief dropout. It still needs the server for data —
 the cache holds the shell, not your metrics.
 
+Because a home-screen app is normally *resumed* rather than reloaded, it would
+otherwise never notice a new deploy. The app re-checks for a new build whenever
+it returns to the foreground (and hourly while open), then offers a "new version
+is available" prompt rather than reloading itself mid-session.
+
 Because the app itself has no auth (loopback-only by design), a public deploy puts
 authentication at the edge with a **dedicated oauth2-proxy** (Google OAuth) in
 front of it, locked to a single account. The full runbook — Coolify app,

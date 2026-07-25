@@ -429,6 +429,22 @@ anything in `deploy/`. Key points an agent will not infer:
 - **PWA wiring lives in `web/vite.config.ts`** (`vite-plugin-pwa`): manifest +
   Workbox service worker, app-shell precache, `NetworkFirst` for `/api` (200s
   only). The data is never precached — the cache is the shell, not the metrics.
+- **`registerType: 'prompt'` and `injectRegister: null` are both deliberate,
+  and `web/src/UpdatePrompt.tsx` is what makes updates reach a phone.** The
+  registration lives in that component (via `virtual:pwa-register/react`), so
+  turning `injectRegister` back to `'auto'` would register the worker twice.
+  Switching back to `registerType: 'autoUpdate'` reintroduces a `skipWaiting`
+  reload that fires mid-session, yanking the page out from under whatever the
+  user was reading — the prompt exists to make that reload a choice.
+  **Neither `registerType` value checks for updates on its own beyond page
+  load**, which is the actual failure this fixes: an installed PWA is normally
+  resumed from a frozen state, never re-fetches `sw.js`, and will serve the
+  shell it was installed with forever until force-quit. `UpdatePrompt` checks
+  at registration, hourly, and — the one that matters on mobile — on
+  `visibilitychange` back to visible. Don't remove the visibility listener
+  thinking the interval covers it; an interval in a frozen tab isn't running.
+  The check fetches `sw.js` with `cache: 'no-store'` before calling
+  `registration.update()` so an unreachable server doesn't churn.
 - **Icons** are in `web/public/icons/` (a heart-rate glyph on the app's dark
   background). Regenerate with `deploy/make-icons.py` (needs Pillow) if the brand
   colours change; keep the same filenames the manifest references.

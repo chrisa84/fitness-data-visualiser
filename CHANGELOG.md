@@ -12,6 +12,18 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.21.1 — 2026-07-25
+
+- **The installed app now actually notices new versions.** It only ever checked
+  for an update during a full page load, and a phone normally *resumes* a
+  home-screen app from a frozen state rather than reloading it — so it could
+  keep serving the version it was installed with indefinitely, and you'd only
+  get the update by force-quitting it. It now re-checks whenever you bring the
+  app to the foreground, and hourly while it stays open.
+- **Updates are offered, not forced.** When a new version is found you get a
+  "new version is available" prompt with Reload and Later, instead of the page
+  reloading itself underneath whatever you were reading.
+
 ## 0.21.0 — 2026-07-25
 
 - **Tags.** Label individual activities with your own tags — "antihistamine",

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import ChatDrawer from './ChatDrawer';
+import UpdatePrompt from './UpdatePrompt';
 import WhatsNew from './WhatsNew';
 
 interface NavItem {
@@ -155,6 +156,7 @@ export default function Layout() {
       )}
 
       <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+      <UpdatePrompt />
       <WhatsNew />
     </>
   );

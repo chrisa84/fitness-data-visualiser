@@ -6,9 +6,21 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // Ship a new service worker automatically when the bundle changes; the
-      // plugin injects the registration script (injectRegister: 'auto').
-      registerType: 'autoUpdate',
+      // 'prompt', not 'autoUpdate'. autoUpdate sets skipWaiting, so a new
+      // service worker seizes control and reloads the page mid-session — which
+      // can yank a chart out from under you. With 'prompt' the new worker waits
+      // until `UpdatePrompt` calls updateServiceWorker(), so the reload is the
+      // user's decision.
+      //
+      // Neither mode *checks* for updates on its own beyond page load, which is
+      // the real problem for an installed PWA: it is usually restored from a
+      // frozen state, never re-fetches sw.js, and serves the precached shell of
+      // whatever version it was installed at. UpdatePrompt adds the polling and
+      // the on-foreground check.
+      registerType: 'prompt',
+      // Registration happens in UpdatePrompt via virtual:pwa-register/react;
+      // leaving this on 'auto' would register the worker a second time.
+      injectRegister: null,
       includeAssets: ['icons/favicon-32x32.png', 'icons/apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Fitness Data Visualiser',

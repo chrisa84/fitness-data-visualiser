@@ -4,7 +4,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "geojson"]
+    "types": ["vite/client", "geojson", "vite-plugin-pwa/react"]
   },
   "include": ["src", "vite.config.ts", "../shared/src"]
 }
