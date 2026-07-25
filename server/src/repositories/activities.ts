@@ -31,6 +31,13 @@ export interface ListActivitiesOptions {
   q?: string;
   minKm?: number;
   maxKm?: number;
+  /**
+   * Restrict to these activity ids — how the tag filter crosses the database
+   * boundary (tags are resolved to ids in the writable DB first, since the
+   * Garmin mirror knows nothing about them). Undefined means no restriction;
+   * an **empty array** means "nothing matched" and yields an empty page.
+   */
+  activityIds?: string[];
   sort: ActivitySortKey;
   order: 'asc' | 'desc';
   limit: number;
@@ -67,14 +74,32 @@ function mapListItem(r: Record<string, unknown>): ActivityListItem {
     aerobicTe: r.aerobic_te as number | null,
     anaerobicTe: r.anaerobic_te as number | null,
     trainingLoad: r.training_load as number | null,
+    // Tags live in the writable DB, which this repository cannot see. The route
+    // overlays the real ids onto the page it returns.
+    tagIds: [],
   };
 }
 
 export function listActivities(db: Database, opts: ListActivitiesOptions): ActivityListResponse {
+  // An explicit empty id set means a filter matched nothing. Short-circuit:
+  // `activity_id IN ()` is a syntax error, and there is nothing to count.
+  if (opts.activityIds && opts.activityIds.length === 0) {
+    return { total: 0, limit: opts.limit, offset: opts.offset, items: [] };
+  }
+
   const where: string[] = ['date(start_time_local) BETWEEN @from AND @to'];
   const params: Record<string, unknown> = { from: opts.from, to: opts.to };
   const typeClause = typeFilterClause(opts.types, params);
   if (typeClause) where.push(typeClause);
+  if (opts.activityIds) {
+    // Bound, not interpolated. SQLite's default parameter ceiling (32766) is far
+    // above any realistic personal tag, so this needs no chunking.
+    const placeholders = opts.activityIds.map((id, i) => {
+      params[`aid${i}`] = id;
+      return `@aid${i}`;
+    });
+    where.push(`activity_id IN (${placeholders.join(', ')})`);
+  }
   if (opts.q) {
     where.push("name LIKE @q ESCAPE '\\' COLLATE NOCASE");
     params.q = `%${opts.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;

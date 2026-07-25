@@ -5,7 +5,7 @@
  * patch is for fixes between phases. Bump this and add a CHANGELOG.md entry
  * with every user-visible change.
  */
-export const APP_VERSION = '0.20.2';
+export const APP_VERSION = '0.21.0';
 
 export type Granularity = 'day' | 'week' | 'month' | 'year';
 
@@ -120,6 +120,12 @@ export interface ActivityListItem {
   aerobicTe: number | null;
   anaerobicTe: number | null;
   trainingLoad: number | null;
+  /**
+   * Ids of the user's own tags on this activity. Tags live in the writable
+   * events DB, so the repository (which only sees the read-only Garmin DB)
+   * always returns `[]` here — the route overlays the real values.
+   */
+  tagIds: number[];
 }
 
 export interface ActivityListResponse {
@@ -495,6 +501,48 @@ export interface CalendarEvent {
 
 export type EventInput = Pick<CalendarEvent, 'date' | 'type' | 'label'> &
   Partial<Pick<CalendarEvent, 'endDate' | 'notes'>>;
+
+// ---------------------------------------------------------------------------
+// Activity tags (visualiser-owned writable state)
+// ---------------------------------------------------------------------------
+
+/**
+ * A user-defined label attached to individual activities — the per-activity
+ * counterpart to a life `event`, which annotates a date or a date range.
+ * Use a tag for something that applies to *this run* ("took antihistamine",
+ * "stressful work day", "new shoes"); use an event for something that spans
+ * days.
+ *
+ * `activityCount` is populated by the list endpoint only; create/update return
+ * the tag's live count, which is 0 for a newly created tag.
+ */
+export interface Tag {
+  id: number;
+  name: string;
+  /** Optional `#rrggbb` chip colour. Null renders with the default chip style. */
+  colour: string | null;
+  activityCount: number;
+  createdAt: string;
+}
+
+export type TagInput = Pick<Tag, 'name'> & Partial<Pick<Tag, 'colour'>>;
+
+/** The full tag set for one activity. Assigning replaces the set wholesale. */
+export interface ActivityTags {
+  activityId: string;
+  tagIds: number[];
+}
+
+/** Hex colours offered by the tag editor. Free-form values are still accepted. */
+export const TAG_COLOURS = [
+  '#5fa8e6',
+  '#5fce6e',
+  '#e6b95f',
+  '#e66a5f',
+  '#b87fff',
+  '#5fd6d0',
+  '#8a93a0',
+] as const;
 
 // ---------------------------------------------------------------------------
 // Chat persistence (visualiser-owned writable state)
@@ -935,6 +983,17 @@ export interface RouteClusterDetail {
   efforts: RouteClusterEffort[];
 }
 
+export interface ActivityRouteClusterResponse {
+  /** False while the initial matching backfill is still running. */
+  ready: boolean;
+  /**
+   * The repeated-route cluster this activity belongs to. Null when the
+   * activity has no usable track, isn't matched yet, or is the only effort
+   * on its route.
+   */
+  cluster: RouteClusterDetail | null;
+}
+
 // ---------------------------------------------------------------------------
 // EXPERIMENTAL — Fitness trend (Phase 20). Everything in this block backs the
 // Experimental → Fitness Trend page only. See EXPERIMENTS.md for what each
@@ -978,13 +1037,107 @@ export interface FitnessTrendResponse {
   tempPace: TempPacePoint[];
 }
 
-export interface ActivityRouteClusterResponse {
-  /** False while the initial matching backfill is still running. */
-  ready: boolean;
-  /**
-   * The repeated-route cluster this activity belongs to. Null when the
-   * activity has no usable track, isn't matched yet, or is the only effort
-   * on its route.
-   */
-  cluster: RouteClusterDetail | null;
+// --- EXPERIMENTAL: Sleep timing & regularity (Phase 21) --------------------
+
+/**
+ * One night of sleep, keyed by Garmin's `sleep.date` — the **wake** date.
+ *
+ * Clock times are minutes relative to midnight on a night-centred axis:
+ * negative is before midnight (23:40 → -20), positive is after (00:20 → 20).
+ * A plain 0–1439 minute-of-day would put those two twenty minutes apart at
+ * opposite ends of the scale, making every average and standard deviation
+ * meaningless — which is the whole point of this page.
+ *
+ * The `morning*` fields are that same date's health metrics. Because the row
+ * is keyed by the wake date, they are already "the morning after this night" —
+ * no lag is applied.
+ */
+export interface SleepNightPoint {
+  date: string;
+  bedtimeMin: number | null;
+  wakeMin: number | null;
+  midpointMin: number | null;
+  durationH: number | null;
+  sleepScore: number | null;
+  /** Std dev (minutes) of `midpointMin` over the trailing regularity window. */
+  regularityMin: number | null;
+  morningRestingHr: number | null;
+  morningHrv: number | null;
+  morningReadiness: number | null;
+  morningBodyBattery: number | null;
+}
+
+/**
+ * Weekday-vs-weekend sleep midpoint for one week — "social jetlag", the
+ * body-clock shift caused by sleeping later at weekends. Weekend nights are
+ * those waking on Saturday or Sunday. Null when a week has no nights on one
+ * side of the split.
+ */
+export interface SocialJetlagPoint {
+  weekStart: string;
+  weekdayMidpointMin: number | null;
+  weekendMidpointMin: number | null;
+  jetlagMin: number | null;
+  nights: number;
+}
+
+export interface SleepTimingResponse {
+  from: string;
+  to: string;
+  /** Trailing window (nights) used for the rolling regularity std dev. */
+  regularityWindowNights: number;
+  nights: SleepNightPoint[];
+  socialJetlag: SocialJetlagPoint[];
+}
+
+// --- EXPERIMENTAL: Cohort comparison (Phase 21) ---------------------------
+
+export const COHORT_OPS = ['lt', 'lte', 'gt', 'gte'] as const;
+export type CohortOp = (typeof COHORT_OPS)[number];
+
+export const COHORT_OP_LABELS: Record<CohortOp, string> = {
+  lt: 'below',
+  lte: 'at or below',
+  gt: 'above',
+  gte: 'at or above',
+};
+
+/** Summary statistics for one side of a cohort split. */
+export interface CohortStats {
+  label: string;
+  n: number;
+  mean: number | null;
+  sd: number | null;
+  median: number | null;
+  p25: number | null;
+  p75: number | null;
+  min: number | null;
+  max: number | null;
+}
+
+/**
+ * An observational split of one metric by a condition on another — "resting HR
+ * on the day after a night under 6 hours, versus every other day".
+ *
+ * This is a correlation over self-selected days, not an experiment: the
+ * confidence interval says how precisely the difference is measured, not
+ * whether the split *caused* it. The page says so too.
+ */
+export interface CohortResponse {
+  from: string;
+  to: string;
+  splitKey: string;
+  splitOp: CohortOp;
+  splitValue: number;
+  outcomeKey: string;
+  /** Days to shift the outcome after the split day. 0 = same day. */
+  lagDays: number;
+  /** Days where both metrics were recorded (after applying the lag). */
+  pairedDays: number;
+  matched: CohortStats;
+  other: CohortStats;
+  /** `matched.mean − other.mean`, with a 95% Welch confidence interval. */
+  differenceMean: number | null;
+  differenceLow: number | null;
+  differenceHigh: number | null;
 }

@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { fetchEfficiency, fetchFitnessTrend } from '../api';
 import Chart from '../Chart';
 import RangeControls from '../RangeControls';
+import { timeAxisOption } from '../chartHelpers';
 import { formatDuration } from '../format';
 import { useChartRange } from '../useChartRange';
 
@@ -72,25 +73,6 @@ function ageOn(date: string, dob: string): number {
   const d = new Date(`${date}T00:00:00Z`);
   const b = new Date(`${dob}T00:00:00Z`);
   return (d.getTime() - b.getTime()) / (365.25 * 24 * 3600 * 1000);
-}
-
-// ---------------------------------------------------------------------------
-// Shared chart scaffolding for time-axis charts (irregular effort dates).
-// ---------------------------------------------------------------------------
-
-function timeAxisOption(title: string): echarts.EChartsOption {
-  return {
-    backgroundColor: 'transparent',
-    title: { text: title, textStyle: { color: '#e6e8eb', fontSize: 13 }, left: 0, top: 4 },
-    legend: { type: 'scroll', top: 26, right: 8, left: 8, textStyle: { color: '#8a93a0', fontSize: 11 } },
-    grid: { containLabel: true, left: 8, right: 16, top: 58, bottom: 48 },
-    xAxis: { type: 'time' },
-    yAxis: { type: 'value', scale: true, splitLine: { lineStyle: { color: '#2a3038' } } },
-    dataZoom: [
-      { type: 'inside', throttle: 50 },
-      { type: 'slider', height: 18, bottom: 8 },
-    ],
-  };
 }
 
 /** Best value per date, then a trailing-window rolling max over those dates. */

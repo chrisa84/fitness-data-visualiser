@@ -9,7 +9,13 @@ import {
   getActivityVolume,
   listActivities,
 } from '../repositories/activities.js';
+import { activityIdsWithAllTags, tagIdsForActivities } from '../repositories/tags.js';
 import { badRequest, isoDate } from './validation.js';
+
+/** `tags=1,2` → `[1, 2]`. Non-numeric entries are dropped, not rejected. */
+const tagIdList = z
+  .string()
+  .transform((s) => s.split(',').map((v) => Number(v.trim())).filter((n) => Number.isInteger(n) && n > 0));
 
 const listQuery = z.object({
   from: isoDate.default('1970-01-01'),
@@ -18,6 +24,7 @@ const listQuery = z.object({
   q: z.string().min(1).optional(),
   minKm: z.coerce.number().min(0).optional(),
   maxKm: z.coerce.number().min(0).optional(),
+  tags: tagIdList.optional(),
   sort: z.enum(ACTIVITY_SORT_KEYS).default('start_time'),
   order: z.enum(['asc', 'desc']).default('desc'),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -31,12 +38,34 @@ const volumeQuery = z.object({
   type: z.string().min(1).optional(),
 });
 
-export function registerActivityRoutes(app: FastifyInstance, db: Database): void {
+export interface ActivityRouteDeps {
+  db: Database;
+  /** Writable DB — only used to resolve and overlay the user's own tags. */
+  eventsDb: Database;
+}
+
+export function registerActivityRoutes(app: FastifyInstance, { db, eventsDb }: ActivityRouteDeps): void {
   app.get('/api/activities', async (request, reply) => {
     const parsed = listQuery.safeParse(request.query);
     if (!parsed.success) return badRequest(reply, parsed.error);
-    const { type, ...rest } = parsed.data;
-    return listActivities(db, { ...rest, types: resolveActivityTypeFilter(type) });
+    const { type, tags, ...rest } = parsed.data;
+
+    // Tags live in the other database, so they are resolved to a concrete id
+    // set first and passed in as a filter — no cross-database join. An empty
+    // result here is a real "nothing matched", which listActivities honours.
+    const activityIds = tags && tags.length > 0 ? activityIdsWithAllTags(eventsDb, tags) : undefined;
+
+    const page = listActivities(db, {
+      ...rest,
+      activityIds,
+      types: resolveActivityTypeFilter(type),
+    });
+
+    const byActivity = tagIdsForActivities(eventsDb, page.items.map((a) => a.activityId));
+    return {
+      ...page,
+      items: page.items.map((a) => ({ ...a, tagIds: byActivity[a.activityId] ?? [] })),
+    };
   });
 
   app.get('/api/activity-types', async () => getActivityTypes(db));

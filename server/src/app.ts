@@ -17,6 +17,7 @@ import { registerHeatmapRoutes } from './routes/heatmap.js';
 import { registerIntradayRoutes } from './routes/intraday.js';
 import { registerPerformanceRoutes } from './routes/performance.js';
 import { registerRouteRoutes } from './routes/routes.js';
+import { registerTagRoutes } from './routes/tags.js';
 import { registerTrainingPlanRoutes } from './routes/trainingPlans.js';
 import { GeometryBackfill } from './repositories/routeGeometry.js';
 import { ClusterBackfill } from './repositories/routeClusters.js';
@@ -125,12 +126,13 @@ export function buildApp({ dbPath, eventsDbPath = ':memory:', webDistPath, logge
   });
 
   registerDailyHealthRoutes(app, db);
-  registerActivityRoutes(app, db);
+  registerActivityRoutes(app, { db, eventsDb });
   registerExperimentalRoutes(app, db); // EXPERIMENTAL — see EXPERIMENTS.md
   registerIntradayRoutes(app, db);
   registerPerformanceRoutes(app, db);
   registerAnalysisRoutes(app, db);
   registerEventRoutes(app, eventsDb);
+  registerTagRoutes(app, eventsDb);
   registerRouteRoutes(app, eventsDb);
   registerHeatmapRoutes(app, { db, eventsDb, backfill: geometryBackfill });
   registerRouteClusterRoutes(app, { db, eventsDb, backfill: clusterBackfill });

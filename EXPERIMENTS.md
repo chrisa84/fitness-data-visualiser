@@ -6,7 +6,30 @@ exactly what to delete per feature. Keep it current: adding an experimental
 feature means adding its removal recipe here; promoting or removing one means
 deleting its entry.
 
-## Shared experimental plumbing
+## What lives under `/api/experimental`
+
+Three independent experiments, each with its own repository, route, shared
+types and page. They share only the `/api/experimental` prefix and the
+`Experimental` nav group, so any one can be removed without touching the
+others.
+
+| Experiment | Endpoint | Page |
+| --- | --- | --- |
+| Fitness trend (Phase 20) | `GET /api/experimental/fitness-trend` | `/experimental/fitness-trend` |
+| Sleep timing (Phase 21) | `GET /api/experimental/sleep-timing` | `/experimental/sleep-timing` |
+| Cohort comparison (Phase 21) | `GET /api/experimental/cohort` | `/experimental/cohort` |
+
+All three routes are registered by the single `registerExperimentalRoutes` in
+`server/src/routes/experimental.ts`. Removing the last one means deleting that
+file, its `registerExperimentalRoutes(app, db)` call in `server/src/app.ts`,
+and the `Experimental` group in `web/src/Layout.tsx`.
+
+> **Note:** `ActivityRouteClusterResponse` used to sit inside the EXPERIMENTAL
+> block in `shared/src/index.ts` despite being production Phase 19 code. It has
+> been moved up next to `RouteClusterDetail` so "delete the EXPERIMENTAL block"
+> is a safe instruction. Keep it that way.
+
+## Shared Fitness Trend plumbing
 
 All Fitness Trend experiments ride on one endpoint and one page:
 
@@ -20,8 +43,12 @@ All Fitness Trend experiments ride on one endpoint and one page:
 | Nav | the `Experimental` group in `NAV_GROUPS`, `web/src/Layout.tsx` |
 | Test | `server/test/experimental.test.ts` |
 
-**To remove the whole experiment:** delete the seven items above and this
-file's entries. Nothing else references them.
+**To remove the whole experiment:** delete the seven items above (leaving
+`registerExperimentalRoutes` in place if another experiment still uses it) and
+this file's entries. Nothing else references them.
+
+Note `web/src/chartHelpers.ts`'s `timeAxisOption` started here but is now
+shared with the Sleep Timing page — leave it alone when removing this one.
 
 ## The experiments
 
@@ -72,3 +99,74 @@ thermometer reads skin/sun heating, so warm-day values skew high.
 
 - Server: the `tempPace` list in `getFitnessTrend`.
 - Web: the "Temperature vs pace" section of `FitnessTrend.tsx`.
+
+### 5. Sleep timing & regularity (Phase 21)
+
+When you sleep rather than how much: bedtime, wake time and midpoint on a
+night-centred clock axis, a rolling 14-night regularity std dev, weekly
+weekend-vs-weekday social jetlag, and a midpoint-vs-next-morning scatter
+(resting HR / HRV / readiness / body battery).
+
+Built on `sleep.sleep_start` and `sleep.sleep_end`, which nothing else in the
+app reads. Two things are load-bearing and non-obvious:
+
+- **Clock times are night-centred minutes** (23:40 → -20, 06:30 → 390). On a
+  plain 0–1439 minute-of-day scale, two nights twenty minutes apart across
+  midnight average to midday and the std dev explodes — which is exactly the
+  metric this page exists to measure.
+- **Local time, not UTC.** Garmin stores UTC instants; `nightCentredMinutes`
+  renders them via `Date#getHours()` in the server's timezone, matching
+  `localToday()` and the documented "set `TZ` in deployment" convention.
+  Reading them as UTC would shift every bedtime by the offset and inject a
+  fake 60-minute regularity jump at each DST boundary.
+
+`sleep.date` is the **wake** date, so the health metrics joined on that same
+date are already the morning-after readings — no lag is applied, and none
+should be added.
+
+| Piece | Location |
+| --- | --- |
+| Repository | `server/src/repositories/experimentalSleep.ts` |
+| Route | the `sleep-timing` handler in `server/src/routes/experimental.ts` |
+| Shared types | `SleepNightPoint`, `SocialJetlagPoint`, `SleepTimingResponse` |
+| Fetcher | `fetchSleepTiming` in `web/src/api.ts` |
+| Page | `web/src/pages/SleepTiming.tsx`, route in `web/src/main.tsx` |
+| Nav | the `Sleep timing` entry in the `Experimental` group |
+| Tests | `server/test/experimentalSleep.test.ts`, plus the sleep-timing case in `server/test/tagRoutes.test.ts` |
+
+**Promote:** it deserves its own top-level Sleep page (probably merged with
+the Dashboard's sleep charts) and `sleep_midpoint` / `sleep_regularity` entries
+in `METRIC_CATALOG` so the Analysis and Cohort pages can use them.
+
+**Remove:** delete the seven items above. The fixture columns
+(`sleep_start`/`sleep_end` in `server/test/fixtures.ts`) can stay — they cost
+nothing and mirror the real schema.
+
+### 6. Cohort comparison (Phase 21)
+
+Splits every day by a threshold condition on one catalog metric and compares
+another catalog metric between the two groups, at an optional lag ("resting HR
+the morning after a night under 6 hours, versus every other morning"). Reports
+n / mean / sd / median / quartiles / range per group, plus the mean difference
+with an approximate 95% Welch interval.
+
+Entirely built on `getMetricSeries`, so every catalog metric works on both
+sides for free and there is no new SQL to drift. The interval uses a 1.96
+normal approximation rather than a t distribution — over the hundreds of days
+these run on, the correction is under a percent, and the real limitation is
+that this is observational data, which the page says plainly.
+
+| Piece | Location |
+| --- | --- |
+| Repository | `server/src/repositories/experimentalCohort.ts` |
+| Route | the `cohort` handler in `server/src/routes/experimental.ts` |
+| Shared types | `COHORT_OPS`, `CohortOp`, `COHORT_OP_LABELS`, `CohortStats`, `CohortResponse` |
+| Fetcher | `fetchCohort` in `web/src/api.ts` |
+| Page | `web/src/pages/Cohort.tsx`, route in `web/src/main.tsx` |
+| Nav | the `Cohort` entry in the `Experimental` group |
+| Tests | `server/test/experimentalCohort.test.ts`, plus the validation case in `server/test/tagRoutes.test.ts` |
+
+**Promote:** fold it into the Analysis page as a fourth mode alongside
+overlay / compare / correlate, where it naturally belongs.
+
+**Remove:** delete the seven items above. Nothing else references them.

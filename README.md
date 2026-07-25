@@ -188,6 +188,9 @@ server/src/
     metrics.ts                 metric-catalog series (only joins needed tables)
     records.ts                 personal records derived from the activity table
     events.ts                  CRUD against the writable events DB
+    tags.ts                     Activity tags + tag→activity id resolution (writable DB)
+    experimentalSleep.ts        Sleep timing/regularity/social jetlag (experimental)
+    experimentalCohort.ts       Threshold cohort comparison over the metric catalog (experimental)
     routeGeometry.ts            Cached simplified GPS tracks + throttled backfill job (writable DB)
     aiSettings.ts               Question AI / Plan AI / Analysis AI model selection (writable DB)
     trainingPlans.ts            Training plan + workout CRUD (writable DB)
@@ -205,14 +208,19 @@ web/src/
   chartHelpers.ts            baseOption / line / bar builders
   events.ts / chartEvents.ts Event overlays (marklines / markareas)
   api.ts                     Typed fetchers for every endpoint
+  changelog.ts / WhatsNew.tsx Release-notes popup (parses CHANGELOG.md, baked in)
+  TagChip.tsx / tags.ts      Tag pill + shared tag query
   pages/                     One file per route (Dashboard, Activities, …, Chat)
+    training/                  Training page's intake form, checklist, review panel
+    planner/                   Planner's geometry, external APIs, and panels
 ```
 
 ## API surface
 
 All endpoints are under `/api`. Time-series endpoints accept `from`, `to`
 (`YYYY-MM-DD`) and `granularity` (`day|week|month|year`); omitted dates default
-to an open range.
+to an open range. `GET /api/activities` additionally accepts `tags=1,2`
+(activities carrying **all** the listed tag ids).
 
 | Method | Path                          | Purpose                                                              |
 | ------ | ----------------------------- | ------------------------------------------------------------------- |
@@ -232,6 +240,8 @@ to an open range.
 | POST   | `/api/activities/:id/analyze` | AI analysis of one activity (optional question + model override). 503 if no API key. |
 | GET    | `/api/training-load`          | Weekly training monotony & strain (Foster), rest days as zero.          |
 | GET    | `/api/experimental/fitness-trend` | **Experimental** — %HRR efficiency, best-split efforts, temp-vs-pace points for the Fitness Trend page. See [EXPERIMENTS.md](EXPERIMENTS.md). |
+| GET    | `/api/experimental/sleep-timing` | **Experimental** — per-night bedtime/wake/midpoint, rolling regularity, and weekly social jetlag. |
+| GET    | `/api/experimental/cohort`    | **Experimental** — splits days by a threshold on one metric and compares another (`splitKey`, `splitOp`, `splitValue`, `outcomeKey`, `lagDays`). |
 | GET    | `/api/metrics`                | Multi-metric series from the catalog (`keys=a,b,c`, max 8).         |
 | GET    | `/api/records`                | Derived personal records.                                           |
 | GET    | `/api/heatmap`                | All simplified GPS tracks as encoded polylines (ETag/304). Kicks the geometry backfill. |
@@ -244,6 +254,12 @@ to an open range.
 | POST   | `/api/events`                 | Create an event. (writable DB)                                      |
 | PATCH  | `/api/events/:id`             | Update an event. (writable DB)                                      |
 | DELETE | `/api/events/:id`             | Delete an event. (writable DB)                                      |
+| GET    | `/api/tags`                   | User-defined activity tags with usage counts. (writable DB)         |
+| POST   | `/api/tags`                   | Create a tag. 409 on a duplicate name. (writable DB)                |
+| PATCH  | `/api/tags/:id`               | Rename/recolour a tag. (writable DB)                                |
+| DELETE | `/api/tags/:id`               | Delete a tag and its assignments. (writable DB)                     |
+| GET    | `/api/activities/:id/tags`    | Tag ids on one activity. (writable DB)                              |
+| PUT    | `/api/activities/:id/tags`    | Replace an activity's whole tag set. (writable DB)                  |
 | GET    | `/api/chat/status`            | Whether the AI layer is enabled, and the configured model.          |
 | POST   | `/api/chat`                   | Natural-language query (tool-use loop). Persists the turn; returns `conversationId`. 503 if no API key. |
 | GET    | `/api/chat/conversations`     | List saved conversations, most-recently-updated first.              |
@@ -318,22 +334,39 @@ The activity-type filter accepts a raw Garmin type (`running`) or a group
   and saved routes (stored in the events DB via `/api/routes`).
 - **Events** — CRUD for life events (races, injury, illness, medication, travel,
   notes); point and ranged.
+- **Tags** — manage your own labels for individual activities ("antihistamine",
+  "stressful work day", "new shoes"). Attach them from an activity's page,
+  filter the activity list by them (multiple tags narrow, not widen). Tags are
+  the per-activity counterpart to Events' date ranges.
 - **Intraday** — one day's raw HR, stress, steps, and respiration series.
 - **Fitness trend** (Experimental) — %HRR-normalised efficiency, rolling
   best-effort VDOT, age-graded 5k performance, and a temperature-vs-pace
   scatter. Trial features; see [EXPERIMENTS.md](EXPERIMENTS.md).
+- **Sleep timing** (Experimental) — when you sleep rather than how much:
+  bedtime/wake/midpoint on a clock axis that runs through midnight, a rolling
+  regularity score, weekend social jetlag, and midpoint vs the next morning's
+  resting HR / HRV / readiness / body battery.
+- **Cohort** (Experimental) — split days by a threshold on one metric and
+  compare another between the groups ("resting HR the morning after a night
+  under 6 hours, versus every other morning"), with a confidence interval.
 - **Chat** — natural-language questions answered via the AI query layer.
 - **Training** — set a goal, dates, and days/week (optionally autofilled from
   your own data); AI-generates a plan, previewed and editable before saving;
   active plan shown as a per-week checklist; past (ended) plans stay browsable.
 - **Settings** — pick the active OpenRouter model for Question AI (Chat),
   Plan AI (Training page), and Analysis AI (activity detail), each with up to 3
-  editable candidate model strings; also shows the app version and a
-  "What's new" change history (the CHANGELOG, baked into the bundle).
+  editable candidate model strings; also shows the app version, a "What's new"
+  change history (the CHANGELOG, baked into the bundle), and a control to
+  re-show the release-notes popup.
+
+After an upgrade, the newest CHANGELOG entry appears once as a **release-notes
+popup**; dismissing it keeps it away until the next version, and a checkbox
+turns it off permanently (reversible from Settings).
 
 Navigation is grouped (Health / Activities / Trends / AI / Experimental):
 dropdown menus in the desktop header, and on mobile a fixed bottom tab bar
-(Home, Activities, Chat, More) where More opens a sheet with every page.
+(Home, Activities, Chat, More) where More opens a sheet with every page. Tags
+sits under Health next to Events; Sleep timing and Cohort under Experimental.
 
 ## AI query layer
 
@@ -399,6 +432,11 @@ so they exercise the tool-use loop without any network calls. One test
 
 ## Version history
 
+- Activity tags (your own labels on individual runs, filterable in the activity
+  list), a release-notes popup after each upgrade, and two new Experimental
+  pages: Sleep timing (when you sleep, regularity, social jetlag) and Cohort
+  comparison (split days by a threshold on one metric, compare another). See
+  `PLAN.md` Phase 21.
 - Training plan generator rethink: race date/distance/plan-length are now
   explicit intake fields (not AI-inferred), fitness context auto-loads
   (no button gate) and is built from a zero-filled weekly-volume spine plus

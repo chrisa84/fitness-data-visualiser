@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import ChatDrawer from './ChatDrawer';
+import WhatsNew from './WhatsNew';
 
 interface NavItem {
   to: string;
@@ -20,6 +21,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/', label: 'Dashboard', end: true },
       { to: '/intraday', label: 'Intraday' },
       { to: '/events', label: 'Events' },
+      { to: '/tags', label: 'Tags' },
     ],
   },
   {
@@ -56,7 +58,11 @@ const NAV_GROUPS: NavGroup[] = [
     // EXPERIMENTAL — trial features, see EXPERIMENTS.md. Remove entries here
     // (and the group when empty) to retire one.
     label: 'Experimental',
-    items: [{ to: '/experimental/fitness-trend', label: 'Fitness trend' }],
+    items: [
+      { to: '/experimental/fitness-trend', label: 'Fitness trend' },
+      { to: '/experimental/sleep-timing', label: 'Sleep timing' },
+      { to: '/experimental/cohort', label: 'Cohort' },
+    ],
   },
 ];
 
@@ -149,6 +155,7 @@ export default function Layout() {
       )}
 
       <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+      <WhatsNew />
     </>
   );
 }

@@ -7,7 +7,7 @@ There are two SQLite databases, with a strict boundary between them:
 | Database                | Owner          | Access from this app | Contents                          |
 | ----------------------- | -------------- | -------------------- | --------------------------------- |
 | `garmin_sync.db`        | **Garmin-Sync**| **Read-only** (`mode=ro`) | All Garmin activity & health data |
-| `visualiser-events.db`  | **This app**   | Read/write           | All app-owned state: events, chats, saved routes, AI settings, training plans, derived route cache |
+| `visualiser-events.db`  | **This app**   | Read/write           | All app-owned state: events, activity tags, chats, saved routes, AI settings, training plans, derived route cache |
 
 > **Source of truth.** [fitness-data-sync](https://github.com/chrisa84/fitness-data-sync)
 > owns `garmin_sync.db` and its schema; this visualiser is its read-only
@@ -59,15 +59,17 @@ table is `daily_summary`; the rest are `LEFT JOIN`ed on `date`.
 
 #### `sleep`
 
-| Column                  | Read as          |
-| ----------------------- | ---------------- |
-| `date`                  | join key         |
-| `sleep_score`           | sleep score      |
-| `total_sleep_seconds`   | total sleep      |
-| `deep_sleep_seconds`    | deep sleep       |
-| `light_sleep_seconds`   | light sleep      |
-| `rem_sleep_seconds`     | REM sleep        |
-| `awake_seconds`         | awake            |
+| Column                  | Read as          | Notes                                    |
+| ----------------------- | ---------------- | ---------------------------------------- |
+| `date`                  | join key         | The **wake** date, not the night's start. Metrics joined on it are already the morning-after readings. |
+| `sleep_start`           | bedtime          | UTC instant. Read only by the experimental Sleep Timing page. |
+| `sleep_end`             | wake time        | UTC instant. Same.                       |
+| `sleep_score`           | sleep score      |                                          |
+| `total_sleep_seconds`   | total sleep      |                                          |
+| `deep_sleep_seconds`    | deep sleep       |                                          |
+| `light_sleep_seconds`   | light sleep      |                                          |
+| `rem_sleep_seconds`     | REM sleep        |                                          |
+| `awake_seconds`         | awake            |                                          |
 
 #### `hrv`
 
@@ -172,10 +174,12 @@ Notes:
 ## Writable tables (`visualiser-events.db`)
 
 The visualiser's own state. Created automatically (`openEventsDb`) with
-`CREATE TABLE IF NOT EXISTS`, in WAL mode, separate from the Garmin mirror so
-that database stays read-only. Eleven tables in five groups: life events
-(`event`), saved chats (`chat_conversation`, `chat_message`), Planner routes
-(`saved_route`), AI model settings (`ai_settings`), training plans
+`CREATE TABLE IF NOT EXISTS`, in WAL mode (and with `PRAGMA foreign_keys = ON`,
+which SQLite leaves off by default and `activity_tag`'s cascade needs),
+separate from the Garmin mirror so that database stays read-only. Thirteen
+tables in six groups: life events (`event`), activity tags (`tag`,
+`activity_tag`), saved chats (`chat_conversation`, `chat_message`), Planner
+routes (`saved_route`), AI model settings (`ai_settings`), training plans
 (`training_plan`, `training_plan_workout`, `training_plan_revision`), and the
 derived route cache (`route_geometry`, `route_cluster`,
 `route_cluster_member`). The most intricate ones are documented below;
@@ -202,6 +206,32 @@ An event "overlaps" a query window `[from, to]` when it starts on/before `to`
 **and** its end (`COALESCE(end_date, date)`) is on/after `from`. Point events
 render as marklines; ranged events as shaded bands on the Dashboard,
 Performance, and Analysis charts.
+
+### `tag` and `activity_tag`
+
+User-defined labels on individual activities — the per-activity counterpart to
+`event`'s date ranges. See AGENTS.md for which to reach for.
+
+| Column       | Type                     | Notes                                          |
+| ------------ | ------------------------ | ---------------------------------------------- |
+| `id`         | INTEGER PK AUTOINCREMENT |                                                |
+| `name`       | TEXT NOT NULL            | Unique case-insensitively (`idx_tag_name` on `name COLLATE NOCASE`). A collision raises `DuplicateTagError` → `409`. |
+| `colour`     | TEXT NULL                | `#rrggbb`, validated by the route. Rendered as a dot on the chip, not the chip's background, so a user colour can't wreck text contrast. |
+| `created_at` | TEXT NOT NULL            |                                                |
+
+| Column        | Type          | Notes                                                    |
+| ------------- | ------------- | -------------------------------------------------------- |
+| `activity_id` | TEXT NOT NULL | A Garmin `activity.activity_id`, stored on this side. **Not** foreign-keyed — it can't be, the row lives in another database — so a tag can outlive or predate the activity it names. |
+| `tag_id`      | INTEGER NOT NULL | FK → `tag.id` `ON DELETE CASCADE`.                    |
+| `created_at`  | TEXT NOT NULL |                                                          |
+
+Primary key `(activity_id, tag_id)`; index `idx_activity_tag_tag` on `(tag_id)`
+for the "which activities have this tag" direction.
+
+Filtering the activity list by tag is a **two-step across the databases**, never
+a join: resolve tag ids → activity ids here, then `activity_id IN (...)` against
+the Garmin mirror. Multiple tags AND together. See AGENTS.md for why, and for
+the empty-set trap.
 
 ### `chat_conversation` and `chat_message`
 

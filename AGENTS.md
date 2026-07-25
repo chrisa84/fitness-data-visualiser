@@ -18,9 +18,12 @@ stated:
    (`openDb`). Never write to it, never `CREATE`/`ALTER`/`INSERT`/`UPDATE`
    against it. [fitness-data-sync](https://github.com/chrisa84/fitness-data-sync)
    is its sole writer. The **only** writable database is `visualiser-events.db`
-   (`openEventsDb`) — it holds all app-owned state: life events, saved chats,
-   saved routes, AI settings, training plans, and the derived route
+   (`openEventsDb`) — it holds all app-owned state: life events, activity tags,
+   saved chats, saved routes, AI settings, training plans, and the derived route
    geometry/cluster cache (see `server/src/db.ts` for the full schema).
+   Anything referencing a Garmin row does so by storing its id on **this**
+   side (`activity_tag.activity_id`, `route_geometry.activity_id`) — never the
+   reverse, and never as a cross-database join.
 2. **`shared/` (`@fitness/shared`) is the contract** between server and web. Any
    type or pure helper used by both sides — response shapes, the metric catalog,
    activity groups, event types — lives there. Do not duplicate types across
@@ -103,6 +106,14 @@ repository functions as named tools.
 2. Add the route in `web/src/main.tsx`.
 3. Add the nav link in `web/src/Layout.tsx`.
 
+Once a page grows past ~400 lines, break it into a sibling directory
+(`pages/training/`, `pages/planner/`) rather than letting it sprawl: pure
+helpers and formatting into a `.ts` module, each self-contained panel into its
+own component, and leave the page file as the composition plus whatever state
+genuinely has to be shared. `pages/Training.tsx` is 23 lines because of this;
+`pages/Planner.tsx` keeps its waypoint/segment refs because MapLibre markers
+are imperative DOM objects whose handlers must not be re-created per render.
+
 ### Add an AI tool
 
 1. Add the tool schema to `TOOL_DEFINITIONS` in `server/src/ai/tools.ts`.
@@ -120,6 +131,20 @@ repository functions as named tools.
 
 Extend `EVENT_TYPES` in `shared/src/index.ts`. The server's zod schema and the
 web dropdown both read from it; nothing else to change.
+
+### Events vs tags — which one is a new annotation?
+
+Both are user-owned annotations in the writable DB, and putting a new one in
+the wrong place is the easy mistake:
+
+- **`event`** annotates a **date or date range** and is overlaid on charts as a
+  markline/markarea (Dashboard, Performance, Analysis). Injury, illness, a
+  holiday, a course of medication.
+- **`tag`** annotates **one activity** and is a filter on the activity list.
+  "Took an antihistamine before this run", "stressful work day", "new shoes".
+
+A tag is deliberately *not* date-keyed and deliberately does *not* appear on
+any chart overlay — it answers "show me those runs", not "shade that period".
 
 ## Running and testing
 
@@ -326,6 +351,37 @@ from `server/test/fixtures.ts`. The AI tests fake the OpenAI client.
   invisible during revision). The free-text `instructions` are sent as a
   separate `{role:'user'}` message, not folded into the system prompt —
   keep that split if you touch `generatePlan`'s message construction.
+- **Tag filtering crosses the database boundary in two steps, never one
+  query.** Tags live in the writable DB; activities live in the read-only
+  Garmin mirror. `GET /api/activities?tags=1,2` resolves the tag ids to an
+  activity-id set with `activityIdsWithAllTags` (events DB), then passes it to
+  `listActivities` as `activityIds` (Garmin DB), and finally overlays each
+  row's tags with `tagIdsForActivities`. Do **not** "simplify" this with an
+  `ATTACH` — the two-step is what keeps the read-only boundary a hard one.
+  Three details that look incidental and are not: multiple tags **AND**
+  together (asking for two tags should narrow, not widen); an **empty**
+  `activityIds` array means "nothing matched" and short-circuits to an empty
+  page, because `activity_id IN ()` is a syntax error and `undefined` would
+  silently mean "no filter"; and `mapListItem` always returns `tagIds: []`
+  because the repository cannot see the writable DB — the route fills it in.
+- **`activity_tag` rows survive the activity.** They are not foreign-keyed to
+  anything in the Garmin mirror (they can't be — different database), so a tag
+  on an id that has not synced yet, or that Garmin later drops, is harmless
+  rather than an error. `PUT /api/activities/:id/tags` deliberately does not
+  check the id against the mirror. `setActivityTags` replaces the whole set
+  transactionally and silently drops unknown *tag* ids, so a stale browser tab
+  holding a since-deleted tag doesn't fail the user's save.
+- **`openEventsDb` sets `PRAGMA foreign_keys = ON`.** It is off by default in
+  SQLite, per connection, and `activity_tag`'s `ON DELETE CASCADE` is inert
+  without it — deleting a tag would leave orphaned assignments. Enabling it
+  does not retro-validate existing rows, only new writes.
+- **The release-notes popup reads CHANGELOG.md's first `## ` section.** So a
+  new entry goes at the **top** of the file, and `latestChangelogEntry`
+  (`web/src/changelog.ts`) is what decides what users see after an upgrade —
+  a malformed heading means they see nothing. `WhatsNew` compares
+  `APP_VERSION` against `localStorage['fdv:whatsNewSeenVersion']`, so bumping
+  the version is what triggers it; `fdv:whatsNewMuted` switches it off
+  permanently and the Settings page is the only way back.
 - **All web data fetching goes through `apiFetch` in `web/src/api.ts`.** It sets
   `Accept: application/json` and, on a `401`, re-authenticates by triggering a
   top-level network navigation so *whatever* edge auth proxy is in front runs

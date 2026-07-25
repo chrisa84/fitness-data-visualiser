@@ -905,6 +905,112 @@ Three strands, shipped together as 0.20.0:
   new" change history** on the Settings page (CHANGELOG.md baked into the web
   bundle at build time via a `?raw` import — no endpoint, works offline).
 
+### Phase 21 — Activity tags, release-notes popup, sleep timing & cohort experiments ✅
+
+Four strands, shipped together as 0.21.0. Three came out of a data-coverage
+audit against the real `garmin_sync.db`: a lot of populated columns are read by
+nothing.
+
+- **Activity tags.** User-defined labels on individual activities — the
+  per-activity counterpart to `event`'s date ranges ("took an antihistamine
+  before this run" vs "chest infection, 10th–20th"). New `tag` /
+  `activity_tag` tables in the writable DB, full CRUD under `/api/tags`,
+  assignment via `GET`/`PUT /api/activities/:id/tags`, a `tags=1,2` filter on
+  the activity list, a Tags management page, and an inline editor on the
+  activity page that can create-and-apply in one action.
+
+  The design decision worth keeping: filtering **crosses the two databases in
+  two steps, never one query** — resolve tag ids to an activity-id set in the
+  writable DB, then `activity_id IN (...)` against the read-only mirror, then
+  overlay each row's tags. An `ATTACH` would be shorter and would quietly turn
+  the read-only boundary from a hard guarantee into a convention. Multiple
+  tags AND together (asking for two should narrow), and an empty resolved set
+  is a real "nothing matched" rather than "no filter" — `activity_id IN ()`
+  is a syntax error and the distinction is easy to lose.
+
+- **Release-notes popup.** The newest CHANGELOG entry now appears once after an
+  upgrade instead of hiding inside a Settings disclosure. `latestChangelogEntry`
+  parses the first `## ` section of the already-baked-in changelog; `WhatsNew`
+  compares `APP_VERSION` against a localStorage stamp. A "don't show again"
+  checkbox mutes it permanently, reversible from Settings. Client-side only —
+  it is a per-device display preference, and keeping it out of the events DB
+  means it works offline in the installed PWA with no request on boot.
+
+- **Experimental: Sleep timing.** `sleep.sleep_start`/`sleep_end` are populated
+  wherever the watch was worn overnight, and were read by nothing anywhere in
+  the app. Bedtime, wake and midpoint on a
+  **night-centred** minute axis (23:40 → -20, 06:30 → 390), a rolling 14-night
+  regularity std dev, weekly weekend-vs-weekday social jetlag, and a
+  midpoint-vs-next-morning scatter. The night-centring is the load-bearing
+  trick: on a plain minute-of-day scale two nights twenty minutes apart across
+  midnight average to midday, destroying the exact metric being measured.
+  Times render in the server's local timezone (matching `localToday()` and the
+  `TZ` deployment convention) — reading the UTC instants as UTC would shift
+  every bedtime and inject a fake 60-minute regularity jump at each DST
+  boundary. `sleep.date` is the *wake* date, so same-date health metrics are
+  already the morning after; no lag is applied.
+
+- **Experimental: Cohort comparison.** Splits days by a threshold on one
+  catalog metric and compares another between the groups, at an optional lag.
+  Built entirely on `getMetricSeries`, so every catalog metric works on both
+  sides for free and there is no new SQL to drift. Reports both groups' spread
+  plus the mean difference with an approximate 95% Welch interval, and says
+  plainly on the page that this is observational — the interval measures
+  precision, not causation. This answers the threshold-shaped question the
+  Analysis page's correlation view genuinely cannot: "fine until 6 hours, bad
+  below" reads as a weak correlation but an obvious split.
+
+- **Refactor (no behaviour change):** `Training.tsx` (1,190 lines) split into
+  `pages/training/` — the page file is now 23 lines of composition, with the
+  intake form, active-plan checklist, workout row editor, AI review panel,
+  history section and shared workout formatting each in their own module.
+  `Planner.tsx` (885) gave up its geometry, external API calls, localStorage,
+  marker factories and presentational panels to `pages/planner/`; the
+  waypoint/segment refs stayed put, because MapLibre markers are imperative
+  DOM objects whose drag handlers must not be rebuilt per render.
+
+### Phase 21 follow-ups (not built)
+
+The same review surfaced more columns the mirror populates that nothing in the
+app reads. Coverage varies by column and by how long the account/device has
+recorded each metric — check the relevant table's own extent before building on
+one, rather than trusting any figure written down here.
+
+- **Training Load Focus** — `training_status.load_aerobic_low/high`,
+  `load_anaerobic`, `load_feedback`: entirely unread. Garmin's own
+  aerobic-low/aerobic-high/anaerobic split plus a verdict string. A stacked
+  area on the Performance page and three `METRIC_CATALOG` entries.
+- **Derived CTL/ATL/TSB.** `training_status.acwr` and `acute_load` only exist
+  from whenever the device began reporting them, while
+  `activity.training_load` reaches back to the start of the activity history.
+  An EWMA (42d/7d) over per-activity load gives a real Banister PMC, fills the
+  gaps Garmin leaves, and extends the Form chart back to the earlier data.
+- **Cheap catalog additions** — `average_spo2`/`lowest_spo2`,
+  `sleep.avg_respiration`, `hrv.status`, `active`/`total_calories`,
+  `floors_ascended`, `sedentary_seconds`, `body_battery_at_wake`,
+  `resting_hr_7d_avg`, `fitness_age.achievable_fitness_age`,
+  `training_readiness.acwr_factor_pct`/`morning_readiness_score`. Each is a
+  `METRIC_CATALOG` + `METRIC_SQL` pair and nothing else.
+- **Grade-adjusted pace**, so the Efficiency page stops having to exclude
+  hilly runs. Garmin's own `avgGradeAdjustedSpeed` exists in `raw_payload` but
+  only on activities recorded by newer devices, so deriving it from
+  `elevation_gain_m` is strictly better.
+- **Real best-effort records** by distance bracket. The Records page is capped
+  by Garmin's `fastest_km_s`/`fastest_5k_s` columns, which are only populated
+  on recent activities; deriving bests from whole activities inside a distance
+  bracket (5k, 10k, half) uses the entire history instead.
+- **Consistency & streaks** — current/longest streak, longest gap, rolling
+  28-day active-day count. Cheap, and entirely absent today.
+- **Data freshness** — `sync_runs` and `sync_cursor` are populated and unread;
+  a "last synced" badge would answer "why is yesterday missing" instantly.
+- **Missing-table robustness** — the `intraday_*` tables do not exist in every
+  `garmin_sync.db`, and `getIntraday` has no capability probe, so the Intraday
+  page and the `get_intraday` AI tool hard-500 rather than degrading.
+- **Activity group holes** — `indoor_cardio`, `strength_training`,
+  `bouldering`, `badminton`, `yoga` and `elliptical` belong to no
+  `ACTIVITY_GROUP` and are invisible to every group filter;
+  `incident_detected` rows carry no distance and should be excluded.
+
 ### Parked (requires Garmin-Sync work first)
 
 Gear/shoe mileage, body composition (weight, W/kg, weight-adjusted EF need a

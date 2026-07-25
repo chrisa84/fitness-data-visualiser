@@ -18,6 +18,10 @@ export interface DailySummarySeed {
   light_sleep_seconds?: number | null;
   rem_sleep_seconds?: number | null;
   awake_seconds?: number | null;
+  /** ISO instants, as Garmin stores them (UTC). Drive the sleep-timing views. */
+  sleep_start?: string | null;
+  sleep_end?: string | null;
+  readiness_score?: number | null;
   hrv_nightly?: number | null;
   hrv_weekly?: number | null;
   hrv_baseline_low?: number | null;
@@ -109,12 +113,22 @@ export function createTestDb(
     );
     CREATE TABLE sleep (
       date                TEXT PRIMARY KEY,
+      sleep_start         TEXT,
+      sleep_end           TEXT,
       sleep_score         INTEGER,
       total_sleep_seconds INTEGER,
       deep_sleep_seconds  INTEGER,
       light_sleep_seconds INTEGER,
       rem_sleep_seconds   INTEGER,
       awake_seconds       INTEGER
+    );
+    CREATE TABLE training_readiness (
+      date  TEXT PRIMARY KEY,
+      score INTEGER,
+      hrv_factor_pct    INTEGER,
+      sleep_factor_pct  INTEGER,
+      stress_factor_pct INTEGER,
+      recovery_time_min INTEGER
     );
     CREATE TABLE hrv (
       date           TEXT PRIMARY KEY,
@@ -225,10 +239,13 @@ export function createTestDb(
     `INSERT INTO heart_rate (date, resting_hr) VALUES (@date, @resting_hr)`,
   );
   const insertSleep = db.prepare(
-    `INSERT INTO sleep (date, sleep_score, total_sleep_seconds, deep_sleep_seconds,
-                        light_sleep_seconds, rem_sleep_seconds, awake_seconds)
-     VALUES (@date, @sleep_score, @total_sleep_seconds, @deep_sleep_seconds,
-             @light_sleep_seconds, @rem_sleep_seconds, @awake_seconds)`,
+    `INSERT INTO sleep (date, sleep_start, sleep_end, sleep_score, total_sleep_seconds,
+                        deep_sleep_seconds, light_sleep_seconds, rem_sleep_seconds, awake_seconds)
+     VALUES (@date, @sleep_start, @sleep_end, @sleep_score, @total_sleep_seconds,
+             @deep_sleep_seconds, @light_sleep_seconds, @rem_sleep_seconds, @awake_seconds)`,
+  );
+  const insertReadiness = db.prepare(
+    `INSERT INTO training_readiness (date, score) VALUES (@date, @readiness_score)`,
   );
   const insertHrv = db.prepare(
     `INSERT INTO hrv (date, last_night_avg, weekly_avg, baseline_low, baseline_high)
@@ -252,6 +269,9 @@ export function createTestDb(
       light_sleep_seconds: null,
       rem_sleep_seconds: null,
       awake_seconds: null,
+      sleep_start: null,
+      sleep_end: null,
+      readiness_score: null,
       hrv_nightly: null,
       hrv_weekly: null,
       hrv_baseline_low: null,
@@ -262,7 +282,10 @@ export function createTestDb(
     };
     insertDaily.run(full);
     if (full.resting_hr != null) insertHr.run(full);
-    if (full.sleep_score != null || full.total_sleep_seconds != null) insertSleep.run(full);
+    if (full.sleep_score != null || full.total_sleep_seconds != null || full.sleep_start != null) {
+      insertSleep.run(full);
+    }
+    if (full.readiness_score != null) insertReadiness.run(full);
     if (full.hrv_nightly != null) insertHrv.run(full);
     if (full.bb_charged != null) insertBb.run(full);
   }

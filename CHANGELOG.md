@@ -12,6 +12,35 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.21.0 — 2026-07-25
+
+- **Tags.** Label individual activities with your own tags — "antihistamine",
+  "stressful work day", "new shoes" — then filter the activity list by them.
+  Add or create a tag straight from an activity's page; manage the full list
+  on the new Tags page. Picking more than one tag narrows the list to
+  activities carrying all of them. Tags are the per-activity counterpart to
+  Events: use an event for something that spans days, a tag for something
+  about one specific run.
+- **Release notes now pop up after an update** instead of hiding behind a
+  Settings menu, showing just what changed in the version you've upgraded to.
+  Dismiss it and it stays gone until the next release — or tick "don't show
+  release notes again" to switch it off for good. Settings has a button to
+  bring it back.
+- **New Experimental page: Sleep timing.** Not how much you sleep but *when* —
+  bedtime, wake time and sleep midpoint on a clock axis that runs through
+  midnight instead of wrapping at it, a rolling regularity score, weekend
+  "social jetlag", and each night's midpoint plotted against the next
+  morning's resting HR, HRV, readiness or body battery. Built from sleep
+  start/end times Garmin has always recorded but never surfaced.
+- **New Experimental page: Cohort comparison.** Split your days by a threshold
+  on any metric and compare any other metric between the two groups — "resting
+  HR the morning after a night under 6 hours, versus every other morning".
+  Reports both groups' spread, the difference with a confidence interval, and
+  a plain-English verdict. Answers threshold questions the Analysis page's
+  correlation view can't.
+- Internal: the Training and Planner pages were split into focused modules
+  (Training's page file went from 1,190 lines to 23), with no behaviour change.
+
 ## 0.20.2 — 2026-07-23
 
 - **Analysis overlay now shows a real y-axis when a single metric is

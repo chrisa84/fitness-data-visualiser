@@ -16,6 +16,10 @@ export function openDb(path: string): Database.Database {
 export function openEventsDb(path: string): Database.Database {
   const db = new Database(path);
   db.pragma('journal_mode = WAL');
+  // Needed for activity_tag's ON DELETE CASCADE to actually fire — SQLite
+  // ignores foreign keys unless this is on, per connection. Enabling it does
+  // not retro-validate existing rows, only new writes.
+  db.pragma('foreign_keys = ON');
   db.exec(`
     CREATE TABLE IF NOT EXISTS event (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +133,26 @@ export function openEventsDb(path: string): Database.Database {
       created_at  TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_route_cluster_member_cluster ON route_cluster_member(cluster_id);
+
+    -- User-defined labels attached to individual activities. activity_id is a
+    -- Garmin id held in this writable DB — the reference only ever points that
+    -- way, never the reverse (the Garmin mirror stays read-only and unaware).
+    -- Rows are therefore not foreign-keyed and can outlive an activity.
+    CREATE TABLE IF NOT EXISTS tag (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL,
+      colour     TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_tag_name ON tag(name COLLATE NOCASE);
+
+    CREATE TABLE IF NOT EXISTS activity_tag (
+      activity_id TEXT NOT NULL,
+      tag_id      INTEGER NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
+      created_at  TEXT NOT NULL,
+      PRIMARY KEY (activity_id, tag_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_activity_tag_tag ON activity_tag(tag_id);
 
     CREATE TABLE IF NOT EXISTS training_plan_revision (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
 import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
 import ReactMarkdown from 'react-markdown';
@@ -7,15 +7,20 @@ import remarkGfm from 'remark-gfm';
 import { Link, useParams } from 'react-router-dom';
 import {
   analyzeActivity,
+  createTag,
   fetchActivity,
   fetchActivityRouteCluster,
   fetchActivitySamples,
+  fetchActivityTags,
   fetchAiSettings,
+  setActivityTags,
 } from '../api';
 import Chart from '../Chart';
 import { bucketAverage } from '../chartHelpers';
 import RouteMap from '../RouteMap';
 import { formatDateTime, formatDuration, formatKm, formatNumber, formatPace, formatType } from '../format';
+import TagChip from '../TagChip';
+import { TAGS_QUERY_KEY, useTags } from '../tags';
 
 function Stat({ label, value }: { label: string; value: string }) {
   if (value === '—') return null;
@@ -528,6 +533,100 @@ function AiAnalysis({ activityId }: { activityId: string }) {
   );
 }
 
+/**
+ * Tag picker for one activity. Toggling a chip saves immediately — there is no
+ * separate save button, because a tag is a single fact with nothing to review.
+ * Creating a tag from here also applies it, so labelling a run you are already
+ * looking at is one action rather than a trip to the Tags page and back.
+ */
+function ActivityTagEditor({ activityId }: { activityId: string }) {
+  const queryClient = useQueryClient();
+  const tags = useTags();
+  const assigned = useQuery({
+    queryKey: ['activity-tags', activityId],
+    queryFn: () => fetchActivityTags(activityId),
+  });
+  const [newName, setNewName] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const current = assigned.data?.tagIds ?? [];
+
+  const save = useMutation({
+    mutationFn: (tagIds: number[]) => setActivityTags(activityId, tagIds),
+    onSuccess: (result) => {
+      queryClient.setQueryData(['activity-tags', activityId], result);
+      // Counts on the Tags page and chips in the list both go stale.
+      void queryClient.invalidateQueries({ queryKey: TAGS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['activities'] });
+    },
+  });
+
+  const addNew = useMutation({
+    mutationFn: async () => {
+      const tag = await createTag({ name: newName.trim() });
+      return setActivityTags(activityId, [...current, tag.id]);
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(['activity-tags', activityId], result);
+      void queryClient.invalidateQueries({ queryKey: TAGS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['activities'] });
+      setNewName('');
+      setAdding(false);
+    },
+  });
+
+  const toggle = (id: number) =>
+    save.mutate(current.includes(id) ? current.filter((t) => t !== id) : [...current, id]);
+
+  if (assigned.isPending || tags.isPending) return null;
+
+  return (
+    <div className="controls">
+      <span className="status">tags:</span>
+      <span className="tag-list">
+        {(tags.data ?? []).map((tag) => (
+          <TagChip
+            key={tag.id}
+            tag={tag}
+            selected={current.includes(tag.id)}
+            onClick={() => toggle(tag.id)}
+          />
+        ))}
+        {(tags.data ?? []).length === 0 && !adding && (
+          <span className="status">none yet — add one to label this run</span>
+        )}
+      </span>
+      {adding ? (
+        <>
+          <input
+            autoFocus
+            placeholder="New tag name…"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newName.trim()) addNew.mutate();
+              if (e.key === 'Escape') setAdding(false);
+            }}
+            style={{ minWidth: 160 }}
+          />
+          <button disabled={!newName.trim() || addNew.isPending} onClick={() => addNew.mutate()}>
+            Add
+          </button>
+          <button onClick={() => { setAdding(false); setNewName(''); addNew.reset(); }}>Cancel</button>
+        </>
+      ) : (
+        <button onClick={() => setAdding(true)}>+ new tag</button>
+      )}
+      {(save.error || addNew.error) && (
+        <span className="status">{((save.error ?? addNew.error) as Error).message}</span>
+      )}
+      <Link className="status" to="/tags">
+        manage
+      </Link>
+    </div>
+  );
+}
+
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
   const { data: a, isPending, error } = useQuery({
@@ -568,6 +667,8 @@ export default function ActivityDetail() {
       <p className="status">
         {formatType(a.type)} · {formatDateTime(a.startTimeLocal)}
       </p>
+
+      <ActivityTagEditor activityId={a.activityId} />
 
       <div className="stat-grid">
         <Stat label="Distance" value={a.distanceM ? formatKm(a.distanceM) : '—'} />

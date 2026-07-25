@@ -7,6 +7,7 @@ import Activities from './pages/Activities';
 import ActivityDetail from './pages/ActivityDetail';
 import Analysis from './pages/Analysis';
 import Chat from './pages/Chat';
+import Cohort from './pages/Cohort';
 import Compare from './pages/Compare';
 import Dashboard from './pages/Dashboard';
 import Efficiency from './pages/Efficiency';
@@ -23,6 +24,8 @@ import RouteDetail from './pages/RouteDetail';
 import Routes from './pages/Routes';
 import RunningDynamics from './pages/RunningDynamics';
 import Settings from './pages/Settings';
+import SleepTiming from './pages/SleepTiming';
+import Tags from './pages/Tags';
 import Training from './pages/Training';
 import Volume from './pages/Volume';
 import './styles.css';
@@ -49,7 +52,10 @@ const router = createBrowserRouter([
       { path: '/routes', element: <Routes /> },
       { path: '/routes/:id', element: <RouteDetail /> },
       { path: '/events', element: <Events /> },
+      { path: '/tags', element: <Tags /> },
       { path: '/experimental/fitness-trend', element: <FitnessTrend /> },
+      { path: '/experimental/sleep-timing', element: <SleepTiming /> },
+      { path: '/experimental/cohort', element: <Cohort /> },
       { path: '/intraday', element: <Intraday /> },
       { path: '/planner', element: <Planner /> },
       { path: '/training', element: <Training /> },

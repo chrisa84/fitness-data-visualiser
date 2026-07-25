@@ -15,8 +15,14 @@ import type {
   Granularity,
   ChatConversation,
   ChatConversationDetail,
+  ActivityTags,
+  CohortOp,
+  CohortResponse,
   EfficiencyResponse,
   FitnessTrendResponse,
+  SleepTimingResponse,
+  Tag,
+  TagInput,
   FormVsPaceResponse,
   IntensityResponse,
   IntradayResponse,
@@ -190,12 +196,18 @@ export function fetchActivities(params: {
   q?: string;
   minKm?: number;
   maxKm?: number;
+  /** Tag ids; an activity must carry all of them to match. */
+  tagIds?: number[];
   sort?: ActivitySortKey;
   order?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }) {
-  return getJson<ActivityListResponse>('/api/activities', params);
+  const { tagIds, ...rest } = params;
+  return getJson<ActivityListResponse>('/api/activities', {
+    ...rest,
+    tags: tagIds && tagIds.length > 0 ? tagIds.join(',') : undefined,
+  });
 }
 
 export function analyzeActivity(id: string, input: AnalyzeActivityRequest) {
@@ -288,6 +300,24 @@ export function fetchFitnessTrend(params: {
   return getJson<FitnessTrendResponse>('/api/experimental/fitness-trend', params);
 }
 
+// EXPERIMENTAL — backs the Sleep Timing page only. See EXPERIMENTS.md.
+export function fetchSleepTiming(params: { from?: string; to?: string }) {
+  return getJson<SleepTimingResponse>('/api/experimental/sleep-timing', params);
+}
+
+// EXPERIMENTAL — backs the Cohort page only. See EXPERIMENTS.md.
+export function fetchCohort(params: {
+  splitKey: string;
+  splitOp: CohortOp;
+  splitValue: number;
+  outcomeKey: string;
+  lagDays: number;
+  from?: string;
+  to?: string;
+}) {
+  return getJson<CohortResponse>('/api/experimental/cohort', params);
+}
+
 export function fetchTrainingLoad(params: { from?: string; to?: string }) {
   return getJson<TrainingLoadResponse>('/api/training-load', params);
 }
@@ -348,6 +378,32 @@ export function createSavedRoute(input: SavedRouteInput) {
 export async function deleteSavedRoute(id: number): Promise<void> {
   const res = await apiFetch(`/api/routes/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Failed to delete route (${res.status})`);
+}
+
+export function fetchTags() {
+  return getJson<Tag[]>('/api/tags');
+}
+
+export function createTag(input: TagInput) {
+  return sendJson<Tag>('POST', '/api/tags', input);
+}
+
+export function updateTag(id: number, input: TagInput) {
+  return sendJson<Tag>('PATCH', `/api/tags/${id}`, input);
+}
+
+export async function deleteTag(id: number): Promise<void> {
+  const res = await apiFetch(`/api/tags/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete tag (${res.status})`);
+}
+
+export function fetchActivityTags(activityId: string) {
+  return getJson<ActivityTags>(`/api/activities/${activityId}/tags`);
+}
+
+/** Replaces the activity's whole tag set. */
+export function setActivityTags(activityId: string, tagIds: number[]) {
+  return sendJson<ActivityTags>('PUT', `/api/activities/${activityId}/tags`, { tagIds });
 }
 
 export function createEvent(input: EventInput) {

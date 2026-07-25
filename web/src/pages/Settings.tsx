@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { fetchAiSettings, updateAiSettings } from '../api';
+import { releaseNotesMuted, resetReleaseNotes } from '../WhatsNew';
 // Baked into the bundle at build time, so the change history ships with the
 // exact build it describes — no server endpoint, works offline in the PWA.
 import changelog from '../../../CHANGELOG.md?raw';
@@ -49,6 +50,7 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['ai-settings'], queryFn: fetchAiSettings });
   const [draft, setDraft] = useState<AiSettings | null>(null);
+  const [notesMuted, setNotesMuted] = useState(releaseNotesMuted);
 
   useEffect(() => {
     if (settings.data) setDraft(settings.data);
@@ -97,6 +99,23 @@ export default function Settings() {
       <p className="status" style={{ marginTop: '2rem' }}>
         Fitness Data Visualiser v{APP_VERSION}
       </p>
+      <div className="controls">
+        <span className="status">
+          {notesMuted
+            ? "Release notes are switched off — you won't see the what's-new popup after an update."
+            : "Release notes pop up once after each update."}
+        </span>
+        <button
+          onClick={() => {
+            resetReleaseNotes();
+            setNotesMuted(false);
+            // Reload so the popup mounts fresh and shows the current version.
+            window.location.reload();
+          }}
+        >
+          {notesMuted ? 'Turn release notes back on' : 'Show release notes again'}
+        </button>
+      </div>
       <details style={{ marginTop: '0.5rem' }}>
         <summary style={{ cursor: 'pointer' }} className="status">
           What's new — full change history

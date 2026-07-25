@@ -45,6 +45,26 @@ export function compactOption(title: string, dates: string[]): echarts.EChartsOp
   };
 }
 
+/**
+ * Base for charts plotted against a real time axis rather than evenly spaced
+ * categories — use when the points are irregularly dated (individual efforts,
+ * nights of sleep) and the gaps between them carry meaning.
+ */
+export function timeAxisOption(title: string): echarts.EChartsOption {
+  return {
+    backgroundColor: 'transparent',
+    title: { text: title, textStyle: { color: '#e6e8eb', fontSize: 13 }, left: 0, top: 4 },
+    legend: { type: 'scroll', top: 26, right: 8, left: 8, textStyle: { color: '#8a93a0', fontSize: 11 } },
+    grid: { containLabel: true, left: 8, right: 16, top: 58, bottom: 48 },
+    xAxis: { type: 'time' },
+    yAxis: { type: 'value', scale: true, splitLine: { lineStyle: { color: '#2a3038' } } },
+    dataZoom: [
+      { type: 'inside', throttle: 50 },
+      { type: 'slider', height: 18, bottom: 8 },
+    ],
+  };
+}
+
 export function line(
   name: string,
   data: (number | null)[],
