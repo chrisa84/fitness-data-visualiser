@@ -33,6 +33,17 @@ at it. The two share nothing but the SQLite file, and only this app's
 > app's own state (life events) lives in a separate, writable database. See
 > [DATA_MODEL.md](DATA_MODEL.md) for the full schema picture.
 
+## Screenshots
+
+All screenshots use generated demo data, not a real person's.
+
+| | |
+|---|---|
+| ![Health dashboard](docs/screenshots/dashboard.png) **Health dashboard** — resting HR, HRV vs baseline, sleep stages, stress, body battery | ![Activity detail](docs/screenshots/activity-detail.png) **Activity detail** — stats, tags, running dynamics, pace/HR/altitude trace |
+| ![Performance](docs/screenshots/performance.png) **Performance** — VO2max, fitness age, training load and form, with life events overlaid | ![Analysis](docs/screenshots/analysis.png) **Analysis** — overlay any metrics on one axis; injury, illness and races shaded |
+| ![Heatmap](docs/screenshots/heatmap.png) **Heatmap** — every GPS track on one map | ![Route detail](docs/screenshots/route-detail.png) **Routes** — repeated routes detected automatically, pace and efficiency per effort |
+| ![Training plan](docs/screenshots/training.png) **Training plan** — AI-generated or hand-built plan with per-workout targets | ![Intraday](docs/screenshots/intraday.png) **Intraday** — heart rate, stress and steps across a single day |
+
 ## Architecture
 
 ```
