@@ -5,7 +5,7 @@
  * patch is for fixes between phases. Bump this and add a CHANGELOG.md entry
  * with every user-visible change.
  */
-export const APP_VERSION = '0.21.1';
+export const APP_VERSION = '0.21.2';
 
 export type Granularity = 'day' | 'week' | 'month' | 'year';
 
@@ -213,6 +213,66 @@ export interface ActivitySample {
   verticalOscillationCm: number | null;
   verticalRatioPct: number | null;
   strideLengthCm: number | null;
+}
+
+/** A stretch where wrist HR has probably locked on to arm swing (cadence) instead of the pulse. */
+export interface CadenceLockSegment {
+  startIdx: number;
+  endIdx: number;
+  durationS: number;
+}
+
+/**
+ * Find stretches where optical HR reads the stride rate: while moving, HR at least 15 bpm below the
+ * activity's moving median and within 5 of cadence, for at least 40% of moving samples in a ±60 s window,
+ * lasting 60 s or more. It targets the obvious case: a sudden 20–40 bpm drop onto the cadence line at
+ * an unchanged pace. Only the low-side lock is detected; a lock that reads high looks like hard effort.
+ */
+export function findCadenceLock(samples: readonly ActivitySample[]): CadenceLockSegment[] {
+  const t = samples.map((s) => (s.timestampUtc ? Date.parse(s.timestampUtc) / 1000 : NaN));
+  if (samples.length < 30 || t.some((v) => Number.isNaN(v))) return [];
+  const moving = samples.map((s) => s.speedMps != null && s.speedMps >= 0.7 && s.heartRate != null);
+  const hrs = samples.filter((_, i) => moving[i]).map((s) => s.heartRate!).sort((a, b) => a - b);
+  if (hrs.length < 30) return [];
+  const ref = hrs[Math.floor(hrs.length / 2)]!;
+  const cand = samples.map(
+    (s, i) => moving[i]! && s.cadence != null && s.heartRate! <= ref - 15 && Math.abs(s.heartRate! - s.cadence) <= 5,
+  );
+  // Prefix sums, so the share of candidates in any time window is two subtractions.
+  const candSum = [0];
+  const movingSum = [0];
+  for (let i = 0; i < samples.length; i++) {
+    candSum.push(candSum[i]! + (cand[i] ? 1 : 0));
+    movingSum.push(movingSum[i]! + (moving[i] ? 1 : 0));
+  }
+  const firstAtOrAfter = (x: number): number => {
+    let lo = 0;
+    let hi = t.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (t[mid]! < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  const flagged: number[] = [];
+  for (let i = 0; i < samples.length; i++) {
+    if (!cand[i]) continue;
+    const lo = firstAtOrAfter(t[i]! - 60);
+    const hi = firstAtOrAfter(t[i]! + 60.001);
+    const share = (candSum[hi]! - candSum[lo]!) / Math.max(movingSum[hi]! - movingSum[lo]!, 1);
+    if (share >= 0.4) flagged.push(i);
+  }
+  const out: CadenceLockSegment[] = [];
+  let start = flagged[0], prev = flagged[0];
+  for (const i of [...flagged.slice(1), undefined]) {
+    if (i !== undefined && t[i]! - t[prev!]! <= 60) { prev = i; continue; }
+    if (start !== undefined && t[prev!]! - t[start]! >= 60) {
+      out.push({ startIdx: start, endIdx: prev!, durationS: Math.round(t[prev!]! - t[start]!) });
+    }
+    start = prev = i;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------

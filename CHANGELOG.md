@@ -12,6 +12,15 @@ Versions 0.19.0 and earlier were backfilled retroactively when versioning was
 introduced. 0.12.0 is the baseline bundled in My Fitness 1.0.0 (the desktop
 installer); see PLAN.md for the full phase-by-phase history before that.
 
+## 0.21.2 — 2026-10-19
+
+- **Unreliable heart rate is marked on the activity chart.** Wrist sensors
+  sometimes lock on to arm swing and report your cadence as heart rate, which
+  shows up as a sudden drop of 20–40 bpm at an unchanged pace. Stretches where
+  heart rate reads at least 15 bpm below the rest of the activity *and* matches
+  cadence for a minute or more are now shaded, with a note saying how long they
+  last.
+
 ## 0.21.1 — 2026-07-25
 
 - **The installed app now actually notices new versions.** It only ever checked

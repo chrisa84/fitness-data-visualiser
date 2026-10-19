@@ -179,6 +179,11 @@ describe('getActivitySamples', () => {
     expect(s!.altitudeM).toBe(50);
   });
 
+  it('includes the sample timestamp', () => {
+    const [s] = getActivitySamples(dbWithSamples(), '1');
+    expect(s!.timestampUtc).toBe('2025-01-05T08:00:00Z');
+  });
+
   it('returns empty array for unknown activity', () => {
     expect(getActivitySamples(dbWithSamples(), 'nope')).toEqual([]);
   });

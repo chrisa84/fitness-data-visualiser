@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type * as echarts from 'echarts';
-import type { ActivityDetail as Detail, ActivitySample } from '@fitness/shared';
+import { findCadenceLock, type ActivityDetail as Detail, type ActivitySample } from '@fitness/shared';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Link, useParams } from 'react-router-dom';
@@ -208,6 +208,8 @@ function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
       })
     : [];
   const hrData = hasHr ? samples.map((s, i) => [xVal(s, i, hasDist), s.heartRate]) : [];
+  const cadenceLock = hasHr && hasCadence ? findCadenceLock(samples) : [];
+  const lockMinutes = Math.round(cadenceLock.reduce((sum, seg) => sum + seg.durationS, 0) / 60);
   const altData = hasAlt ? samples.map((s, i) => [xVal(s, i, hasDist), s.altitudeM]) : [];
 
   const xAxisLabel = (v: number) => (hasDist ? v.toFixed(1) : String(Math.round(v)));
@@ -293,6 +295,17 @@ function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
               connectNulls: false,
               lineStyle: { width: 1.5, color: '#e66a5f' },
               itemStyle: { color: '#e66a5f' },
+              markArea: cadenceLock.length
+                ? {
+                    silent: true,
+                    itemStyle: { color: 'rgba(230, 106, 95, 0.12)' },
+                    label: { color: '#8a93a0', fontSize: 10, position: 'insideTop' as const },
+                    data: cadenceLock.map((seg): [{ name: string; xAxis: number }, { xAxis: number }] => [
+                      { name: 'HR unreliable', xAxis: xVal(samples[seg.startIdx]!, seg.startIdx, hasDist) },
+                      { xAxis: xVal(samples[seg.endIdx]!, seg.endIdx, hasDist) },
+                    ]),
+                  }
+                : undefined,
             },
           ]
         : []),
@@ -422,6 +435,13 @@ function SamplesChart({ samples, type, onHighlight, mapHoveredIdx }: {
       <section>
         <h3>Activity chart</h3>
         <Chart option={mainOption} height={280} onReady={makeChartReady(mainChartRef)} />
+        {cadenceLock.length > 0 && (
+          <p className="status">
+            Shaded: about {lockMinutes} min where heart rate reads far below the rest of the activity and
+            matches your cadence. The wrist sensor has probably locked on to arm swing, so heart rate there is
+            not your pulse.
+          </p>
+        )}
       </section>
       {dynamicsOption && (
         <section>
